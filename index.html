@@ -909,7 +909,11 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
   <!-- BODY -->
   <div class="body" id="bodyTasks">
     <div class="filters">
-      <button class="chip on" data-f="all">All</button>
+      <button class="chip" id="captureBtn" onclick="captureScreenshot()" style="background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;border:none;font-weight:600;padding:6px 14px;display:flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Capture
+      </button>
+      <button class="chip on" data-f="all" style="margin-left:8px">All</button>
       <button class="chip" data-f="problem">Problems</button>
       <button class="chip" data-f="progress">In progress</button>
       <button class="chip" data-f="done">Done</button>
@@ -1489,14 +1493,26 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  if(e.target.closest('input, .nt-t[contenteditable], .st, .pi, .chat-ic, .resize-h')){
+  // Only allow drag if mousedown was on drag-handle
+  if(!window._dragHandleArmed){
     e.preventDefault();
     return;
   }
+  window._dragHandleArmed = false;
   dragTaskId = taskId;
   e.target.closest('.row').classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', taskId);
 }
+
+// Arm drag only when mousedown on .drag-handle
+document.addEventListener('mousedown', e => {
+  if(e.target.closest('.drag-handle')){
+    window._dragHandleArmed = true;
+  } else {
+    window._dragHandleArmed = false;
+  }
+});
 function onDragOver(e){
   e.preventDefault();
   if(!dragTaskId) return;
@@ -2163,6 +2179,24 @@ function updateSidebarCounts(){
   if(projCt) projCt.textContent = PROJECTS.length;
   const chatCt = document.getElementById('sbChatCount');
   if(chatCt) chatCt.textContent = TASKS.filter(t => t.chat && t.chat.length > 0).length;
+}
+
+
+function captureScreenshot(){
+  if(!window.__TAURI__){
+    toast('Screenshot only works in desktop app');
+    return;
+  }
+  // Hide window briefly so it doesn't appear in screenshot
+  const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  if(invoke){
+    invoke('open_sniper').catch(err => {
+      console.error('open_sniper failed:', err);
+      toast('Capture failed: ' + err);
+    });
+  } else {
+    toast('Tauri invoke not available');
+  }
 }
 
 // ━━━ TOAST ━━━
