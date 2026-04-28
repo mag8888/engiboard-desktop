@@ -6,6 +6,7 @@ use tauri::{
     Manager, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_deep_link::DeepLinkExt;
 use std::time::SystemTime;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -423,8 +424,23 @@ fn main() {
             .build())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let h = app.handle();
+            
+            // Register deep-link handler for OAuth callbacks (engiboard://oauth/callback?...)
+            let h_deep = h.clone();
+            app.deep_link().on_open_url(move |event| {
+                let urls: Vec<String> = event.urls().iter().map(|u| u.to_string()).collect();
+                eprintln!("Deep link received: {:?}", urls);
+                if let Some(main_win) = h_deep.get_webview_window("main") {
+                    let _ = main_win.show();
+                    let _ = main_win.set_focus();
+                    // Pass URLs to frontend via event
+                    let _ = main_win.emit("oauth-callback", urls);
+                }
+            });
+            
             let _ = h.global_shortcut().register(
                 Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyG));
             let _ = h.global_shortcut().register(
