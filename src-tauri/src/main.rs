@@ -428,18 +428,50 @@ fn main() {
         .setup(|app| {
             let h = app.handle();
             
+            // Register engiboard:// scheme at runtime (macOS only).
+            // Without this, macOS may not route URLs to our app even with Info.plist.
+            #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+            {
+                let _ = app.deep_link().register("engiboard");
+            }
+
             // Register deep-link handler for OAuth callbacks (engiboard://oauth/callback?...)
             let h_deep = h.clone();
             app.deep_link().on_open_url(move |event| {
                 let urls: Vec<String> = event.urls().iter().map(|u| u.to_string()).collect();
                 eprintln!("Deep link received: {:?}", urls);
                 if let Some(main_win) = h_deep.get_webview_window("main") {
+                    let _ = main_win.unminimize();
                     let _ = main_win.show();
                     let _ = main_win.set_focus();
-                    // Pass URLs to frontend via event
-                    let _ = main_win.emit("oauth-callback", urls);
+                    // Wait a moment for window to be ready, then send event multiple times
+                    // to ensure frontend listener is registered
+                    let win_clone = main_win.clone();
+                    let urls_clone = urls.clone();
+                    std::thread::spawn(move || {
+                        for delay in [100u64, 500, 1500, 3000] {
+                            std::thread::sleep(std::time::Duration::from_millis(delay));
+                            let _ = win_clone.emit("oauth-callback", urls_clone.clone());
+                        }
+                    });
                 }
             });
+
+            // Handle URLs that triggered app launch (cold start via deep link)
+            if let Ok(urls) = app.deep_link().get_current() {
+                if let Some(urls) = urls {
+                    let urls_str: Vec<String> = urls.iter().map(|u| u.to_string()).collect();
+                    eprintln!("Cold-start deep link URLs: {:?}", urls_str);
+                    let h_cold = h.clone();
+                    std::thread::spawn(move || {
+                        // Give frontend time to load before emitting
+                        std::thread::sleep(std::time::Duration::from_millis(2000));
+                        if let Some(main_win) = h_cold.get_webview_window("main") {
+                            let _ = main_win.emit("oauth-callback", urls_str);
+                        }
+                    });
+                }
+            }
             
             let _ = h.global_shortcut().register(
                 Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyG));
