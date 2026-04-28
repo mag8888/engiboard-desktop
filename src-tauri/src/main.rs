@@ -25,11 +25,18 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
 
     // Если редактор уже открыт — переиспользуем
     if let Some(win) = app.get_webview_window("editor") {
-        eprintln!("editor exists — reusing");
+        eprintln!("editor exists — reusing, bringing to front");
         let _ = win.unminimize();
         let _ = win.show();
+        // Bring to front: temporarily always_on_top to force above ALL windows,
+        // then drop the flag so user can switch to other apps normally.
+        let _ = win.set_always_on_top(true);
         let _ = win.set_focus();
-        let _ = win.set_always_on_top(false);  // FIX: don't pin on top
+        let win_clone = win.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            let _ = win_clone.set_always_on_top(false);
+        });
         // FIX: show main window back (it was hidden during capture)
         if let Some(main_win) = app.get_webview_window("main") {
             let _ = main_win.show();
@@ -49,7 +56,7 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
         .title("EngiBoard · Annotate")
         .inner_size(1200.0, 780.0)
         .min_inner_size(800.0, 540.0)
-        .always_on_top(false)
+        .always_on_top(true)
         .center()
         .focused(true)
         .visible(true)
@@ -60,6 +67,12 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
             eprintln!("editor window created OK");
             let _ = win.show();
             let _ = win.set_focus();
+            // Drop always_on_top after 1s so user can switch apps normally
+            let win_clone_top = win.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                let _ = win_clone_top.set_always_on_top(false);
+            });
             // FIX: show main window back (it was hidden during capture)
             if let Some(main_win) = app.get_webview_window("main") {
                 let _ = main_win.show();
