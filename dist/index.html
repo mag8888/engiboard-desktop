@@ -1070,7 +1070,10 @@ function loginDemo(){
   toast('Demo · 24 tasks loaded');
 }
 async function loginGoogle(){
-  // Try real Supabase Google OAuth if Tauri is available
+  // Note: Real Google OAuth requires Google provider enabled in Supabase Dashboard:
+  // Authentication → Providers → Google → Enable + add Client ID/Secret
+  // Until that's configured, we use email-prompt fallback below.
+  
   if(window.__TAURI__){
     try {
       // Open Supabase Google OAuth URL in default browser
