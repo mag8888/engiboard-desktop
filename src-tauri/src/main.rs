@@ -29,7 +29,11 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
         let _ = win.unminimize();
         let _ = win.show();
         let _ = win.set_focus();
-        let _ = win.set_always_on_top(true);
+        let _ = win.set_always_on_top(false);  // FIX: don't pin on top
+        // FIX: show main window back (it was hidden during capture)
+        if let Some(main_win) = app.get_webview_window("main") {
+            let _ = main_win.show();
+        }
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(150));
             let r = win.emit("load-image", d);
@@ -45,7 +49,7 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
         .title("EngiBoard · Annotate")
         .inner_size(1200.0, 780.0)
         .min_inner_size(800.0, 540.0)
-        .always_on_top(true)
+        .always_on_top(false)
         .center()
         .focused(true)
         .visible(true)
@@ -56,6 +60,10 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
             eprintln!("editor window created OK");
             let _ = win.show();
             let _ = win.set_focus();
+            // FIX: show main window back (it was hidden during capture)
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.show();
+            }
             std::thread::spawn(move || {
                 // Ждём загрузки страницы дольше для нового окна
                 std::thread::sleep(std::time::Duration::from_millis(1200));
@@ -73,10 +81,20 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
 fn open_sniper(app: tauri::AppHandle) {
     eprintln!("open_sniper — using native macOS screencapture -i");
 
-    // НАТИВНЫЙ macOS interactive screencapture (как ⌘⇧4)
-    // Полностью обходит проблему задвоения и прозрачных окон —
-    // никакого нашего window не создаём, всё делает macOS.
+    // КРИТИЧНО: скрываем все окна EngiBoard перед скриншотом,
+    // чтобы пользователь мог выбрать любую область экрана,
+    // а не наше же окно EngiBoard.
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.hide();
+    }
+    if let Some(editor_win) = app.get_webview_window("editor") {
+        let _ = editor_win.hide();
+    }
+
+    // Даём macOS compositor время полностью убрать окна с экрана
     std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
         let _ = std::fs::create_dir_all(format!("{}/Pictures", home));
         let tmp = format!("{}/Pictures/engiboard_capture.png", home);
@@ -100,9 +118,14 @@ fn open_sniper(app: tauri::AppHandle) {
                 let url = format!("data:image/png;base64,{}", base64_encode(&bytes));
                 eprintln!("opening editor with image, len={}", url.len());
                 open_editor_with_image(app, url);
+                return;
             }
-        } else {
-            eprintln!("Screenshot cancelled");
+        }
+
+        // Скриншот отменён — показываем main обратно
+        eprintln!("Screenshot cancelled — restoring main window");
+        if let Some(main_win) = app.get_webview_window("main") {
+            let _ = main_win.show();
         }
     });
 }
