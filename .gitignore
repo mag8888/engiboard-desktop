@@ -1,0 +1,21 @@
+# Rust
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Build output
+dist/
+build/
+
+# Local stuff
+*.log
+.env
+.env.local

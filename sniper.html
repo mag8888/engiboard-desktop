@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  width:100vw;height:100vh;overflow:hidden;
+  background:transparent !important;
+  cursor:crosshair;user-select:none
+}
+
+/* Лёгкое затемнение на весь экран */
+#dim{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.10);
+  pointer-events:none;
+  z-index:1
+}
+
+/* Когда выделение активно — outline вокруг рамки делает дополнительное затемнение,
+   а сам прямоугольник остаётся "светлым" (прозрачный) */
+#sel{
+  position:fixed;
+  outline:9999px solid rgba(0,0,0,0.20);
+  border:2px solid #2563EB;
+  display:none;pointer-events:none;
+  z-index:3
+}
+
+#dims{
+  position:fixed;background:#2563EB;color:#fff;
+  font-size:12px;font-weight:600;padding:4px 9px;
+  font-family:'SF Mono',monospace;display:none;pointer-events:none;
+  z-index:4
+}
+
+#hint{
+  position:fixed;bottom:36px;left:50%;transform:translateX(-50%);
+  color:#fff;font-size:13px;font-weight:500;
+  font-family:-apple-system,sans-serif;pointer-events:none;
+  background:rgba(0,0,0,.65);padding:8px 18px;border-radius:20px;
+  letter-spacing:.01em;z-index:4
+}
+#hint kbd{background:rgba(255,255,255,.18);padding:2px 6px;border-radius:4px;font-family:'SF Mono',monospace;font-size:11px;margin:0 2px}
+
+#cross-h{position:fixed;left:0;right:0;height:1px;background:rgba(37,99,235,.3);pointer-events:none;z-index:2}
+#cross-v{position:fixed;top:0;bottom:0;width:1px;background:rgba(37,99,235,.3);pointer-events:none;z-index:2}
+</style>
+</head>
+<body>
+<div id="dim"></div>
+<div id="sel"></div>
+<div id="dims"></div>
+<div id="cross-h"></div>
+<div id="cross-v"></div>
+<div id="hint">Выдели область экрана · <kbd>Esc</kbd> отмена</div>
+
+<script>
+const sel = document.getElementById('sel');
+const dims = document.getElementById('dims');
+const dim = document.getElementById('dim');
+const ch = document.getElementById('cross-h');
+const cv = document.getElementById('cross-v');
+let sx=0, sy=0, down=false;
+
+document.addEventListener('mousemove', e => {
+  ch.style.top = e.clientY + 'px';
+  cv.style.left = e.clientX + 'px';
+  if (!down) return;
+  const x1=Math.min(sx,e.clientX), y1=Math.min(sy,e.clientY);
+  const w=Math.abs(e.clientX-sx), h=Math.abs(e.clientY-sy);
+  if (w > 4 && h > 4) {
+    sel.style.cssText = `position:fixed;left:${x1}px;top:${y1}px;width:${w}px;height:${h}px;outline:9999px solid rgba(0,0,0,0.20);border:2px solid #2563EB;display:block;pointer-events:none;z-index:3`;
+    dim.style.display = 'none'; // outline уже даёт нужное затемнение
+    dims.style.cssText = `position:fixed;left:${x1}px;top:${Math.max(0,y1-26)}px;display:block;background:#2563EB;color:#fff;font-size:12px;font-weight:600;padding:3px 9px;font-family:'SF Mono',monospace;z-index:4`;
+    dims.textContent = `${Math.round(w)} × ${Math.round(h)}`;
+  }
+});
+
+document.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  sx = e.clientX; sy = e.clientY; down = true;
+  sel.style.display = 'none';
+  dim.style.display = 'block';
+  dims.style.display = 'none';
+});
+
+document.addEventListener('mouseup', async e => {
+  if (!down) return;
+  down = false;
+  const w = Math.abs(e.clientX - sx);
+  const h = Math.abs(e.clientY - sy);
+  if (w < 10 || h < 10) { cancel(); return; }
+
+  // Прячем UI перед скриншотом
+  document.body.style.visibility = 'hidden';
+  await new Promise(r => setTimeout(r, 120));
+
+  try {
+    await window.__TAURI__.core.invoke('capture_region', {
+      x: Math.round(Math.min(sx, e.clientX)),
+      y: Math.round(Math.min(sy, e.clientY)),
+      w: Math.round(w),
+      h: Math.round(h)
+    });
+  } catch(err) {
+    console.error(err);
+    cancel();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') cancel();
+});
+
+function cancel() {
+  try { window.__TAURI__.core.invoke('sniper_done', { dataUrl: '' }); }
+  catch(e) { window.close(); }
+}
+</script>
+</body>
+</html>
