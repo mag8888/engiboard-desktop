@@ -79,81 +79,93 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
 
 #[tauri::command]
 fn open_sniper(app: tauri::AppHandle) {
-    eprintln!("open_sniper — using native macOS screencapture -i");
+    eprintln!("open_sniper — opening custom sniper.html overlay");
 
-    // STEP 1: Aggressively hide ALL EngiBoard windows BEFORE screencapture starts.
-    // macOS Sequoia on M5/Retina with Metal apps needs all 3 calls:
-    //   - set_minimized() — forces compositor to mark window as offscreen
-    //   - hide() — removes from screen
-    //   - On macOS, also send window to back of stacking order
+    // STEP 1: Hide main and editor windows so they don't appear in screenshot
     if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.set_always_on_top(false);
-        let _ = main_win.minimize();
         let _ = main_win.hide();
     }
     if let Some(editor_win) = app.get_webview_window("editor") {
         let _ = editor_win.set_always_on_top(false);
-        let _ = editor_win.minimize();
         let _ = editor_win.hide();
     }
 
-    // STEP 2: AppleScript fallback — hide entire EngiBoard application.
-    // This is bullet-proof on macOS since System Events runs at OS level,
-    // not via Tauri compositor. Hides Dock too.
+    // STEP 2: AppleScript to hide the entire app process (covers all edge cases)
     let _ = std::process::Command::new("osascript")
         .args(["-e", "tell application \"System Events\" to set visible of process \"EngiBoard\" to false"])
         .status();
 
-    // STEP 3: Wait long enough for compositor to fully redraw without our windows.
-    // M5 Retina with Metal apps (Figma, Chrome) needs 1500ms minimum.
+    // STEP 3: Reuse existing sniper window or create new one
+    if let Some(win) = app.get_webview_window("sniper") {
+        eprintln!("sniper exists — showing");
+        let _ = win.show();
+        let _ = win.set_focus();
+        let _ = win.set_always_on_top(true);
+        return;
+    }
+
+    // STEP 4: Create FULLSCREEN borderless transparent always-on-top window
+    // for area selection. Must cover ENTIRE screen including menu bar and dock.
+    let app_clone = app.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(1500));
+        // Wait for compositor to redraw without main window
+        std::thread::sleep(std::time::Duration::from_millis(400));
 
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        let _ = std::fs::create_dir_all(format!("{}/Pictures", home));
-        let tmp = format!("{}/Pictures/engiboard_capture.png", home);
-        let _ = std::fs::remove_file(&tmp);
-
-        eprintln!("Running: /usr/sbin/screencapture -i -x -t png {}", tmp);
-
-        // -i interactive, -x silent, -t png
-        // The screencapture -i selector is a system process —
-        // it ALWAYS appears on top of everything as it runs at WindowServer level.
-        let status = std::process::Command::new("/usr/sbin/screencapture")
-            .args(["-i", "-x", "-t", "png", &tmp])
-            .status();
-
-        eprintln!("screencapture status: {:?}", status);
-
-        let size = std::fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
-        eprintln!("file size: {} bytes", size);
-
-        if size > 0 {
-            if let Ok(bytes) = std::fs::read(&tmp) {
-                let _ = std::fs::remove_file(&tmp);
-                let url = format!("data:image/png;base64,{}", base64_encode(&bytes));
-                eprintln!("opening editor with image, len={}", url.len());
-
-                // Make EngiBoard process visible again before opening editor
-                let _ = std::process::Command::new("osascript")
-                    .args(["-e", "tell application \"System Events\" to set visible of process \"EngiBoard\" to true"])
-                    .status();
-
-                open_editor_with_image(app, url);
-                return;
-            }
-        }
-
-        // Screenshot cancelled — restore everything
-        eprintln!("Screenshot cancelled — restoring windows");
+        // Show app process again (we need it for sniper window to render)
         let _ = std::process::Command::new("osascript")
             .args(["-e", "tell application \"System Events\" to set visible of process \"EngiBoard\" to true"])
             .status();
 
-        if let Some(main_win) = app.get_webview_window("main") {
-            let _ = main_win.unminimize();
-            let _ = main_win.show();
-            let _ = main_win.set_focus();
+        // Get primary monitor size
+        let monitor = app_clone
+            .get_webview_window("main")
+            .and_then(|w| w.primary_monitor().ok().flatten())
+            .or_else(|| {
+                // Fallback: try to get from any window
+                tauri::Manager::webview_windows(&app_clone)
+                    .values()
+                    .next()
+                    .and_then(|w| w.primary_monitor().ok().flatten())
+            });
+
+        let (w, h) = if let Some(m) = monitor {
+            let size = m.size();
+            let scale = m.scale_factor();
+            ((size.width as f64 / scale), (size.height as f64 / scale))
+        } else {
+            (1920.0, 1080.0)
+        };
+
+        eprintln!("Creating sniper window: {}x{}", w, h);
+
+        let result = WebviewWindowBuilder::new(
+            &app_clone, "sniper", WebviewUrl::App("sniper.html".into()))
+            .title("EngiBoard Sniper")
+            .inner_size(w, h)
+            .position(0.0, 0.0)
+            .decorations(false)
+            .transparent(true)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false)
+            .focused(true)
+            .visible(true)
+            .build();
+
+        match result {
+            Ok(win) => {
+                eprintln!("sniper window created");
+                let _ = win.show();
+                let _ = win.set_focus();
+            }
+            Err(e) => {
+                eprintln!("FAILED to create sniper: {}", e);
+                // Restore main on failure
+                if let Some(main_win) = app_clone.get_webview_window("main") {
+                    let _ = main_win.show();
+                }
+            }
         }
     });
 }
