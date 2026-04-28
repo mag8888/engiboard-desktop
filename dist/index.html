@@ -1100,6 +1100,36 @@ async function loginGoogle(){
   completeLogin(email, false);
 }
 
+
+// Listen for OAuth callback from deep link (engiboard://oauth/callback?access_token=...)
+if (window.__TAURI__) {
+  window.__TAURI__.event.listen('oauth-callback', (event) => {
+    const urls = event.payload || [];
+    console.log('OAuth callback received:', urls);
+    if (urls.length === 0) return;
+    const url = urls[0];
+    try {
+      // Supabase passes tokens in URL fragment: #access_token=...&refresh_token=...
+      const u = new URL(url);
+      const params = new URLSearchParams(u.hash.replace(/^#/, ''));
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        // Decode JWT to get email
+        const payload = JSON.parse(atob(accessToken.split('.')[1]));
+        const email = payload.email || 'user@example.com';
+        toast('✓ Signed in as ' + email);
+        completeLogin(email, true);
+      } else {
+        toast('OAuth callback received but no token');
+        console.warn('OAuth callback URL:', url);
+      }
+    } catch(e) {
+      console.error('OAuth callback parse error:', e);
+      toast('OAuth callback error: ' + e.message);
+    }
+  });
+}
+
 function completeLogin(email, fromOAuth){
   if(confirm('Создать пустой аккаунт без demo-данных?')){
     TASKS = []; PROJECTS = [];
