@@ -29,14 +29,18 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
         eprintln!("editor exists — reusing, bringing to front");
         let _ = win.unminimize();
         let _ = win.show();
-        // Bring to front: temporarily always_on_top to force above ALL windows,
-        // then drop the flag so user can switch to other apps normally.
+        // Force editor to top and KEEP focus. Don't auto-drop always_on_top —
+        // when user clicks another app, macOS will naturally show it above editor.
+        // When user wants to use editor again, they click on it.
         let _ = win.set_always_on_top(true);
         let _ = win.set_focus();
+        // Drop always_on_top quickly (200ms) — just enough to force focus,
+        // not so long that other windows feel stuck.
         let win_clone = win.clone();
         std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(200));
             let _ = win_clone.set_always_on_top(false);
+            let _ = win_clone.set_focus();
         });
         // FIX: show main window back (it was hidden during capture)
         if let Some(main_win) = app.get_webview_window("main") {
@@ -68,16 +72,16 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
             eprintln!("editor window created OK");
             let _ = win.show();
             let _ = win.set_focus();
-            // Drop always_on_top after 1s so user can switch apps normally
+            // Drop always_on_top quickly (200ms). User clicks editor when needed,
+            // and switches to other apps freely. Editor doesn't block them.
             let win_clone_top = win.clone();
             std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(1000));
+                std::thread::sleep(std::time::Duration::from_millis(200));
                 let _ = win_clone_top.set_always_on_top(false);
+                let _ = win_clone_top.set_focus();
             });
-            // FIX: show main window back (it was hidden during capture)
-            if let Some(main_win) = app.get_webview_window("main") {
-                let _ = main_win.show();
-            }
+            // DO NOT show main window automatically — it would steal focus from editor.
+            // Main stays hidden until user closes editor (then editor closes -> main shows).
             std::thread::spawn(move || {
                 // Ждём загрузки страницы дольше для нового окна
                 std::thread::sleep(std::time::Duration::from_millis(1200));
@@ -285,6 +289,12 @@ fn open_screen_recording_settings() {
 fn close_editor(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("editor") {
         let _ = w.close();
+    }
+    // When editor closes, restore main window so user has somewhere to go
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.unminimize();
+        let _ = main_win.show();
+        let _ = main_win.set_focus();
     }
 }
 
