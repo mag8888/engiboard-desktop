@@ -397,6 +397,7 @@ fn main() {
             })
             .build())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let h = app.handle();
             let _ = h.global_shortcut().register(
