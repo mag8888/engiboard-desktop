@@ -1338,8 +1338,7 @@ function render(){
     }
   });
 
-  // Always show empty input row at very bottom (for currentProject)
-  html += renderEmptyRow();
+  // (Empty input rows are inside each project group now, no global one)
   list.innerHTML = html;
   wireUpEmptyInput();
 }
@@ -1370,6 +1369,8 @@ function renderProjGroup(proj, tasks){
   } else {
     bodyHtml = `<div style="padding:14px 28px;font-size:12px;color:var(--t3);font-style:italic">No tasks in this project yet</div>`;
   }
+  // Per-project empty input row at end of project group
+  bodyHtml += renderEmptyRowForProject(proj.id);
 
   return `<div class="proj-group ${isCollapsed?'collapsed':''}" data-proj-id="${proj.id}">
     <div class="proj-group-head" onclick="toggleProjGroup('${proj.id}')">
@@ -1446,6 +1447,17 @@ function renderEmptyRow(){
   </div>`;
 }
 
+function renderEmptyRowForProject(projId){
+  return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:60px">
+    <div></div>
+    <span class="wk">26W17</span>
+    <span class="st bg-info"><span class="pip"></span>Info</span>
+    <div class="pc"><div class="pi">paste·drop</div></div>
+    <div class="pc"><div class="pi">paste·drop</div></div>
+    <div class="nt"><input class="newInpProj" data-proj="${projId}" placeholder="+ Type task and press Enter…"></div>
+  </div>`;
+}
+
 function renderZero(){
   return `<div class="es-zero">
     <div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
@@ -1463,18 +1475,25 @@ function renderZero(){
 }
 
 function wireUpEmptyInput(){
-  const inp = document.getElementById('newInp');
-  if(!inp) return;
-  inp.onkeydown = function(e){
-    if(e.key === 'Enter' && this.value.trim()){
-      TASKS.push({id:'t'+Date.now(), proj:currentProject, w:'26W17', s:0, n:this.value.trim()});
-      this.value = '';
-      render();
-      updateHeader();
-      toast('✓ Task created');
-      setTimeout(() => document.getElementById('newInp')?.focus(), 50);
-    }
-  };
+  // Wire all per-project empty inputs
+  document.querySelectorAll('.newInpProj').forEach(inp => {
+    inp.onkeydown = function(e){
+      if(e.key === 'Enter' && this.value.trim()){
+        const projId = this.dataset.proj;
+        TASKS.push({id:'t'+Date.now(), proj:projId, w:'26W17', s:0, n:this.value.trim()});
+        const text = this.value.trim();
+        this.value = '';
+        render();
+        updateHeader();
+        toast('✓ Task added to ' + (PROJECTS.find(p=>p.id===projId)?.name || 'project'));
+        // Re-focus the same project input after re-render
+        setTimeout(() => {
+          const newInp = document.querySelector('.newInpProj[data-proj="'+projId+'"]');
+          if(newInp) newInp.focus();
+        }, 50);
+      }
+    };
+  });
 }
 
 function saveTaskName(taskId, name){
