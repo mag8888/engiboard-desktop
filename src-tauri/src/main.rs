@@ -34,14 +34,9 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
         // When user wants to use editor again, they click on it.
         let _ = win.set_always_on_top(true);
         let _ = win.set_focus();
-        // Drop always_on_top quickly (200ms) — just enough to force focus,
-        // not so long that other windows feel stuck.
-        let win_clone = win.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            let _ = win_clone.set_always_on_top(false);
-            let _ = win_clone.set_focus();
-        });
+        // Editor stays on top for the screenshot session.
+        // User closes it via X button or saves via Save button — both close editor
+        // and return focus to main window.
         // FIX: show main window back (it was hidden during capture)
         if let Some(main_win) = app.get_webview_window("main") {
             let _ = main_win.show();
@@ -72,14 +67,7 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
             eprintln!("editor window created OK");
             let _ = win.show();
             let _ = win.set_focus();
-            // Drop always_on_top quickly (200ms). User clicks editor when needed,
-            // and switches to other apps freely. Editor doesn't block them.
-            let win_clone_top = win.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_millis(200));
-                let _ = win_clone_top.set_always_on_top(false);
-                let _ = win_clone_top.set_focus();
-            });
+            // Editor stays on top until user saves/closes it.
             // DO NOT show main window automatically — it would steal focus from editor.
             // Main stays hidden until user closes editor (then editor closes -> main shows).
             std::thread::spawn(move || {
