@@ -281,6 +281,12 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:#fff;co
 .row .nt-t:hover{background:#F8FAFC}
 .row .nt-t:focus{background:#fff;box-shadow:0 0 0 2px rgba(14,165,233,.2);-webkit-line-clamp:unset;overflow:visible}
 .row .nt-mt{font-size:10.5px;color:var(--t3);font-family:var(--mono);display:flex;align-items:center;gap:6px;flex-shrink:0}
+.row .nt-mt .play-ic{
+  display:inline-flex;align-items:center;gap:3px;cursor:pointer;
+  padding:2px 6px;border-radius:4px;transition:.12s;color:var(--t4);font-size:10.5px
+}
+.row .nt-mt .play-ic:hover{color:var(--acc);background:rgba(14,165,233,.08)}
+
 .row .nt-mt .chat-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
   padding:2px 6px;border-radius:4px;transition:.12s
@@ -370,14 +376,108 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:#fff;co
 /* Lightbox */
 #lightbox{
   display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.92);
-  align-items:center;justify-content:center;padding:48px;cursor:zoom-out
+  cursor:default
 }
 #lightbox.on{display:flex}
-#lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
-#lightbox .close{
-  position:absolute;top:24px;right:32px;color:#fff;font-size:32px;cursor:pointer;
-  background:none;border:none;font-weight:300;line-height:1;padding:0
+#lightbox .lb-stage{
+  flex:1;display:flex;align-items:center;justify-content:center;padding:32px;
+  position:relative;min-width:0
 }
+#lightbox .lb-img-wrap{
+  position:relative;max-width:100%;max-height:100%;display:inline-block;cursor:crosshair
+}
+#lightbox img{max-width:100%;max-height:calc(100vh - 96px);object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5);display:block}
+#lightbox .close{
+  position:absolute;top:18px;right:24px;color:#fff;font-size:28px;cursor:pointer;
+  background:rgba(0,0,0,.5);border:none;font-weight:300;line-height:1;
+  padding:0;width:36px;height:36px;border-radius:50%;z-index:5;
+  display:flex;align-items:center;justify-content:center
+}
+#lightbox .close:hover{background:rgba(0,0,0,.8)}
+.lb-hint{
+  position:absolute;bottom:-32px;left:50%;transform:translateX(-50%);
+  color:rgba(255,255,255,.6);font-size:11px;font-family:var(--mono);
+  letter-spacing:.05em;white-space:nowrap;pointer-events:none
+}
+.lb-pins{position:absolute;inset:0;pointer-events:none}
+.lb-pin{
+  position:absolute;width:24px;height:24px;border-radius:50%;
+  background:var(--acc);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 0 3px rgba(255,255,255,.9), 0 4px 12px rgba(0,0,0,.4);
+  cursor:pointer;pointer-events:auto;font-family:var(--mono);
+  transition:transform .15s
+}
+.lb-pin:hover{transform:translate(-50%,-50%) scale(1.15);z-index:10}
+.lb-pin.draft{
+  background:#F59E0B;
+  animation:pin-pulse 1.5s ease-in-out infinite
+}
+@keyframes pin-pulse{
+  0%,100%{box-shadow:0 0 0 3px rgba(255,255,255,.9), 0 4px 12px rgba(0,0,0,.4)}
+  50%{box-shadow:0 0 0 6px rgba(245,158,11,.4), 0 4px 12px rgba(0,0,0,.4)}
+}
+
+.lb-panel{
+  width:340px;flex-shrink:0;background:#0F172A;
+  display:flex;flex-direction:column;border-left:1px solid rgba(255,255,255,.08)
+}
+.lb-panel-h{
+  padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08)
+}
+.lb-panel-title{font-size:14px;font-weight:600;color:#fff;letter-spacing:-.01em}
+.lb-panel-meta{font-size:11px;color:rgba(255,255,255,.5);font-family:var(--mono);margin-top:3px}
+.lb-panel-list{flex:1;overflow-y:auto;padding:8px}
+.lb-comment{
+  padding:12px 14px;border-radius:8px;margin-bottom:6px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  cursor:pointer;transition:.12s
+}
+.lb-comment:hover{background:rgba(255,255,255,.06);border-color:rgba(14,165,233,.4)}
+.lb-comment-h{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.lb-comment-num{
+  width:18px;height:18px;border-radius:50%;background:var(--acc);
+  color:#fff;font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);flex-shrink:0
+}
+.lb-comment-author{font-size:11px;color:rgba(255,255,255,.6);font-weight:500;flex:1}
+.lb-comment-time{font-size:10px;color:rgba(255,255,255,.35);font-family:var(--mono)}
+.lb-comment-text{font-size:13px;color:rgba(255,255,255,.9);line-height:1.4;word-break:break-word}
+.lb-comment-del{
+  background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;
+  font-size:11px;padding:2px 6px;margin-top:4px
+}
+.lb-comment-del:hover{color:#EF4444}
+
+.lb-panel-empty{
+  padding:32px 20px;text-align:center;color:rgba(255,255,255,.4);font-size:12px
+}
+
+.lb-panel-input{
+  border-top:1px solid rgba(255,255,255,.08);padding:12px;
+  background:rgba(0,0,0,.3)
+}
+.lb-panel-input textarea{
+  width:100%;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);border-radius:7px;
+  padding:9px 11px;font-size:13px;color:#fff;font-family:inherit;
+  resize:none;outline:none;line-height:1.4
+}
+.lb-panel-input textarea:focus{border-color:var(--acc);background:rgba(255,255,255,.1)}
+.lb-panel-input textarea::placeholder{color:rgba(255,255,255,.35)}
+.lb-panel-actions{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
+.lb-panel-actions button{
+  padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;border:none;transition:.12s
+}
+.lb-cancel{background:rgba(255,255,255,.08);color:rgba(255,255,255,.7)}
+.lb-cancel:hover{background:rgba(255,255,255,.15)}
+.lb-add{background:var(--acc);color:#fff}
+.lb-add:hover{background:var(--acc-d)}
+.lb-add:disabled{background:rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:not-allowed}
 
 /* Chat side panel */
 #chatPop{
@@ -941,10 +1041,30 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
   <div id="pasteBanner">Click on Pic Before or Pic After<span>Esc — cancel</span></div>
 </div>
 
-<!-- LIGHTBOX -->
-<div id="lightbox" onclick="closeLightbox()">
-  <button class="close" onclick="event.stopPropagation();closeLightbox()">×</button>
-  <img id="lightboxImg" alt="" onclick="event.stopPropagation()">
+<!-- LIGHTBOX with annotations panel -->
+<div id="lightbox">
+  <div class="lb-stage" id="lbStage">
+    <button class="close" onclick="closeLightbox()">×</button>
+    <div class="lb-img-wrap" id="lbImgWrap">
+      <img id="lightboxImg" alt="">
+      <div class="lb-pins" id="lbPins"></div>
+      <div class="lb-hint" id="lbHint">Click on the image to add a comment</div>
+    </div>
+  </div>
+  <aside class="lb-panel">
+    <div class="lb-panel-h">
+      <div class="lb-panel-title">Comments</div>
+      <div class="lb-panel-meta" id="lbPanelMeta">0 comments</div>
+    </div>
+    <div class="lb-panel-list" id="lbCommentsList"></div>
+    <div class="lb-panel-input">
+      <textarea id="lbCommentInput" placeholder="Click on image, then type comment here…" rows="2"></textarea>
+      <div class="lb-panel-actions">
+        <button class="lb-cancel" onclick="cancelLbPin()">Cancel</button>
+        <button class="lb-add" onclick="addLbComment()">Add</button>
+      </div>
+    </div>
+  </aside>
 </div>
 
 <!-- CHAT -->
@@ -1047,6 +1167,8 @@ let activeChatTaskId = null;
 let pendingScreenshot = null;
 let pasteMode = false;
 let presentIdx = -1;
+let presentSlides = [];
+let presentTask = null;
 let openStMenu = null;
 let dragTaskId = null;
 let collapsedProjects = new Set();
@@ -1412,6 +1534,9 @@ function renderRow(t){
         <span class="chat-ic" onclick="event.stopPropagation();toggleChat(event,'${t.id}')">
           💬 ${chatCount > 0 ? chatCount + (chatCount===1?' reply':' replies') : 'comment'}
         </span>
+        <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode">
+          ▶ slideshow
+        </span>
       </div>
     </div>
     <div class="resize-h" onmousedown="onResizeStart(event,'${t.id}')"></div>
@@ -1421,7 +1546,7 @@ function renderRow(t){
 function renderPic(t, slot){
   const shotKey = slot === 'before' ? 'shot1' : 'shot2';
   if(t[shotKey]){
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openLightbox('${t[shotKey]}')">
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openLightbox('${t[shotKey]}','${t.id}',${slot==='before'?0:1})">
       <img src="${t[shotKey]}" alt="">
     </div>`;
   }
@@ -1618,11 +1743,22 @@ function onRowClick(e, taskId){
 
 // ━━━ PRESENT ━━━
 function openPresent(taskId){
-  const filtered = getFilteredTasks();
-  const idx = filtered.findIndex(t => t.id === taskId);
-  if(idx < 0) return;
-  presentIdx = idx;
-  window._presentList = filtered;
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  // Build slides: shot1 (before), shot2 (after), then any extras in t.shots[]
+  const slides = [];
+  if(t.shot1) slides.push({label:'BEFORE', src:t.shot1});
+  if(t.shot2) slides.push({label:'AFTER', src:t.shot2});
+  if(Array.isArray(t.shots)){
+    t.shots.forEach((s,i) => slides.push({label:`SHOT ${i+3}`, src:s}));
+  }
+  if(slides.length === 0){
+    toast('No screenshots in this task');
+    return;
+  }
+  presentSlides = slides;
+  presentTask = t;
+  presentIdx = 0;
   renderPresent();
   document.getElementById('present').classList.add('on');
 }
@@ -1630,19 +1766,16 @@ function closePresent(){
   document.getElementById('present').classList.remove('on');
   presentIdx = -1;
 }
-function presentNext(){if(presentIdx < window._presentList.length-1){presentIdx++;renderPresent();}}
+function presentNext(){if(presentIdx < presentSlides.length-1){presentIdx++;renderPresent();}}
 function presentPrev(){if(presentIdx > 0){presentIdx--;renderPresent();}}
 
 function renderPresent(){
-  const t = window._presentList[presentIdx];
+  const t = presentTask;
   if(!t) return;
+  const slide = presentSlides[presentIdx];
+  if(!slide) return;
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
-  function picContent(slot){
-    const shotKey = slot === 'before' ? 'shot1' : 'shot2';
-    if(t[shotKey]) return `<img src="${t[shotKey]}" alt="" style="cursor:zoom-in" onclick="openLightbox('${t[shotKey]}')">`;
-    return '<div class="pres-pic-empty">No image</div>';
-  }
   card.innerHTML = `
     <div class="pres-head">
       <div class="pres-status ${st.cls}"><span class="pip" style="width:6px;height:6px;border-radius:50%;background:${st.c}"></span>${st.l}</div>
@@ -1650,24 +1783,156 @@ function renderPresent(){
       <div style="font-size:12px;color:var(--t4);font-family:var(--mono)">${t.w}</div>
       <button class="pres-close" onclick="closePresent()">×</button>
     </div>
-    <div class="pres-body">
-      <div class="pres-pic"><div class="lbl">BEFORE</div>${picContent('before')}</div>
-      <div class="pres-pic"><div class="lbl">AFTER</div>${picContent('after')}</div>
+    <div class="pres-body" style="grid-template-columns:1fr">
+      <div class="pres-pic" style="min-height:480px"><div class="lbl">${slide.label}</div>
+        <img src="${slide.src}" alt="" style="cursor:zoom-in" onclick="openLightbox('${slide.src}','${t.id}',${presentIdx})">
+      </div>
     </div>
     <div class="pres-nav">
       <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
-      <div class="pres-counter">${presentIdx+1} / ${window._presentList.length}</div>
-      <button onclick="presentNext()" ${presentIdx>=window._presentList.length-1?'disabled':''}>Next →</button>
+      <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
+      <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
     </div>`;
 }
 
 // ━━━ LIGHTBOX ━━━
-function openLightbox(dataUrl){
+let lbCurrentImageKey = null;
+let lbDraftPin = null; // {x, y} in % when user clicks before typing
+
+function openLightbox(dataUrl, taskId, slotIdx){
   const lb = document.getElementById('lightbox');
   document.getElementById('lightboxImg').src = dataUrl;
+  // Build a key for this image: taskId + slot index (so each screenshot has its own comments)
+  lbCurrentImageKey = (taskId || 'unknown') + ':' + (slotIdx !== undefined ? slotIdx : 0);
+  lbDraftPin = null;
+  document.getElementById('lbCommentInput').value = '';
+  renderLbComments();
   lb.classList.add('on');
 }
-function closeLightbox(){document.getElementById('lightbox').classList.remove('on');}
+
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('on');
+  lbCurrentImageKey = null;
+  lbDraftPin = null;
+}
+
+function getLbComments(){
+  if(!lbCurrentImageKey) return [];
+  if(!window.IMG_COMMENTS) window.IMG_COMMENTS = {};
+  return window.IMG_COMMENTS[lbCurrentImageKey] || [];
+}
+
+function setLbComments(arr){
+  if(!lbCurrentImageKey) return;
+  if(!window.IMG_COMMENTS) window.IMG_COMMENTS = {};
+  window.IMG_COMMENTS[lbCurrentImageKey] = arr;
+}
+
+function renderLbComments(){
+  const list = document.getElementById('lbCommentsList');
+  const meta = document.getElementById('lbPanelMeta');
+  const pins = document.getElementById('lbPins');
+  const comments = getLbComments();
+  meta.textContent = comments.length === 0 ? 'No comments yet' : comments.length + ' comment' + (comments.length===1?'':'s');
+  
+  if(comments.length === 0 && !lbDraftPin){
+    list.innerHTML = '<div class="lb-panel-empty">Click anywhere on the image to add a comment with a pin marker</div>';
+  } else {
+    list.innerHTML = comments.map((c, i) => `
+      <div class="lb-comment" onclick="scrollToPin(${i})">
+        <div class="lb-comment-h">
+          <span class="lb-comment-num">${i+1}</span>
+          <span class="lb-comment-author">${c.author || 'AS'}</span>
+          <span class="lb-comment-time">${c.ts}</span>
+        </div>
+        <div class="lb-comment-text">${escapeHtml(c.text)}</div>
+        <button class="lb-comment-del" onclick="event.stopPropagation();deleteLbComment(${i})">delete</button>
+      </div>
+    `).join('');
+  }
+  
+  // Render pins on image
+  pins.innerHTML = comments.map((c, i) => `
+    <div class="lb-pin" style="left:${c.x}%;top:${c.y}%" 
+      onclick="scrollToPin(${i})" title="${escapeHtml(c.text)}">${i+1}</div>
+  `).join('');
+  
+  if(lbDraftPin){
+    pins.innerHTML += `<div class="lb-pin draft" style="left:${lbDraftPin.x}%;top:${lbDraftPin.y}%">${comments.length+1}</div>`;
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function addLbComment(){
+  const input = document.getElementById('lbCommentInput');
+  const text = input.value.trim();
+  if(!text){
+    toast('Type a comment first');
+    return;
+  }
+  if(!lbDraftPin){
+    toast('Click on the image to place a pin first');
+    return;
+  }
+  const comments = getLbComments();
+  comments.push({
+    x: lbDraftPin.x,
+    y: lbDraftPin.y,
+    text: text,
+    author: 'AS',
+    ts: new Date().toLocaleTimeString('en', {hour:'2-digit',minute:'2-digit',hour12:false})
+  });
+  setLbComments(comments);
+  lbDraftPin = null;
+  input.value = '';
+  renderLbComments();
+  toast('✓ Comment added');
+}
+
+function cancelLbPin(){
+  lbDraftPin = null;
+  document.getElementById('lbCommentInput').value = '';
+  renderLbComments();
+}
+
+function deleteLbComment(idx){
+  const comments = getLbComments();
+  comments.splice(idx, 1);
+  setLbComments(comments);
+  renderLbComments();
+}
+
+function scrollToPin(idx){
+  // Briefly highlight pin (visual feedback)
+  const pins = document.querySelectorAll('.lb-pin');
+  if(pins[idx]){
+    pins[idx].style.transform = 'translate(-50%,-50%) scale(1.4)';
+    setTimeout(() => { pins[idx].style.transform = ''; }, 400);
+  }
+}
+
+// Click on image places draft pin
+document.addEventListener('click', e => {
+  if(!document.getElementById('lightbox').classList.contains('on')) return;
+  const wrap = document.getElementById('lbImgWrap');
+  if(!wrap || !wrap.contains(e.target)) return;
+  if(e.target.classList.contains('lb-pin')) return; // don't add when clicking existing pin
+  const img = document.getElementById('lightboxImg');
+  if(!img) return;
+  const rect = img.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+  if(x < 0 || x > 100 || y < 0 || y > 100) return;
+  lbDraftPin = {x, y};
+  renderLbComments();
+  document.getElementById('lbCommentInput').focus();
+});
+
+// Esc to close lightbox (already handled in keydown but make sure it cleans pin)
+
 
 // ━━━ CHAT ━━━
 function toggleChat(e, taskId){
