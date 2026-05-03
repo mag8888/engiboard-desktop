@@ -11,6 +11,19 @@
 -- ─── extensions ─────────────────────────────────────────────────
 create extension if not exists "uuid-ossp";
 
+-- ─── reset (idempotent) ─────────────────────────────────────────
+-- Existing stub tables in this Supabase project have minimal schema
+-- (only id/owner_id/timestamps). Drop and recreate cleanly.
+-- All cascade dependencies handled.
+drop table if exists public.image_comments cascade;
+drop table if exists public.comments       cascade;
+drop table if exists public.tasks          cascade;
+drop table if exists public.projects       cascade;
+drop table if exists public.profiles       cascade;
+drop trigger if exists on_auth_user_created on auth.users;
+drop function if exists public.handle_new_user() cascade;
+drop function if exists public.set_updated_at()  cascade;
+
 -- ─── profiles ───────────────────────────────────────────────────
 -- Extension of auth.users for public-facing user info.
 create table if not exists public.profiles (

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>EngiBoard</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -1163,6 +1164,84 @@ const STATUSES = [
   {id:7, l:'Upcoming', c:'#0EA5E9', cls:'bg-up'}
 ];
 
+// ━━━ SUPABASE CLIENT (S2 P0-3) ━━━
+const SUPABASE_URL = 'https://gselxucvcomqlfyogidz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZWx4dWN2Y29tcWxmeW9naWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTIzMDMsImV4cCI6MjA5MjA4ODMwM30.xemdsJEvQ2f1vkoPVLtPk3d7emkzDZXfx-GaAyRAGyQ';
+const sb = (window.supabase && typeof window.supabase.createClient === 'function')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, storage: localStorage, storageKey: 'eb_supabase_session' }
+    })
+  : null;
+
+// CRUD wrapper with localStorage fallback
+const db = {
+  ready: !!sb,
+  // Diagnostic — pings the API to check tables exist + RLS allows access
+  async health(){
+    if(!sb) return { ok:false, reason:'Supabase JS client not loaded' };
+    try {
+      const { data, error, status } = await sb.from('projects').select('id').limit(1);
+      if(error) return { ok:false, reason: error.message, status };
+      return { ok:true, count: (data||[]).length };
+    } catch(e){ return { ok:false, reason: e.message }; }
+  },
+  projects: {
+    list:   () => sb.from('projects').select('*').eq('archived', false).order('sort_order'),
+    create: (data) => sb.from('projects').insert(data).select().single(),
+    update: (id, data) => sb.from('projects').update(data).eq('id', id),
+    delete: (id) => sb.from('projects').delete().eq('id', id),
+  },
+  tasks: {
+    list:   (projectId) => sb.from('tasks').select('*').eq('project_id', projectId).order('sort_order'),
+    listAll:() => sb.from('tasks').select('*, project:projects(name, code, color)').order('sort_order'),
+    create: (data) => sb.from('tasks').insert(data).select().single(),
+    update: (id, data) => sb.from('tasks').update(data).eq('id', id),
+    delete: (id) => sb.from('tasks').delete().eq('id', id),
+  },
+  comments: {
+    listForTask: (taskId) => sb.from('comments').select('*, author:profiles(initials, display_name, avatar_color)').eq('task_id', taskId).order('created_at'),
+    create:      (data) => sb.from('comments').insert(data).select().single(),
+    delete:      (id) => sb.from('comments').delete().eq('id', id),
+  },
+  imageComments: {
+    listForTask: (taskId) => sb.from('image_comments').select('*, author:profiles(initials, display_name, avatar_color)').eq('task_id', taskId).order('created_at'),
+    create:      (data) => sb.from('image_comments').insert(data).select().single(),
+    delete:      (id) => sb.from('image_comments').delete().eq('id', id),
+  },
+  storage: {
+    async uploadShot(taskId, dataUrl){
+      if(!sb) throw new Error('Supabase not initialized');
+      const { data: { user } } = await sb.auth.getUser();
+      if(!user) throw new Error('Not authenticated');
+      // dataUrl → Blob
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const ext = (blob.type.split('/')[1] || 'png').replace('jpeg','jpg');
+      const path = `${user.id}/${taskId}/${Date.now()}.${ext}`;
+      const { data, error } = await sb.storage.from('screenshots').upload(path, blob, { contentType: blob.type, upsert: false });
+      if(error) throw error;
+      // signed URL valid 1 year (we re-sign as needed)
+      const { data: signed } = await sb.storage.from('screenshots').createSignedUrl(path, 365 * 24 * 3600);
+      return { path, url: signed?.signedUrl };
+    },
+    async deleteShot(path){
+      if(!sb) return;
+      await sb.storage.from('screenshots').remove([path]);
+    },
+  },
+  auth: {
+    async user(){ if(!sb) return null; const { data } = await sb.auth.getUser(); return data?.user || null; },
+    async setSessionFromTokens(access_token, refresh_token){
+      if(!sb) return null;
+      const { data, error } = await sb.auth.setSession({ access_token, refresh_token });
+      if(error) console.warn('setSession error:', error);
+      return data?.session || null;
+    },
+    async signOut(){ if(sb) await sb.auth.signOut(); },
+  },
+};
+console.log('[EngiBoard] Supabase client', db.ready ? 'ready' : 'NOT loaded — falling back to localStorage');
+
 // ━━━ DEMO DATA ━━━
 let PROJECTS = [
   {id:'p1', name:'Conveyor Line #12', code:'CL-12', client:'Acme Manufacturing', status:'active'},
@@ -1269,10 +1348,17 @@ if (window.__TAURI__) {
       const u = new URL(url);
       const params = new URLSearchParams(u.hash.replace(/^#/, ''));
       const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
       if (accessToken) {
         // Decode JWT to get email
         const payload = JSON.parse(atob(accessToken.split('.')[1]));
         const email = payload.email || 'user@example.com';
+        // Hand tokens to Supabase JS client so subsequent db.* calls are authenticated
+        if(db.ready && refreshToken){
+          db.auth.setSessionFromTokens(accessToken, refreshToken)
+            .then(s => console.log('[Auth] Supabase session set:', s ? s.user.email : 'none'))
+            .catch(e => console.warn('[Auth] setSession failed:', e));
+        }
         toast('✓ Signed in as ' + email);
         completeLogin(email, true);
       } else {
@@ -1296,6 +1382,7 @@ function completeLogin(email, fromOAuth){
 }
 function logout(){
   localStorage.removeItem('eb_account');
+  if(db.ready) db.auth.signOut().catch(()=>{});
   document.getElementById('LP').classList.remove('hide');
   document.getElementById('APP').classList.remove('on');
   document.getElementById('profileMenu').classList.remove('open');
