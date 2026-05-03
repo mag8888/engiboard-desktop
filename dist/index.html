@@ -1010,6 +1010,9 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip" data-f="progress">In progress</button>
       <button class="chip" data-f="done">Done</button>
       <button class="chip" data-f="thisweek">This week</button>
+      <span style="flex:1"></span>
+      <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊟ Collapse all</button>
+      <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊞ Expand all</button>
       <input class="search" id="searchInp" placeholder="Search tasks…">
     </div>
 
@@ -1174,8 +1177,15 @@ let presentSlides = [];
 let presentTask = null;
 let openStMenu = null;
 let dragTaskId = null;
-let collapsedProjects = new Set();
+let collapsedProjects = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem('eb_collapsed_projects') || '[]')); }
+  catch { return new Set(); }
+})();
 let currentSection = 'projects';
+
+function saveCollapsedProjects(){
+  localStorage.setItem('eb_collapsed_projects', JSON.stringify([...collapsedProjects]));
+}
 
 // ━━━ LOGIN ━━━
 function loginDemo(){
@@ -1506,6 +1516,19 @@ function renderProjGroup(proj, tasks){
 function toggleProjGroup(pid){
   if(collapsedProjects.has(pid)) collapsedProjects.delete(pid);
   else collapsedProjects.add(pid);
+  saveCollapsedProjects();
+  render();
+}
+
+function collapseAllProjects(){
+  PROJECTS.forEach(p => collapsedProjects.add(p.id));
+  saveCollapsedProjects();
+  render();
+}
+
+function expandAllProjects(){
+  collapsedProjects.clear();
+  saveCollapsedProjects();
   render();
 }
 
