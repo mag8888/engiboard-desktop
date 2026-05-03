@@ -1,6 +1,6 @@
 [package]
 name = "engiboard"
-version = "0.1.15"
+version = "0.1.16"
 description = "EngiBoard — Engineering Task Tracker"
 authors = ["EngiBoard"]
 edition = "2021"
