@@ -52,6 +52,33 @@ body.dark-mode input,
 body.dark-mode textarea{background:var(--surf) !important;color:var(--t1)}
 body.dark-mode input:not([type="checkbox"]):not([type="radio"]){border-color:var(--line-2)}
 
+/* Status pill backgrounds — dark mode (v0.1.24 fix) */
+body.dark-mode .bg-info{background:rgba(148,163,184,.18);color:#cbd5e1}
+body.dark-mode .bg-done{background:rgba(34,197,94,.18);color:#86efac}
+body.dark-mode .bg-not{background:rgba(148,163,184,.10);color:#94a3b8}
+body.dark-mode .bg-rev{background:rgba(167,139,250,.18);color:#c4b5fd}
+body.dark-mode .bg-req{background:rgba(14,165,233,.18);color:#7dd3fc}
+body.dark-mode .bg-prob{background:rgba(239,68,68,.18);color:#fca5a5}
+body.dark-mode .bg-prog{background:rgba(249,115,22,.18);color:#fdba74}
+body.dark-mode .bg-up{background:rgba(14,165,233,.18);color:#7dd3fc}
+
+/* Hover surfaces — dark mode (v0.1.24 fix) */
+body.dark-mode .row .nt-t:hover{background:rgba(255,255,255,.04)}
+body.dark-mode .row .nt-t:focus{background:rgba(255,255,255,.06)}
+body.dark-mode .cp-h .x:hover{background:rgba(255,255,255,.08);color:var(--t1)}
+body.dark-mode .cp-h{background:linear-gradient(to bottom,var(--surf),var(--bg))}
+body.dark-mode .st-opt:hover{background:rgba(255,255,255,.06)}
+body.dark-mode .pm-item:hover{background:rgba(255,255,255,.05)}
+body.dark-mode .prm-row:hover{background:rgba(255,255,255,.05)}
+body.dark-mode .tbtn:hover{background:rgba(255,255,255,.06)}
+body.dark-mode .proj-switch:hover{background:rgba(255,255,255,.05)}
+body.dark-mode .gbtn{background:var(--surf);border-color:var(--line-2);color:var(--t1)}
+body.dark-mode .gbtn:hover{background:rgba(255,255,255,.04)}
+body.dark-mode .sb-i:hover{background:rgba(255,255,255,.04)}
+body.dark-mode .sb-i.on{background:rgba(255,255,255,.06)}
+body.dark-mode .filters{background:var(--bg)}
+body.dark-mode .col-hdr{background:var(--bg)}
+
 html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--surf);color:var(--t1)}
 
 /* ━━━ LOGIN ━━━ */
@@ -1901,11 +1928,11 @@ function renderEmptyRow(){
     <div></div>
     <div class="wk-st">
       <span class="wk">26W17</span>
-      <span class="st bg-info"><span class="pip"></span>Info</span>
+      <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
     <div class="pc"><div class="pi">paste·drop</div></div>
     <div class="pc"><div class="pi">paste·drop</div></div>
-    <div class="nt"><input id="newInp" placeholder="+ Type new task and press Enter…"></div>
+    <div class="nt"><input id="newInp" placeholder="${T('placeholder.newtask')}"></div>
   </div>`;
 }
 
@@ -1914,11 +1941,11 @@ function renderEmptyRowForProject(projId){
     <div></div>
     <div class="wk-st">
       <span class="wk">26W17</span>
-      <span class="st bg-info"><span class="pip"></span>Info</span>
+      <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
     <div class="pc"><div class="pi">paste·drop</div></div>
     <div class="pc"><div class="pi">paste·drop</div></div>
-    <div class="nt"><input class="newInpProj" data-proj="${projId}" placeholder="+ Type task and press Enter…"></div>
+    <div class="nt"><input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"></div>
   </div>`;
 }
 
@@ -1931,7 +1958,7 @@ function renderZero(){
       <div></div>
       <div class="wk-st">
         <span class="wk">26W17</span>
-        <span class="st bg-info"><span class="pip"></span>Info</span>
+        <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
       </div>
       <div class="pc"><div class="pi">paste·drop</div></div>
       <div class="pc"><div class="pi">paste·drop</div></div>
@@ -2550,6 +2577,7 @@ document.addEventListener('drop', e => {
   if(presPic && presentTask){
     e.preventDefault();
     presPic.style.outline = '';
+    if(pasteMode) exitPasteMode();  // prevent double-add via subsequent click handler
     const r = new FileReader();
     r.onload = ev => addShotToPresentTask(ev.target.result);
     r.readAsDataURL(file);
@@ -3001,9 +3029,18 @@ function updateBulkBar(){
 function bulkSetStatus(s){
   if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
   let n = 0;
+  const fireWebhook = (s === 1 || s === 5);
   for(const id of selectedTaskIds){
     const t = TASKS.find(x => x.id === id);
-    if(t){ t.s = s; n++; }
+    if(t){
+      const wasS = t.s;
+      t.s = s;
+      n++;
+      // Consistent with single-task changeStatus: notify on transition to Done(1)/Problem(5)
+      if(fireWebhook && s !== wasS && typeof notifyWebhook === 'function'){
+        notifyWebhook(t, s);
+      }
+    }
   }
   toast(`✓ ${n} task${n===1?'':'s'} → ${STATUSES[s].l}`);
   selectedTaskIds.clear();
@@ -3022,6 +3059,7 @@ function bulkDelete(){
   selectedTaskIds.clear();
   selectMode = false;
   document.body.classList.remove('select-mode');
+  if(typeof saveTimers === 'function') saveTimers();  // clean up orphaned timer entries
   render();
   updateHeader();
 }
@@ -3108,6 +3146,12 @@ function captureShortcutHandler(e){
   if(isAlt)   parts.push('alt');
   parts.push(key.toLowerCase());
   const newCombo = parts.join('+');
+  // Reserved combos that the OS / WebView intercept before JS handlers
+  const RESERVED = ['mod+w','mod+q','mod+r','mod+shift+r','mod+shift+w','mod+shift+i','mod+t'];
+  if(RESERVED.includes(newCombo)){
+    toast(`'${newCombo}' is reserved by the OS/WebView. Pick another.`, 2500);
+    return;
+  }
   // Conflict check
   for(const [a, c] of Object.entries(SHORTCUTS)){
     if(a !== _capturingFor && c === newCombo){
@@ -3149,27 +3193,17 @@ async function notifyWebhook(task, statusId){
       ts: Math.floor(Date.now() / 1000),
     }],
   };
+  // Slack incoming webhooks reject CORS preflight but accept no-cors POSTs.
+  // Single fire-and-forget — don't double-fire (was a bug pre-v0.1.24).
   try {
-    const res = await fetch(url, {
+    await fetch(url, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      mode: 'cors',
     });
-    if(!res.ok) console.warn('[Webhook] HTTP', res.status);
   } catch(e){
-    // Slack incoming webhooks don't expose CORS headers but accept the POST anyway —
-    // browser blocks reading response, but Slack still receives. fetch with no-cors is OK.
-    try {
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        mode: 'no-cors',
-      });
-    } catch(e2){
-      console.error('[Webhook] failed:', e2);
-    }
+    console.error('[Webhook] failed:', e);
   }
 }
 
@@ -3193,12 +3227,18 @@ function toggleTimer(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   if(t.timerStart){
-    // Stop timer: add elapsed minutes to total
+    // Stop timer
     const elapsedMs = Date.now() - t.timerStart;
-    const elapsedMin = Math.max(1, Math.floor(elapsedMs / 60000));  // round up to 1 if < 1 min
-    t.timeMin = (t.timeMin || 0) + elapsedMin;
     delete t.timerStart;
-    // If exactly one shorter session (< 1 min), still count it as 1 min
+    if(elapsedMs < 30000){
+      // Under 30s — discard (likely accidental click)
+      saveTimers();
+      render();
+      toast('⏱ Stopped — too short, discarded (under 30s)', 2200);
+      return;
+    }
+    const elapsedMin = Math.max(1, Math.round(elapsedMs / 60000));
+    t.timeMin = (t.timeMin || 0) + elapsedMin;
     toast(`⏱ Stopped — added ${formatTime(elapsedMin)} (total ${formatTime(t.timeMin)})`, 2200);
   } else {
     // Start timer
@@ -3225,28 +3265,44 @@ function loadTimers(){
     const raw = localStorage.getItem('eb_timers');
     if(!raw) return;
     const data = JSON.parse(raw);
+    let autoStopped = 0;
+    const IDLE_LIMIT_MS = 8 * 3600 * 1000;  // 8h
     for(const t of TASKS){
       if(data[t.id]){
         if(data[t.id].timeMin) t.timeMin = data[t.id].timeMin;
-        if(data[t.id].timerStart) t.timerStart = data[t.id].timerStart;
+        if(data[t.id].timerStart){
+          const elapsed = Date.now() - data[t.id].timerStart;
+          if(elapsed > IDLE_LIMIT_MS){
+            // Idle guard: assume user closed app, auto-drop the running timer
+            autoStopped++;
+          } else {
+            t.timerStart = data[t.id].timerStart;
+          }
+        }
       }
+    }
+    if(autoStopped > 0){
+      saveTimers();
+      setTimeout(() => toast(`⏱ ${autoStopped} idle timer${autoStopped===1?'':'s'} auto-stopped (>8h)`, 3000), 1500);
     }
   } catch(_){}
 }
 
 // Re-render every 30s if any timer is running
 setInterval(() => {
-  if(TASKS.some(t => t.timerStart)){
-    if(currentSection === 'projects' && document.getElementById('list')){
-      // Don't full re-render — just update the time-ic labels
-      for(const t of TASKS){
-        if(!t.timerStart) continue;
-        const ic = document.querySelector(`.row[data-task-id="${t.id}"] .time-ic`);
-        if(!ic) continue;
-        const total = (t.timeMin || 0) + Math.floor((Date.now() - t.timerStart) / 60000);
-        ic.innerHTML = `${formatTime(total)} · stop`;
-      }
-    }
+  // Guard: skip if app not visible (login screen, hidden window, etc.)
+  const app = document.getElementById('APP');
+  if(!app || !app.classList.contains('on')) return;
+  if(currentSection !== 'projects') return;
+  if(!TASKS.some(t => t.timerStart)) return;
+
+  // Don't full re-render — just update the time-ic labels
+  for(const t of TASKS){
+    if(!t.timerStart) continue;
+    const ic = document.querySelector(`.row[data-task-id="${t.id}"] .time-ic`);
+    if(!ic) continue;
+    const total = (t.timeMin || 0) + Math.floor((Date.now() - t.timerStart) / 60000);
+    ic.innerHTML = `${formatTime(total)} · stop`;
   }
 }, 30000);
 
@@ -3315,6 +3371,8 @@ function handleCSVFile(event){
 function importTasksFromCSV(text){
   const rows = parseCSV(text);
   if(rows.length < 2) throw new Error('CSV must have header + at least 1 row');
+  if(!PROJECTS.length) throw new Error('Create a project first before importing tasks');
+  if(!currentProject) currentProject = PROJECTS[0].id;
   const header = rows[0].map(h => String(h||'').trim().toLowerCase());
   const idx = {
     title:    header.indexOf('title'),
@@ -3368,13 +3426,38 @@ function hexToRgb(hex){
   return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
 }
 
+// Downscale large screenshots before embedding into PDF (prevents OOM on 4K shots)
+function downscaleDataUrl(dataUrl, maxWidth = 1200, jpegQuality = 0.85){
+  return new Promise((resolve) => {
+    if(!dataUrl) return resolve(null);
+    const img = new Image();
+    img.onload = () => {
+      if(img.width <= maxWidth){
+        return resolve(dataUrl);  // already small enough
+      }
+      const ratio = maxWidth / img.width;
+      const canvas = document.createElement('canvas');
+      canvas.width = maxWidth;
+      canvas.height = Math.round(img.height * ratio);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      try {
+        resolve(canvas.toDataURL('image/jpeg', jpegQuality));
+      } catch(e){
+        resolve(dataUrl);  // fallback
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 async function exportPDF(){
   if(!window.jspdf?.jsPDF){
     toast('PDF library failed to load (offline?)');
     return;
   }
   const { jsPDF } = window.jspdf;
-  toast('Generating PDF…', 3000);
 
   // Filter to current project
   const projId = (typeof currentProject !== 'undefined' && currentProject) ? currentProject : null;
@@ -3391,6 +3474,12 @@ async function exportPDF(){
       tasks = tasks.filter(t => t.w === cur);
     }
   }
+
+  if(tasks.length === 0){
+    toast('No tasks to export (current filter excludes everything)', 2500);
+    return;
+  }
+  toast(`Generating PDF (${tasks.length} task${tasks.length===1?'':'s'})…`, 3000);
 
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const pageW = doc.internal.pageSize.getWidth();    // 210
@@ -3501,11 +3590,13 @@ async function renderTaskPDFPage(doc, t, ctx){
   const imgW = (pageW - 2 * margin - imgGap) / 2;
   const imgH = 75;
 
-  const tryAddImg = (data, x, y, label) => {
+  const tryAddImg = async (data, x, y, label) => {
     if(!data) return;
     try {
-      const fmt = data.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
-      doc.addImage(data, fmt, x, y, imgW, imgH, undefined, 'FAST');
+      // Downscale to max 1200px wide before embedding to prevent OOM with 4K shots
+      const small = await downscaleDataUrl(data, 1200);
+      const fmt = small.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+      doc.addImage(small, fmt, x, y, imgW, imgH, undefined, 'FAST');
       doc.setFontSize(7);
       doc.setTextColor(120);
       doc.setFont(undefined, 'bold');
@@ -3515,22 +3606,21 @@ async function renderTaskPDFPage(doc, t, ctx){
     } catch(e){ console.warn('addImage failed:', label, e.message); }
   };
 
-  if(t.shot1) tryAddImg(t.shot1, margin, cursorY, 'BEFORE');
-  if(t.shot2) tryAddImg(t.shot2, margin + imgW + imgGap, cursorY, 'AFTER');
+  if(t.shot1) await tryAddImg(t.shot1, margin, cursorY, 'BEFORE');
+  if(t.shot2) await tryAddImg(t.shot2, margin + imgW + imgGap, cursorY, 'AFTER');
   if(t.shot1 || t.shot2) cursorY += imgH + 8;
 
   // Extra screenshots from t.shots[]
   if(Array.isArray(t.shots) && t.shots.length > 0){
     for(let i = 0; i < t.shots.length; i++){
-      // 2 per row
+      // 2 per row, check page space before EACH image (not just col=0)
       const col = i % 2;
       const x = margin + col * (imgW + imgGap);
-      // new row = check page space
-      if(col === 0 && cursorY + imgH > pageH - margin - 20){
+      if(cursorY + imgH > pageH - margin - 20){
         doc.addPage();
         cursorY = margin;
       }
-      tryAddImg(t.shots[i], x, cursorY, `SHOT ${i + 3}`);
+      await tryAddImg(t.shots[i], x, cursorY, `SHOT ${i + 3}`);
       if(col === 1 || i === t.shots.length - 1) cursorY += imgH + 8;
     }
   }
