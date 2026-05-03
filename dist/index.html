@@ -315,6 +315,19 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--s
 }
 .row .nt-mt .chat-ic:hover{color:var(--acc);background:rgba(14,165,233,.08)}
 
+/* P2-6 Time tracking */
+.row .nt-mt .time-ic{
+  display:inline-flex;align-items:center;gap:3px;cursor:pointer;
+  padding:2px 6px;border-radius:4px;transition:.12s;color:var(--t4)
+}
+.row .nt-mt .time-ic:hover{color:var(--acc);background:rgba(14,165,233,.08)}
+.row .nt-mt .time-ic.running{color:#EF4444}
+.row .nt-mt .time-ic.running::before{
+  content:'';width:6px;height:6px;background:#EF4444;border-radius:50%;
+  animation:tk-pulse 1.4s ease-in-out infinite
+}
+@keyframes tk-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
 .row .resize-h{
   position:absolute;left:0;right:0;bottom:-3px;height:6px;cursor:ns-resize;z-index:5;
   display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s
@@ -1417,6 +1430,8 @@ function logout(){
 function showApp(){
   document.getElementById('LP').classList.add('hide');
   document.getElementById('APP').classList.add('on');
+  // P2-6: restore time tracking state from localStorage
+  if(typeof loadTimers === 'function') loadTimers();
   if(PROJECTS.length === 0){
     // No projects — show empty
     document.getElementById('list').innerHTML = `<div class="es-zero"><div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div><div class="es-zero-h">No projects yet</div><div class="es-zero-s">Create your first project to start</div><button class="dbtn" style="max-width:240px;margin:0 auto" onclick="openNewProjModal()">+ Create project</button></div>`;
@@ -1711,6 +1726,12 @@ function renderRow(t){
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
   const slideshowLabel = totalShots > 2 ? `▶ slideshow · ${totalShots}` : '▶ slideshow';
+  // P2-6 timer state
+  const isTimerRunning = !!t.timerStart;
+  const totalMin = (t.timeMin || 0) + (isTimerRunning ? Math.floor((Date.now() - t.timerStart) / 60000) : 0);
+  const timerLabel = isTimerRunning
+    ? `${formatTime(totalMin)} · stop`
+    : (totalMin > 0 ? `⏱ ${formatTime(totalMin)}` : '⏱ start');
   return `<div class="row" data-task-id="${t.id}" data-s="${t.s}" draggable="true" style="min-height:${height}px"
     ondragstart="onDragStart(event,'${t.id}')"
     ondragover="onDragOver(event)"
@@ -1732,6 +1753,9 @@ function renderRow(t){
     <div class="nt">
       <div class="nt-t" contenteditable="true" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.n}</div>
       <div class="nt-mt">
+        <span class="time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">
+          ${timerLabel}
+        </span>
         <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode (chat + add more screenshots inside)">
           ${slideshowLabel}
         </span>
@@ -2789,6 +2813,75 @@ function captureScreenshot(){
   }
 }
 
+// ━━━ P2-6 · TIME TRACKING ━━━
+function formatTime(min){
+  if(!min || min < 1) return '0m';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function toggleTimer(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if(t.timerStart){
+    // Stop timer: add elapsed minutes to total
+    const elapsedMs = Date.now() - t.timerStart;
+    const elapsedMin = Math.max(1, Math.floor(elapsedMs / 60000));  // round up to 1 if < 1 min
+    t.timeMin = (t.timeMin || 0) + elapsedMin;
+    delete t.timerStart;
+    // If exactly one shorter session (< 1 min), still count it as 1 min
+    toast(`⏱ Stopped — added ${formatTime(elapsedMin)} (total ${formatTime(t.timeMin)})`, 2200);
+  } else {
+    // Start timer
+    t.timerStart = Date.now();
+    toast('⏱ Timer started — click again to stop', 1800);
+  }
+  saveTimers();
+  render();
+}
+
+function saveTimers(){
+  // Persist time tracking to localStorage (separate from full task store)
+  const data = {};
+  for(const t of TASKS){
+    if(t.timeMin || t.timerStart){
+      data[t.id] = { timeMin: t.timeMin || 0, timerStart: t.timerStart || null };
+    }
+  }
+  try { localStorage.setItem('eb_timers', JSON.stringify(data)); } catch(_){}
+}
+
+function loadTimers(){
+  try {
+    const raw = localStorage.getItem('eb_timers');
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    for(const t of TASKS){
+      if(data[t.id]){
+        if(data[t.id].timeMin) t.timeMin = data[t.id].timeMin;
+        if(data[t.id].timerStart) t.timerStart = data[t.id].timerStart;
+      }
+    }
+  } catch(_){}
+}
+
+// Re-render every 30s if any timer is running
+setInterval(() => {
+  if(TASKS.some(t => t.timerStart)){
+    if(currentSection === 'projects' && document.getElementById('list')){
+      // Don't full re-render — just update the time-ic labels
+      for(const t of TASKS){
+        if(!t.timerStart) continue;
+        const ic = document.querySelector(`.row[data-task-id="${t.id}"] .time-ic`);
+        if(!ic) continue;
+        const total = (t.timeMin || 0) + Math.floor((Date.now() - t.timerStart) / 60000);
+        ic.innerHTML = `${formatTime(total)} · stop`;
+      }
+    }
+  }
+}, 30000);
+
 // ━━━ P2-5 · CSV IMPORT ━━━
 // Expected columns (header required): title, project, status, week, notes
 // project = code (CL-12) or name; if missing → currentProject
@@ -3005,11 +3098,12 @@ async function renderTaskPDFPage(doc, t, ctx){
   doc.setFillColor(...hexToRgb(st.c));
   doc.rect(0, 0, 4, pageH, 'F');
 
-  // Top breadcrumb
+  // Top breadcrumb (with time tracked if any)
   doc.setFontSize(8);
   doc.setTextColor(120);
   doc.setFont(undefined, 'normal');
-  const crumbs = [proj?.code || '', t.w || '', `Task ${idx + 1}/${total}`].filter(Boolean).join(' · ');
+  const timeStr = (t.timeMin || 0) > 0 ? `⏱ ${formatTime(t.timeMin)}` : '';
+  const crumbs = [proj?.code || '', t.w || '', `Task ${idx + 1}/${total}`, timeStr].filter(Boolean).join(' · ');
   doc.text(crumbs, margin, 12);
 
   // Title
