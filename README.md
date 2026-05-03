@@ -2,9 +2,10 @@
 
 Нативное desktop-приложение на Tauri 2 (Rust backend + HTML/CSS/JS frontend) для трекинга инженерных задач со скриншотами и аннотациями.
 
-**Текущий релиз:** [v0.1.21](https://github.com/mag8888/engiboard-desktop/releases/tag/v0.1.21)
+**Текущий релиз:** [v0.1.23](https://github.com/mag8888/engiboard-desktop/releases/tag/v0.1.23)
 **Платформы:** macOS Apple Silicon · macOS Intel · Windows x64
-**См. также:** [CHANGELOG.md](./CHANGELOG.md) · [supabase/ARCHITECTURE_DECISION.md](./supabase/ARCHITECTURE_DECISION.md)
+
+📖 [User Guide](./docs/USER_GUIDE.md) · 📋 [CHANGELOG](./CHANGELOG.md) · 🔒 [Privacy](./docs/PRIVACY.md) · 📜 [Terms](./docs/TERMS.md) · 🏗 [Architecture decision](./supabase/ARCHITECTURE_DECISION.md)
 
 ## Быстрый старт (одна команда)
 
