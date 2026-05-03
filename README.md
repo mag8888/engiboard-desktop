@@ -1,28 +1,72 @@
-# EngiBoard Desktop — macOS
+# EngiBoard Desktop
 
-Нативное macOS приложение на Tauri. Обёртка над HTML/JS интерфейсом с нативными возможностями.
+Нативное desktop-приложение на Tauri 2 (Rust backend + HTML/CSS/JS frontend) для трекинга инженерных задач со скриншотами и аннотациями.
 
-## Быстрый старт (1 команда)
+**Текущий релиз:** [v0.1.21](https://github.com/mag8888/engiboard-desktop/releases/tag/v0.1.21)
+**Платформы:** macOS Apple Silicon · macOS Intel · Windows x64
+**См. также:** [CHANGELOG.md](./CHANGELOG.md) · [supabase/ARCHITECTURE_DECISION.md](./supabase/ARCHITECTURE_DECISION.md)
+
+## Быстрый старт (одна команда)
 
 ```bash
 cd engiboard-desktop
 bash setup.sh
 ```
 
-Скрипт сам установит Rust, Tauri CLI и запустит приложение.
+Скрипт устанавливает Rust + Tauri CLI и запускает приложение.
 
 ---
 
-## Что умеет desktop-версия
+## Скачать готовый билд
 
-| Функция | Описание |
+[Releases](https://github.com/mag8888/engiboard-desktop/releases) — 4 артефакта на каждый тег:
+- `EngiBoard_X.Y.Z_aarch64.dmg` — Mac Apple Silicon
+- `EngiBoard_X.Y.Z_x64.dmg` — Mac Intel
+- `EngiBoard_X.Y.Z_x64-setup.exe` — Windows installer
+- `EngiBoard_X.Y.Z_x64_en-US.msi` — Windows MSI
+
+---
+
+## Возможности (v0.1.21)
+
+### Захват и работа со скриншотами
+| | |
 |---|---|
-| **⌘⇧4** | Захват скриншота (глобальный хоткей, работает когда app свёрнут) |
-| **⌘⇧E** | Показать / скрыть EngiBoard |
-| **⌘⇧A** | Открыть редактор аннотаций |
-| **System Tray** | Иконка в меню-баре, всегда доступен |
-| **Ctrl+V** | Вставить скриншот из буфера в задачу |
-| **macOS titlebar** | Нативный overlay с traffic lights |
+| **⌘⇧G** | Глобальный хоткей — захват области экрана |
+| **⌘⇧E** | Показать / скрыть приложение |
+| **⌘⇧A** | Редактор аннотаций |
+| **Ctrl+V / drag-drop** | Вставка / drag из Finder в слот скриншота |
+| **+ 📷 Add** в slideshow | Добавить произвольное число screenshots в задачу |
+| **Annotation editor** | arrow / rect / pen / text / blur / highlight tools |
+
+### Задачи
+- 8 статусов с цветами (Info / Done / Not Relevant / Review / Info Required / Problem / In Progress / Upcoming)
+- Группировка по проектам со сворачиванием (`⊟ Collapse all` / `⊞ Expand all`)
+- Фильтры (All / Problems / In progress / Done / This week)
+- Поиск по названиям задач
+- Drag-to-reorder + resize высоты
+- Inline editing (contenteditable)
+- Per-task таймер `⏱ Xh Ym` с pulsing-индикатором
+
+### Чат и комментарии
+- Чат-панель в slideshow (lightbox с pin-комментариями)
+- Coordinate-based pins на скриншотах
+- Real-time чат через Supabase — будущее (Sprint S4, заблокировано S2)
+
+### Презентация / экспорт
+- ▶ Slideshow per task (multi-screenshot, навигация ←→)
+- 📄 PDF export (cover + per-task pages, before/after, comments)
+- 📥 CSV import (header-driven bulk task creation)
+- Slack webhook на статус Done/Problem (настраивается в Profile)
+
+### Кастомизация
+- 🌙 Dark mode (`⌘⇧T` / sidebar toggle / prefers-color-scheme)
+- 🌐 RU / EN локализация (auto-detect из navigator.language)
+- ✏️ Customizable shortcuts (toggle sidebar, search, new task, dark mode)
+
+### Auth
+- Google OAuth через Supabase + deep-link `engiboard://oauth/callback`
+- Demo accounts для быстрого старта
 
 ---
 

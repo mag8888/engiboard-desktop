@@ -1284,9 +1284,11 @@ for(let i = 0; i < STATUSES.length; i++){
   if(I18N[currentLang] && I18N[currentLang]['st.' + i]) STATUSES[i].l = I18N[currentLang]['st.' + i];
 }
 
-// ━━━ SUPABASE CLIENT (S2 P0-3) ━━━
+// ━━━ SUPABASE CLIENT (S2 P0-3, deferred — see supabase/ARCHITECTURE_DECISION.md) ━━━
+// Client initialized for future sync; runtime falls back to localStorage if any call fails.
 const SUPABASE_URL = 'https://gselxucvcomqlfyogidz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzZWx4dWN2Y29tcWxmeW9naWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTIzMDMsImV4cCI6MjA5MjA4ODMwM30.xemdsJEvQ2f1vkoPVLtPk3d7emkzDZXfx-GaAyRAGyQ';
+// Modern publishable key (rls-protected, browser-safe). Legacy anon JWT also accepted server-side.
+const SUPABASE_ANON_KEY = 'sb_publishable_aQQe78hYSZThsOSlJ9e7eQ_BDO5_bWo';
 const sb = (window.supabase && typeof window.supabase.createClient === 'function')
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, storage: localStorage, storageKey: 'eb_supabase_session' }
