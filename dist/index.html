@@ -5,6 +5,7 @@
 <title>EngiBoard</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -1046,6 +1047,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <span style="flex:1"></span>
       <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊟ Collapse all</button>
       <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊞ Expand all</button>
+      <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">📄 PDF</button>
       <input class="search" id="searchInp" placeholder="Search tasks…">
     </div>
 
@@ -2729,6 +2731,210 @@ function captureScreenshot(){
   } else {
     toast('Tauri invoke not available');
   }
+}
+
+// ━━━ P1-5 · PDF EXPORT ━━━
+function hexToRgb(hex){
+  if(!hex || hex[0] !== '#') return [128,128,128];
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
+}
+
+async function exportPDF(){
+  if(!window.jspdf?.jsPDF){
+    toast('PDF library failed to load (offline?)');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  toast('Generating PDF…', 3000);
+
+  // Filter to current project
+  const projId = (typeof currentProject !== 'undefined' && currentProject) ? currentProject : null;
+  const proj = projId ? PROJECTS.find(p => p.id === projId) : null;
+  let tasks = projId ? TASKS.filter(t => t.proj === projId) : [...TASKS];
+  // Honor active status filter chip
+  const activeChip = document.querySelector('.chip.on[data-f]');
+  if(activeChip){
+    const f = activeChip.dataset.f;
+    const filterMap = { problem:5, progress:6, done:1 };
+    if(filterMap[f] !== undefined) tasks = tasks.filter(t => t.s === filterMap[f]);
+    if(f === 'thisweek'){
+      const cur = (TASKS[0] && TASKS[0].w) || '26W17';
+      tasks = tasks.filter(t => t.w === cur);
+    }
+  }
+
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const pageW = doc.internal.pageSize.getWidth();    // 210
+  const pageH = doc.internal.pageSize.getHeight();   // 297
+  const margin = 15;
+
+  // ─── Cover page ───
+  doc.setFillColor(14, 165, 233);
+  doc.rect(0, 0, pageW, 6, 'F');
+
+  doc.setFontSize(22);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont(undefined, 'bold');
+  doc.text('EngiBoard Report', margin, 30);
+
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(100, 116, 139);
+  const projTitle = proj ? `${proj.name}${proj.code ? ' · ' + proj.code : ''}` : 'All Projects';
+  doc.text(projTitle, margin, 40);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 47);
+  doc.text(`Tasks in report: ${tasks.length}`, margin, 54);
+
+  // Stats by status
+  const counts = {};
+  STATUSES.forEach((s, i) => counts[i] = 0);
+  tasks.forEach(t => { counts[t.s] = (counts[t.s] || 0) + 1; });
+
+  doc.setFontSize(13);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(15, 23, 42);
+  doc.text('Status breakdown', margin, 70);
+
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  let y = 80;
+  STATUSES.forEach((s, i) => {
+    if(counts[i] > 0){
+      doc.setFillColor(...hexToRgb(s.c));
+      doc.circle(margin + 2.5, y - 1.5, 1.8, 'F');
+      doc.setTextColor(50);
+      doc.text(`${counts[i]} · ${s.l}`, margin + 8, y);
+      y += 6;
+    }
+  });
+
+  // Footer cover
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text(`engiboard.app · v${(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '0.1.x')}`, margin, pageH - 10);
+
+  // ─── Per-task pages ───
+  for(let idx = 0; idx < tasks.length; idx++){
+    const t = tasks[idx];
+    doc.addPage();
+    await renderTaskPDFPage(doc, t, { pageW, pageH, margin, idx, total: tasks.length });
+  }
+
+  // Save
+  const safeName = (proj?.code || proj?.name || 'all').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `engiboard_${safeName}_${date}.pdf`;
+  doc.save(filename);
+  toast(`✓ Exported ${tasks.length} task${tasks.length === 1 ? '' : 's'} → ${filename}`, 3000);
+}
+
+async function renderTaskPDFPage(doc, t, ctx){
+  const { pageW, pageH, margin, idx, total } = ctx;
+  const st = STATUSES[t.s] || STATUSES[0];
+  const proj = PROJECTS.find(p => p.id === t.proj);
+
+  // Left status bar
+  doc.setFillColor(...hexToRgb(st.c));
+  doc.rect(0, 0, 4, pageH, 'F');
+
+  // Top breadcrumb
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  doc.setFont(undefined, 'normal');
+  const crumbs = [proj?.code || '', t.w || '', `Task ${idx + 1}/${total}`].filter(Boolean).join(' · ');
+  doc.text(crumbs, margin, 12);
+
+  // Title
+  doc.setFontSize(15);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont(undefined, 'bold');
+  const titleW = pageW - 2 * margin - 50;
+  const titleLines = doc.splitTextToSize(t.n || '(no title)', titleW);
+  doc.text(titleLines, margin, 22);
+
+  // Status pill (top-right)
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  const stTxt = st.l;
+  const stTextW = doc.getTextWidth(stTxt);
+  const pillW = stTextW + 8;
+  const pillX = pageW - margin - pillW;
+  doc.setFillColor(...hexToRgb(st.c));
+  doc.roundedRect(pillX, 17, pillW, 7, 2, 2, 'F');
+  doc.setTextColor(255);
+  doc.text(stTxt, pillX + 4, 22);
+  doc.setTextColor(15, 23, 42);
+
+  // Image area
+  let cursorY = 22 + Math.max(0, (titleLines.length - 1)) * 6 + 10;
+  const imgGap = 5;
+  const imgW = (pageW - 2 * margin - imgGap) / 2;
+  const imgH = 75;
+
+  const tryAddImg = (data, x, y, label) => {
+    if(!data) return;
+    try {
+      const fmt = data.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+      doc.addImage(data, fmt, x, y, imgW, imgH, undefined, 'FAST');
+      doc.setFontSize(7);
+      doc.setTextColor(120);
+      doc.setFont(undefined, 'bold');
+      doc.text(label, x + 2, y + imgH - 2);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(15, 23, 42);
+    } catch(e){ console.warn('addImage failed:', label, e.message); }
+  };
+
+  if(t.shot1) tryAddImg(t.shot1, margin, cursorY, 'BEFORE');
+  if(t.shot2) tryAddImg(t.shot2, margin + imgW + imgGap, cursorY, 'AFTER');
+  if(t.shot1 || t.shot2) cursorY += imgH + 8;
+
+  // Extra screenshots from t.shots[]
+  if(Array.isArray(t.shots) && t.shots.length > 0){
+    for(let i = 0; i < t.shots.length; i++){
+      // 2 per row
+      const col = i % 2;
+      const x = margin + col * (imgW + imgGap);
+      // new row = check page space
+      if(col === 0 && cursorY + imgH > pageH - margin - 20){
+        doc.addPage();
+        cursorY = margin;
+      }
+      tryAddImg(t.shots[i], x, cursorY, `SHOT ${i + 3}`);
+      if(col === 1 || i === t.shots.length - 1) cursorY += imgH + 8;
+    }
+  }
+
+  // Comments
+  if(Array.isArray(t.chat) && t.chat.length > 0){
+    if(cursorY > pageH - margin - 30){
+      doc.addPage();
+      cursorY = margin;
+    }
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Comments (${t.chat.length})`, margin, cursorY);
+    cursorY += 6;
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    for(const m of t.chat){
+      const lines = doc.splitTextToSize(`[${m.ts || ''}] ${m.a || '?'}: ${m.text || ''}`, pageW - 2 * margin);
+      const blockH = lines.length * 4.5 + 2;
+      if(cursorY + blockH > pageH - margin){
+        doc.addPage();
+        cursorY = margin;
+      }
+      doc.setTextColor(60);
+      doc.text(lines, margin, cursorY);
+      cursorY += blockH;
+    }
+  }
+
+  // Page footer
+  doc.setFontSize(7);
+  doc.setTextColor(160);
+  doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageW - margin, pageH - 8);
 }
 
 // ━━━ TOAST ━━━
