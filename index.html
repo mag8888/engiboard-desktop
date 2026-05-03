@@ -1071,6 +1071,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊟ Collapse all</button>
       <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊞ Expand all</button>
       <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">📄 PDF</button>
+      <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV (title,project,status,week,notes)" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">📥 CSV</button>
+      <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
       <input class="search" id="searchInp" placeholder="Search tasks…">
     </div>
 
@@ -2785,6 +2787,118 @@ function captureScreenshot(){
   } else {
     toast('Tauri invoke not available');
   }
+}
+
+// ━━━ P2-5 · CSV IMPORT ━━━
+// Expected columns (header required): title, project, status, week, notes
+// project = code (CL-12) or name; if missing → currentProject
+// status  = info/done/not_relevant/review/info_required/problem/in_progress/upcoming OR 0..7
+// week    = '26W17' format; if missing → current default
+function parseCSV(text){
+  // Tolerant CSV parser: handles quoted fields with commas + escaped quotes
+  const rows = [];
+  let row = []; let cur = ''; let inQ = false; let i = 0;
+  while(i < text.length){
+    const c = text[i];
+    if(inQ){
+      if(c === '"' && text[i+1] === '"'){ cur += '"'; i += 2; continue; }
+      if(c === '"'){ inQ = false; i++; continue; }
+      cur += c; i++; continue;
+    }
+    if(c === '"'){ inQ = true; i++; continue; }
+    if(c === ','){ row.push(cur); cur = ''; i++; continue; }
+    if(c === '\r'){ i++; continue; }
+    if(c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; i++; continue; }
+    cur += c; i++;
+  }
+  if(cur.length || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r => r.length > 0 && !(r.length === 1 && !r[0].trim()));
+}
+
+const STATUS_NAME_TO_INDEX = {
+  info:0, '0':0,
+  done:1, '1':1,
+  not_relevant:2, 'not relevant':2, 'not':2, '2':2,
+  review:3, '3':3,
+  info_required:4, 'info required':4, 'req':4, '4':4,
+  problem:5, '5':5,
+  in_progress:6, 'in progress':6, 'progress':6, '6':6,
+  upcoming:7, '7':7,
+};
+function statusToIndex(raw){
+  const k = String(raw||'').trim().toLowerCase();
+  return STATUS_NAME_TO_INDEX[k] !== undefined ? STATUS_NAME_TO_INDEX[k] : 0;
+}
+
+function handleCSVFile(event){
+  const file = event.target.files?.[0];
+  if(!file){ return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const text = String(e.target.result || '');
+      const result = importTasksFromCSV(text);
+      toast(`✓ Imported ${result.added} task${result.added === 1 ? '' : 's'}${result.skipped ? ` (${result.skipped} skipped)` : ''}`, 3000);
+      render();
+      updateHeader();
+    } catch(err){
+      console.error('CSV import error:', err);
+      toast('CSV import failed: ' + err.message, 4000);
+    }
+    event.target.value = '';  // reset so same file can be re-imported
+  };
+  reader.onerror = () => toast('Failed to read file', 3000);
+  reader.readAsText(file);
+}
+
+function importTasksFromCSV(text){
+  const rows = parseCSV(text);
+  if(rows.length < 2) throw new Error('CSV must have header + at least 1 row');
+  const header = rows[0].map(h => String(h||'').trim().toLowerCase());
+  const idx = {
+    title:    header.indexOf('title'),
+    project:  header.indexOf('project'),
+    status:   header.indexOf('status'),
+    week:     header.indexOf('week'),
+    notes:    header.indexOf('notes'),
+  };
+  if(idx.title === -1) throw new Error('Required column: title');
+
+  const projByCode = {};
+  const projByName = {};
+  PROJECTS.forEach(p => {
+    if(p.code) projByCode[p.code.toLowerCase()] = p.id;
+    if(p.name) projByName[p.name.toLowerCase()] = p.id;
+  });
+
+  const defaultWeek = (TASKS[0] && TASKS[0].w) || '26W17';
+  let added = 0; let skipped = 0;
+
+  for(let r = 1; r < rows.length; r++){
+    const row = rows[r];
+    const title = (row[idx.title] || '').trim();
+    if(!title){ skipped++; continue; }
+
+    let projId = currentProject;
+    if(idx.project >= 0){
+      const v = (row[idx.project] || '').trim().toLowerCase();
+      if(v) projId = projByCode[v] || projByName[v] || projId;
+    }
+    const status = idx.status >= 0 ? statusToIndex(row[idx.status]) : 0;
+    const week = idx.week >= 0 ? (row[idx.week] || defaultWeek).trim() : defaultWeek;
+    const notes = idx.notes >= 0 ? (row[idx.notes] || '').trim() : '';
+
+    TASKS.push({
+      id: 't' + Date.now() + '_' + r,
+      proj: projId,
+      w: week,
+      s: status,
+      n: title,
+      ...(notes ? { notes } : {}),
+    });
+    added++;
+  }
+  return { added, skipped, total: rows.length - 1 };
 }
 
 // ━━━ P1-5 · PDF EXPORT ━━━
