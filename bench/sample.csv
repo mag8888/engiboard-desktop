@@ -1,0 +1,13 @@
+title,project,status,week,notes
+"Replace V-belt on drive pulley",CL-12,done,26W17,torque verified at 42 Nm
+"Bearing #7 alignment at junction A3",CL-12,problem,26W17,suspect cracked outer race
+"Frame weld at A5 cracked — needs reinforcement",CL-12,review,26W17,confirmed by inspector
+"Conveyor outfeed raised 10mm",CL-12,done,26W18,product flow smooth
+"Servo motor #6 grinding under load",CL-12,problem,26W18,pull spare from inventory
+"Cable management trays — routing in progress",CL-12,progress,26W18,
+"Robotic arm calibration ±0.05mm",WS-3,done,26W17,all 6 axes within spec
+"Programming weld sequence variant B",WS-3,progress,26W18,3 of 12 sequences complete
+"Wire feeder jamming intermittently",WS-3,problem,26W18,every ~50 cycles
+"Gas regulator pressure drift",WS-3,info,26W18,monitoring
+"QC station 3 — torque calibration",QC-A,upcoming,26W19,scheduled Tuesday
+"QC fixture re-fab to spec rev 4",QC-A,info_required,26W18,need updated drawing from engineering
