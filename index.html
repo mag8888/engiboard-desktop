@@ -203,7 +203,7 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:#fff;co
 .search:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
 
 .col-hdr{
-  display:grid;grid-template-columns:24px 80px 130px 1fr 1fr 280px;
+  display:grid;grid-template-columns:24px 110px 1fr 1fr 280px;
   padding:8px 28px 8px 36px;background:#FAFBFC;border-bottom:1px solid var(--line);
   font-family:var(--mono);font-size:10px;color:var(--t3);
   text-transform:uppercase;letter-spacing:.1em;flex-shrink:0
@@ -220,7 +220,7 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:#fff;co
 
 /* Row */
 .row{
-  display:grid;grid-template-columns:24px 80px 130px 1fr 1fr 280px;
+  display:grid;grid-template-columns:24px 110px 1fr 1fr 280px;
   background:#fff;border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px
@@ -237,8 +237,10 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:#fff;co
 .row:hover .drag-handle{opacity:.6}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
 
-.row .wk{font-size:11px;color:var(--t4);font-family:var(--mono);letter-spacing:.04em;padding-left:6px}
-.row .st-wrap{position:relative;padding-left:4px}
+.wk-st{display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding-left:6px;min-width:0}
+.row .wk{font-size:9px;color:var(--t4);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;line-height:1;padding:0}
+.row .st-wrap{position:relative}
+.col-hdr .wk-lbl{font-size:9px;color:var(--t4);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;line-height:1;margin-bottom:2px}
 .row .st{
   display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;
   width:fit-content;padding:4px 22px 4px 10px;border-radius:20px;cursor:pointer;
@@ -1011,7 +1013,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     </div>
 
     <div class="col-hdr">
-      <div></div><div>Week</div><div>Status</div><div>Pic Before</div><div>Pic After</div><div>Notes</div>
+      <div></div><div>Status / Wk</div><div>Pic Before</div><div>Pic After</div><div>Notes</div>
     </div>
 
     <div class="list" id="list"></div>
@@ -1520,11 +1522,13 @@ function renderRow(t){
     ondragend="onDragEnd(event)"
     onclick="onRowClick(event,'${t.id}')">
     <div class="drag-handle">⋮⋮</div>
-    <span class="wk">${t.w}</span>
-    <div class="st-wrap">
-      <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
-        <span class="pip"></span>${st.l}
-      </span>
+    <div class="wk-st">
+      <span class="wk">${t.w}</span>
+      <div class="st-wrap">
+        <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
+          <span class="pip"></span>${st.l}
+        </span>
+      </div>
     </div>
     <div class="pc">${piBefore}</div>
     <div class="pc">${piAfter}</div>
@@ -1556,8 +1560,10 @@ function renderPic(t, slot){
 function renderEmptyRow(){
   return `<div class="row empty" data-task-id="new" style="min-height:80px">
     <div></div>
-    <span class="wk">26W17</span>
-    <span class="st bg-info"><span class="pip"></span>Info</span>
+    <div class="wk-st">
+      <span class="wk">26W17</span>
+      <span class="st bg-info"><span class="pip"></span>Info</span>
+    </div>
     <div class="pc"><div class="pi">paste·drop</div></div>
     <div class="pc"><div class="pi">paste·drop</div></div>
     <div class="nt"><input id="newInp" placeholder="+ Type new task and press Enter…"></div>
@@ -1567,8 +1573,10 @@ function renderEmptyRow(){
 function renderEmptyRowForProject(projId){
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:60px">
     <div></div>
-    <span class="wk">26W17</span>
-    <span class="st bg-info"><span class="pip"></span>Info</span>
+    <div class="wk-st">
+      <span class="wk">26W17</span>
+      <span class="st bg-info"><span class="pip"></span>Info</span>
+    </div>
     <div class="pc"><div class="pi">paste·drop</div></div>
     <div class="pc"><div class="pi">paste·drop</div></div>
     <div class="nt"><input class="newInpProj" data-proj="${projId}" placeholder="+ Type task and press Enter…"></div>
@@ -1581,8 +1589,11 @@ function renderZero(){
     <div class="es-zero-h">No tasks yet</div>
     <div class="es-zero-s">Type below to create your first task</div>
     <div class="row empty" style="max-width:1100px;margin:0 auto" data-task-id="new">
-      <div></div><span class="wk">26W17</span>
-      <span class="st bg-info"><span class="pip"></span>Info</span>
+      <div></div>
+      <div class="wk-st">
+        <span class="wk">26W17</span>
+        <span class="st bg-info"><span class="pip"></span>Info</span>
+      </div>
       <div class="pc"><div class="pi">paste·drop</div></div>
       <div class="pc"><div class="pi">paste·drop</div></div>
       <div class="nt"><input id="newInpZero" placeholder="What needs to be done?"
