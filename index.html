@@ -1569,6 +1569,8 @@ function renderRow(t){
   const height = t.h || 90;
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
+  const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
+  const slideshowLabel = totalShots > 2 ? `▶ slideshow · ${totalShots}` : '▶ slideshow';
   return `<div class="row" data-task-id="${t.id}" data-s="${t.s}" draggable="true" style="min-height:${height}px"
     ondragstart="onDragStart(event,'${t.id}')"
     ondragover="onDragOver(event)"
@@ -1590,8 +1592,8 @@ function renderRow(t){
     <div class="nt">
       <div class="nt-t" contenteditable="true" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.n}</div>
       <div class="nt-mt">
-        <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode (chat available inside)">
-          ▶ slideshow
+        <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode (chat + add more screenshots inside)">
+          ${slideshowLabel}
         </span>
       </div>
     </div>
@@ -1878,6 +1880,7 @@ function renderPresent(){
     <div class="pres-nav">
       <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
       <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
+      <button onclick="captureScreenshot()" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
       <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
     </div>`;
   // Auto-scroll chat to bottom
@@ -2202,6 +2205,15 @@ if(window.__TAURI__){
 
 document.addEventListener('click', e => {
   if(!pasteMode) return;
+  // 1) Click on slideshow image while presentation open → add to t.shots[] of current task
+  const presPic = e.target.closest('.pres-pic');
+  if(presPic && presentTask && pendingScreenshot){
+    e.preventDefault(); e.stopPropagation();
+    addShotToPresentTask(pendingScreenshot);
+    exitPasteMode();
+    return;
+  }
+  // 2) Click on a row .pi → fill shot1/shot2 (existing flow)
   const pi = e.target.closest('.pi[data-task-id]');
   if(!pi) return;
   e.preventDefault(); e.stopPropagation();
@@ -2215,22 +2227,49 @@ document.addEventListener('click', e => {
   }
 });
 
+// P1-2: add new screenshot to currently-presented task's shots[] array
+function addShotToPresentTask(dataUrl){
+  if(!presentTask || !dataUrl) return;
+  if(!Array.isArray(presentTask.shots)) presentTask.shots = [];
+  presentTask.shots.push(dataUrl);
+  // Update slideshow state + jump to new slide
+  presentSlides.push({label:`SHOT ${presentSlides.length+1}`, src:dataUrl});
+  presentIdx = presentSlides.length - 1;
+  renderPresent();
+  toast('✓ Screenshot added to task');
+}
+
 document.addEventListener('dragover', e => {
   const pi = e.target.closest('.pi[data-task-id]');
-  if(pi){e.preventDefault();pi.style.outline='3px solid var(--acc)';}
+  if(pi){e.preventDefault();pi.style.outline='3px solid var(--acc)';return;}
+  const presPic = e.target.closest('.pres-pic');
+  if(presPic && presentTask){e.preventDefault();presPic.style.outline='3px solid var(--acc)';}
 });
 document.addEventListener('dragleave', e => {
   const pi = e.target.closest('.pi[data-task-id]');
   if(pi) pi.style.outline = '';
+  const presPic = e.target.closest('.pres-pic');
+  if(presPic) presPic.style.outline = '';
 });
 document.addEventListener('drop', e => {
-  const pi = e.target.closest('.pi[data-task-id]');
-  if(!pi) return;
   if(!e.dataTransfer.files.length) return;
-  e.preventDefault();
-  pi.style.outline = '';
   const file = e.dataTransfer.files[0];
   if(!file || !file.type.startsWith('image/')) return;
+  // 1) Drop onto slideshow image → add to t.shots[]
+  const presPic = e.target.closest('.pres-pic');
+  if(presPic && presentTask){
+    e.preventDefault();
+    presPic.style.outline = '';
+    const r = new FileReader();
+    r.onload = ev => addShotToPresentTask(ev.target.result);
+    r.readAsDataURL(file);
+    return;
+  }
+  // 2) Drop onto a row .pi → fill shot1/shot2 (existing)
+  const pi = e.target.closest('.pi[data-task-id]');
+  if(!pi) return;
+  e.preventDefault();
+  pi.style.outline = '';
   const r = new FileReader();
   r.onload = ev => {
     const t = TASKS.find(x => x.id === pi.dataset.taskId);
