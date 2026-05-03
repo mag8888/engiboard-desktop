@@ -246,6 +246,8 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--s
   transition:all .12s;position:relative;min-height:90px
 }
 .row:hover{border-color:rgba(14,165,233,.3);box-shadow:0 4px 14px rgba(14,165,233,.08)}
+.row.selected{border-color:var(--acc) !important;box-shadow:0 0 0 2px rgba(14,165,233,.25),0 4px 14px rgba(14,165,233,.18)}
+body.select-mode .row{cursor:pointer}
 .row.dragging{opacity:.4}
 .row.drag-over-top{border-top:3px solid var(--acc)!important}
 .row.drag-over-bottom{border-bottom:3px solid var(--acc)!important}
@@ -308,6 +310,26 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--s
   padding:2px 6px;border-radius:4px;transition:.12s;color:var(--t4);font-size:11px
 }
 .row .nt-mt .play-ic:hover{color:var(--acc);background:rgba(14,165,233,.08)}
+
+/* Bulk select mode */
+.row-check{cursor:pointer;width:18px;height:18px;accent-color:var(--acc)}
+.bulk-bar{
+  display:none;align-items:center;gap:10px;padding:10px 16px;margin:0 28px 8px;
+  background:var(--acc);color:#fff;border-radius:10px;
+  font-size:12px;font-weight:500;font-family:inherit;
+  position:sticky;top:0;z-index:20;box-shadow:0 4px 14px rgba(14,165,233,.3)
+}
+body.select-mode .bulk-bar{display:flex}
+.bulk-bar .ct{font-family:var(--mono);font-weight:600;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:14px}
+.bulk-bar button{
+  border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;
+  padding:5px 12px;font-size:11px;font-family:inherit;font-weight:500;
+  cursor:pointer;border-radius:6px;transition:.12s
+}
+.bulk-bar button:hover{background:rgba(255,255,255,.25)}
+.bulk-bar button.danger{background:#EF4444;border-color:#EF4444}
+.bulk-bar button.danger:hover{background:#DC2626}
+.bulk-bar .sp{flex:1}
 
 .row .nt-mt .chat-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -1089,8 +1111,19 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.expandAll">⊞ Expand all</button>
       <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
       <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV (title,project,status,week,notes)" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
+      <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks for bulk actions" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">☑ Select</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
       <input class="search" id="searchInp" placeholder="Search tasks…" data-t-ph="placeholder.search">
+    </div>
+
+    <div class="bulk-bar" id="bulkBar">
+      <span class="ct" id="bulkCount">0 selected</span>
+      <button onclick="bulkSetStatus(1)" title="Mark all as Done">✅ Done</button>
+      <button onclick="bulkSetStatus(5)">⚠ Problem</button>
+      <button onclick="bulkSetStatus(6)">🟠 In progress</button>
+      <button class="danger" onclick="bulkDelete()">🗑 Delete</button>
+      <span class="sp"></span>
+      <button onclick="toggleSelectMode()">Cancel</button>
     </div>
 
     <div class="col-hdr">
@@ -1816,14 +1849,18 @@ function renderRow(t){
   const timerLabel = isTimerRunning
     ? `${formatTime(totalMin)} · stop`
     : (totalMin > 0 ? `⏱ ${formatTime(totalMin)}` : '⏱ start');
-  return `<div class="row" data-task-id="${t.id}" data-s="${t.s}" draggable="true" style="min-height:${height}px"
-    ondragstart="onDragStart(event,'${t.id}')"
+  // Bulk select cell — replaces drag-handle
+  const firstCell = selectMode
+    ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
+    : `<div class="drag-handle">⋮⋮</div>`;
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" draggable="${selectMode?'false':'true'}" style="min-height:${height}px"
+    ${selectMode ? '' : `ondragstart="onDragStart(event,'${t.id}')"
     ondragover="onDragOver(event)"
     ondragleave="onDragLeave(event)"
     ondrop="onDropTask(event,'${t.id}')"
-    ondragend="onDragEnd(event)"
-    onclick="onRowClick(event,'${t.id}')">
-    <div class="drag-handle">⋮⋮</div>
+    ondragend="onDragEnd(event)"`}
+    onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
+    ${firstCell}
     <div class="wk-st">
       <span class="wk">${t.w}</span>
       <div class="st-wrap">
@@ -2928,6 +2965,65 @@ function captureScreenshot(){
   } else {
     toast('Tauri invoke not available');
   }
+}
+
+// ━━━ BULK SELECT (multi-task actions) ━━━
+let selectMode = false;
+let selectedTaskIds = new Set();
+
+function toggleSelectMode(){
+  selectMode = !selectMode;
+  document.body.classList.toggle('select-mode', selectMode);
+  if(!selectMode) selectedTaskIds.clear();
+  updateBulkBar();
+  render();
+  if(selectMode) toast('Select tasks to bulk-edit them. Click ☑ Cancel to exit.', 2500);
+}
+
+function toggleTaskSelection(id){
+  if(selectedTaskIds.has(id)) selectedTaskIds.delete(id);
+  else selectedTaskIds.add(id);
+  // Update visual without full re-render
+  const row = document.querySelector(`.row[data-task-id="${id}"]`);
+  if(row){
+    row.classList.toggle('selected', selectedTaskIds.has(id));
+    const ck = row.querySelector('.row-check');
+    if(ck) ck.checked = selectedTaskIds.has(id);
+  }
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const ct = document.getElementById('bulkCount');
+  if(ct) ct.textContent = `${selectedTaskIds.size} selected`;
+}
+
+function bulkSetStatus(s){
+  if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
+  let n = 0;
+  for(const id of selectedTaskIds){
+    const t = TASKS.find(x => x.id === id);
+    if(t){ t.s = s; n++; }
+  }
+  toast(`✓ ${n} task${n===1?'':'s'} → ${STATUSES[s].l}`);
+  selectedTaskIds.clear();
+  selectMode = false;
+  document.body.classList.remove('select-mode');
+  render();
+}
+
+function bulkDelete(){
+  if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
+  if(!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? This cannot be undone.`)) return;
+  const before = TASKS.length;
+  TASKS = TASKS.filter(t => !selectedTaskIds.has(t.id));
+  const n = before - TASKS.length;
+  toast(`✓ ${n} task${n===1?'':'s'} deleted`);
+  selectedTaskIds.clear();
+  selectMode = false;
+  document.body.classList.remove('select-mode');
+  render();
+  updateHeader();
 }
 
 // ━━━ P2-2 · CUSTOMIZABLE KEYBOARD SHORTCUTS ━━━
