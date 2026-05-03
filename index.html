@@ -1035,32 +1035,36 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <div class="sb-section">
         <div class="sb-i" data-sec="dashboard" data-label="Dashboard" onclick="setSection('dashboard')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
-          <span>Dashboard</span>
+          <span data-t="sb.dashboard">Dashboard</span>
         </div>
         <div class="sb-i on" data-sec="projects" data-label="Projects" onclick="setSection('projects')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg>
-          <span>Projects</span>
+          <span data-t="sb.projects">Projects</span>
           <span class="sb-ct" id="sbProjCount">3</span>
         </div>
         <div class="sb-i" data-sec="chats" data-label="Chats" onclick="setSection('chats')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-          <span>Chats</span>
+          <span data-t="sb.chats">Chats</span>
           <span class="sb-ct" id="sbChatCount">8</span>
         </div>
         <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="setSection('shortcuts')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
-          <span>Shortcuts</span>
+          <span data-t="sb.shortcuts">Shortcuts</span>
         </div>
       </div>
       <div class="sb-bottom">
+        <div class="sb-i" data-label="Language" onclick="toggleLang()" id="langToggle" title="RU ↔ EN">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span><span data-t="sb.lang">Language</span> · <span id="langCurrent" style="font-family:var(--mono);text-transform:uppercase;font-size:11px;color:var(--acc)"></span></span>
+        </div>
         <div class="sb-i" data-label="Theme" onclick="toggleDarkMode()" id="themeToggle" title="Toggle dark mode (⌘⇧T)">
           <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <span>Dark mode</span>
+          <span data-t="sb.darkmode">Dark mode</span>
         </div>
         <div class="sb-i" data-sec="profile" data-label="Profile" onclick="setSection('profile')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
-          <span>Profile</span>
+          <span data-t="sb.profile">Profile</span>
         </div>
       </div>
     </aside>
@@ -1073,24 +1077,24 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="filters">
       <button class="chip" id="captureBtn" onclick="captureScreenshot()" style="background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;border:none;font-weight:600;padding:6px 14px;display:flex;align-items:center;gap:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        Capture
+        <span data-t="btn.capture">Capture</span>
       </button>
-      <button class="chip on" data-f="all" style="margin-left:8px">All</button>
-      <button class="chip" data-f="problem">Problems</button>
-      <button class="chip" data-f="progress">In progress</button>
-      <button class="chip" data-f="done">Done</button>
-      <button class="chip" data-f="thisweek">This week</button>
+      <button class="chip on" data-f="all" data-t="filter.all" style="margin-left:8px">All</button>
+      <button class="chip" data-f="problem" data-t="filter.problem">Problems</button>
+      <button class="chip" data-f="progress" data-t="filter.progress">In progress</button>
+      <button class="chip" data-f="done" data-t="filter.done">Done</button>
+      <button class="chip" data-f="thisweek" data-t="filter.thisweek">This week</button>
       <span style="flex:1"></span>
-      <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊟ Collapse all</button>
-      <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">⊞ Expand all</button>
-      <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">📄 PDF</button>
-      <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV (title,project,status,week,notes)" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">📥 CSV</button>
+      <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.collapseAll">⊟ Collapse all</button>
+      <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.expandAll">⊞ Expand all</button>
+      <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
+      <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV (title,project,status,week,notes)" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
-      <input class="search" id="searchInp" placeholder="Search tasks…">
+      <input class="search" id="searchInp" placeholder="Search tasks…" data-t-ph="placeholder.search">
     </div>
 
     <div class="col-hdr">
-      <div></div><div>Status / Wk</div><div>Pic Before</div><div>Pic After</div><div>Notes</div>
+      <div></div><div data-t="col.statusWk">Status / Wk</div><div data-t="col.before">Pic Before</div><div data-t="col.after">Pic After</div><div data-t="col.notes">Notes</div>
     </div>
 
     <div class="list" id="list"></div>
@@ -1193,6 +1197,78 @@ const DEMO_PICS = {
 };
 
 // ━━━ STATUSES ━━━
+// ━━━ P2-4 · LOCALIZATION ━━━
+const I18N = {
+  en: {
+    // Status names
+    'st.0':'Info', 'st.1':'Done', 'st.2':'Not Relevant', 'st.3':'Review',
+    'st.4':'Info Required', 'st.5':'Problem', 'st.6':'In Progress', 'st.7':'Upcoming',
+    // Filter chips
+    'filter.all':'All', 'filter.problem':'Problems', 'filter.progress':'In progress',
+    'filter.done':'Done', 'filter.thisweek':'This week',
+    // Top buttons
+    'btn.capture':'Capture', 'btn.collapseAll':'⊟ Collapse all', 'btn.expandAll':'⊞ Expand all',
+    'btn.exportPDF':'📄 PDF', 'btn.importCSV':'📥 CSV',
+    'placeholder.search':'Search tasks…',
+    'placeholder.newtask':'+ Type new task and press Enter…',
+    'placeholder.newtaskProj':'+ Type task and press Enter…',
+    // Sidebar
+    'sb.dashboard':'Dashboard', 'sb.projects':'Projects', 'sb.chats':'Chats',
+    'sb.shortcuts':'Shortcuts', 'sb.profile':'Profile', 'sb.darkmode':'Dark mode',
+    'sb.lang':'Language',
+    // Misc
+    'col.statusWk':'Status / Wk', 'col.before':'Pic Before', 'col.after':'Pic After',
+    'col.notes':'Notes',
+    'btn.send':'Send',
+  },
+  ru: {
+    'st.0':'Инфо', 'st.1':'Готово', 'st.2':'Не актуально', 'st.3':'На ревью',
+    'st.4':'Нужна инфо', 'st.5':'Проблема', 'st.6':'В работе', 'st.7':'Предстоит',
+    'filter.all':'Все', 'filter.problem':'Проблемы', 'filter.progress':'В работе',
+    'filter.done':'Готово', 'filter.thisweek':'Эта неделя',
+    'btn.capture':'Скрин', 'btn.collapseAll':'⊟ Свернуть всё', 'btn.expandAll':'⊞ Развернуть всё',
+    'btn.exportPDF':'📄 PDF', 'btn.importCSV':'📥 CSV',
+    'placeholder.search':'Поиск задач…',
+    'placeholder.newtask':'+ Введите задачу и нажмите Enter…',
+    'placeholder.newtaskProj':'+ Введите задачу и нажмите Enter…',
+    'sb.dashboard':'Дашборд', 'sb.projects':'Проекты', 'sb.chats':'Чаты',
+    'sb.shortcuts':'Хоткеи', 'sb.profile':'Профиль', 'sb.darkmode':'Тёмная тема',
+    'sb.lang':'Язык',
+    'col.statusWk':'Статус / Нед', 'col.before':'До', 'col.after':'После',
+    'col.notes':'Описание',
+    'btn.send':'Отправить',
+  },
+};
+let currentLang = (() => {
+  const saved = localStorage.getItem('eb_lang');
+  if(saved && I18N[saved]) return saved;
+  // detect from navigator
+  return (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
+})();
+function T(key){ return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en[key] || key); }
+function setLang(lang){
+  if(!I18N[lang]) return;
+  currentLang = lang;
+  localStorage.setItem('eb_lang', lang);
+  applyLang();
+  if(typeof render === 'function') render();
+}
+function toggleLang(){ setLang(currentLang === 'en' ? 'ru' : 'en'); }
+function applyLang(){
+  // Update STATUSES labels in-place
+  for(let i = 0; i < STATUSES.length; i++){
+    if(I18N[currentLang] && I18N[currentLang]['st.' + i]) STATUSES[i].l = I18N[currentLang]['st.' + i];
+  }
+  // Update HTML elements with [data-t]
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T(el.dataset.t); });
+  document.querySelectorAll('[data-t-ph]').forEach(el => { el.placeholder = T(el.dataset.tPh); });
+  // Update lang indicator
+  const lc = document.getElementById('langCurrent');
+  if(lc) lc.textContent = currentLang;
+  // Set html lang attribute
+  document.documentElement.lang = currentLang;
+}
+
 const STATUSES = [
   {id:0, l:'Info', c:'#94A3B8', cls:'bg-info'},
   {id:1, l:'Done', c:'#22C55E', cls:'bg-done'},
@@ -1203,6 +1279,10 @@ const STATUSES = [
   {id:6, l:'In Progress', c:'#F97316', cls:'bg-prog'},
   {id:7, l:'Upcoming', c:'#0EA5E9', cls:'bg-up'}
 ];
+// Apply current language to STATUSES
+for(let i = 0; i < STATUSES.length; i++){
+  if(I18N[currentLang] && I18N[currentLang]['st.' + i]) STATUSES[i].l = I18N[currentLang]['st.' + i];
+}
 
 // ━━━ SUPABASE CLIENT (S2 P0-3) ━━━
 const SUPABASE_URL = 'https://gselxucvcomqlfyogidz.supabase.co';
@@ -1432,6 +1512,8 @@ function showApp(){
   document.getElementById('APP').classList.add('on');
   // P2-6: restore time tracking state from localStorage
   if(typeof loadTimers === 'function') loadTimers();
+  // P2-4: apply current language to all data-t / data-t-ph elements
+  if(typeof applyLang === 'function') applyLang();
   if(PROJECTS.length === 0){
     // No projects — show empty
     document.getElementById('list').innerHTML = `<div class="es-zero"><div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div><div class="es-zero-h">No projects yet</div><div class="es-zero-s">Create your first project to start</div><button class="dbtn" style="max-width:240px;margin:0 auto" onclick="openNewProjModal()">+ Create project</button></div>`;
