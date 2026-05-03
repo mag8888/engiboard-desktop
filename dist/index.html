@@ -2548,23 +2548,26 @@ document.addEventListener('keydown', e => {
     if(e.key === 'ArrowRight'){e.preventDefault();presentNext();return;}
     if(e.key === 'ArrowLeft'){e.preventDefault();presentPrev();return;}
   }
-  if((e.metaKey||e.ctrlKey) && e.key === 'b'){
+  // P2-2 — dynamic shortcut matching
+  if(matchShortcut(e, 'toggleSidebar')){
     e.preventDefault();
     toggleSidebar();
     return;
   }
-  if((e.metaKey||e.ctrlKey) && e.key === 'n'){
+  if(matchShortcut(e, 'newTask')){
     e.preventDefault();
     document.getElementById('newInp')?.focus() || document.getElementById('newInpZero')?.focus();
+    return;
   }
-  if((e.metaKey||e.ctrlKey) && e.key === 'f'){
+  if(matchShortcut(e, 'searchFocus')){
     e.preventDefault();
     document.getElementById('searchInp')?.focus();
+    return;
   }
-  // ⌘⇧T / Ctrl+Shift+T → toggle dark mode (P2-3)
-  if((e.metaKey||e.ctrlKey) && e.shiftKey && (e.key === 'T' || e.key === 't')){
+  if(matchShortcut(e, 'toggleDarkMode')){
     e.preventDefault();
     toggleDarkMode();
+    return;
   }
 });
 
@@ -2722,18 +2725,25 @@ function renderShortcutsSection(){
     <div class="shortcuts-intro">All available shortcuts to speed up your workflow. Press any combination from anywhere in the app.</div>
 
     <div class="sc-section">
-      <div class="sc-section-h">Navigation</div>
+      <div class="sc-section-h" style="display:flex;align-items:center;gap:10px">
+        <span>Navigation · Customizable</span>
+        <button onclick="resetShortcuts()" style="margin-left:auto;font-size:10px;padding:3px 10px;border:1px solid var(--line-2);background:var(--surf);color:var(--t2);border-radius:6px;cursor:pointer;font-family:inherit">Reset to defaults</button>
+      </div>
       <div class="sc-row">
         <div><div class="sc-label">Toggle sidebar</div><div class="sc-label-desc">Collapse to icons or expand to full</div></div>
-        <div class="sc-keys"><kbd>⌘</kbd><span class="plus">+</span><kbd>B</kbd></div>
+        <div class="sc-keys" id="sc-keys-toggleSidebar">${comboToHTML(SHORTCUTS.toggleSidebar)}<button onclick="startCaptureShortcut('toggleSidebar')" title="Edit binding (Esc to cancel)" style="margin-left:8px;border:1px solid var(--line-2);background:var(--surf);color:var(--acc);border-radius:5px;cursor:pointer;padding:2px 8px;font-size:10px">✏️</button></div>
       </div>
       <div class="sc-row">
         <div><div class="sc-label">Search tasks</div><div class="sc-label-desc">Focus the search input</div></div>
-        <div class="sc-keys"><kbd>⌘</kbd><span class="plus">+</span><kbd>F</kbd></div>
+        <div class="sc-keys" id="sc-keys-searchFocus">${comboToHTML(SHORTCUTS.searchFocus)}<button onclick="startCaptureShortcut('searchFocus')" title="Edit binding" style="margin-left:8px;border:1px solid var(--line-2);background:var(--surf);color:var(--acc);border-radius:5px;cursor:pointer;padding:2px 8px;font-size:10px">✏️</button></div>
       </div>
       <div class="sc-row">
         <div><div class="sc-label">New task</div><div class="sc-label-desc">Focus the inline new task input</div></div>
-        <div class="sc-keys"><kbd>⌘</kbd><span class="plus">+</span><kbd>N</kbd></div>
+        <div class="sc-keys" id="sc-keys-newTask">${comboToHTML(SHORTCUTS.newTask)}<button onclick="startCaptureShortcut('newTask')" title="Edit binding" style="margin-left:8px;border:1px solid var(--line-2);background:var(--surf);color:var(--acc);border-radius:5px;cursor:pointer;padding:2px 8px;font-size:10px">✏️</button></div>
+      </div>
+      <div class="sc-row">
+        <div><div class="sc-label">Toggle dark mode</div><div class="sc-label-desc">Switch between light and dark theme</div></div>
+        <div class="sc-keys" id="sc-keys-toggleDarkMode">${comboToHTML(SHORTCUTS.toggleDarkMode)}<button onclick="startCaptureShortcut('toggleDarkMode')" title="Edit binding" style="margin-left:8px;border:1px solid var(--line-2);background:var(--surf);color:var(--acc);border-radius:5px;cursor:pointer;padding:2px 8px;font-size:10px">✏️</button></div>
       </div>
       <div class="sc-row">
         <div><div class="sc-label">Close / cancel</div><div class="sc-label-desc">Close any modal, menu, or paste mode</div></div>
@@ -2916,6 +2926,103 @@ function captureScreenshot(){
   } else {
     toast('Tauri invoke not available');
   }
+}
+
+// ━━━ P2-2 · CUSTOMIZABLE KEYBOARD SHORTCUTS ━━━
+const DEFAULT_SHORTCUTS = {
+  toggleSidebar:  'mod+b',
+  searchFocus:    'mod+f',
+  newTask:        'mod+n',
+  toggleDarkMode: 'mod+shift+t',
+};
+let SHORTCUTS = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('eb_shortcuts') || '{}');
+    return { ...DEFAULT_SHORTCUTS, ...saved };
+  } catch { return { ...DEFAULT_SHORTCUTS }; }
+})();
+function saveShortcuts(){ localStorage.setItem('eb_shortcuts', JSON.stringify(SHORTCUTS)); }
+function resetShortcuts(){
+  SHORTCUTS = { ...DEFAULT_SHORTCUTS };
+  localStorage.removeItem('eb_shortcuts');
+  if(currentSection === 'shortcuts') renderShortcutsSection();
+  toast('✓ Shortcuts reset to defaults');
+}
+function comboToHTML(combo){
+  // 'mod+shift+t' → '<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>T</kbd>'
+  if(!combo) return '<kbd>—</kbd>';
+  const parts = combo.toLowerCase().split('+');
+  const isMac = navigator.platform.toLowerCase().includes('mac');
+  return parts.map(p => {
+    if(p === 'mod')   return `<kbd>${isMac ? '⌘' : 'Ctrl'}</kbd>`;
+    if(p === 'shift') return '<kbd>⇧</kbd>';
+    if(p === 'alt')   return `<kbd>${isMac ? '⌥' : 'Alt'}</kbd>`;
+    return `<kbd>${p.toUpperCase()}</kbd>`;
+  }).join('<span class="plus">+</span>');
+}
+function matchShortcut(e, action){
+  const combo = SHORTCUTS[action];
+  if(!combo) return false;
+  const parts = combo.toLowerCase().split('+');
+  const wantMod   = parts.includes('mod');
+  const wantShift = parts.includes('shift');
+  const wantAlt   = parts.includes('alt');
+  const key = parts[parts.length - 1];
+  if(wantMod   !== !!(e.metaKey || e.ctrlKey)) return false;
+  if(wantShift !== e.shiftKey) return false;
+  if(wantAlt   !== e.altKey)   return false;
+  return e.key.toLowerCase() === key;
+}
+
+// Capture-mode for editing a binding
+let _capturingFor = null;
+function startCaptureShortcut(action){
+  _capturingFor = action;
+  const el = document.getElementById(`sc-keys-${action}`);
+  if(el) el.innerHTML = '<span style="font-size:11px;color:var(--acc);font-style:italic">press combo…</span>';
+  document.addEventListener('keydown', captureShortcutHandler, true);
+}
+function captureShortcutHandler(e){
+  if(!_capturingFor) return;
+  // Allow Esc to cancel
+  if(e.key === 'Escape'){
+    e.preventDefault(); e.stopPropagation();
+    _capturingFor = null;
+    document.removeEventListener('keydown', captureShortcutHandler, true);
+    if(currentSection === 'shortcuts') renderShortcutsSection();
+    toast('Edit cancelled');
+    return;
+  }
+  // Need at least one modifier + a regular key (single letters)
+  const isMod = !!(e.metaKey || e.ctrlKey);
+  const isShift = e.shiftKey;
+  const isAlt = e.altKey;
+  const key = e.key;
+  // Skip purely modifier presses
+  if(['Meta','Control','Shift','Alt','Tab'].includes(key)) return;
+  e.preventDefault(); e.stopPropagation();
+  if(!isMod){
+    toast('Combo must include ⌘/Ctrl', 1800);
+    return;
+  }
+  const parts = ['mod'];
+  if(isShift) parts.push('shift');
+  if(isAlt)   parts.push('alt');
+  parts.push(key.toLowerCase());
+  const newCombo = parts.join('+');
+  // Conflict check
+  for(const [a, c] of Object.entries(SHORTCUTS)){
+    if(a !== _capturingFor && c === newCombo){
+      toast(`Already used by '${a}'. Pick another.`, 2500);
+      return;
+    }
+  }
+  SHORTCUTS[_capturingFor] = newCombo;
+  saveShortcuts();
+  toast(`✓ Bound to ${comboToHTML(newCombo).replace(/<[^>]+>/g,'')}`, 2000);
+  _capturingFor = null;
+  document.removeEventListener('keydown', captureShortcutHandler, true);
+  if(currentSection === 'shortcuts') renderShortcutsSection();
 }
 
 // ━━━ P2-1 · WEBHOOK INTEGRATIONS (Slack) ━━━
