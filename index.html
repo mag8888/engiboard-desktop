@@ -1962,9 +1962,9 @@ function renderChatMsgs(t){
   msgs.innerHTML = t.chat.map(m => {
     const isMine = m.a === 'AS';
     return `<div class="cp-msg ${isMine?'mine':''}">
-      <div class="cp-msg-av ${m.a}">${m.a}</div>
+      <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
       <div class="cp-msg-bd">
-        <div class="cp-msg-meta"><span class="a">${m.a}</span><span class="ts">${m.ts}</span></div>
+        <div class="cp-msg-meta"><span class="ts">${m.ts}</span></div>
         <div class="cp-msg-bub">${m.text}</div>
       </div>
     </div>`;
