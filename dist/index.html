@@ -588,6 +588,38 @@ body.sb-collapsed #chatPop{left:54px}
 .pres-nav button:disabled{opacity:.4;cursor:not-allowed}
 .pres-counter{font-size:12px;color:var(--t4);font-family:var(--mono)}
 
+/* Chat panel inside preview (DM-6) */
+.pres-card.with-chat{max-width:1480px}
+.pres-body-grid{flex:1;display:grid;grid-template-columns:1fr 320px;gap:0;overflow:hidden}
+.pres-pic-col{padding:20px 24px;overflow:auto;display:flex;flex-direction:column}
+.pres-chat-col{
+  border-left:1px solid var(--line);background:#FAFBFC;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden
+}
+.pres-chat-h{
+  padding:12px 16px;border-bottom:1px solid var(--line);background:#fff;
+  font-size:12px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px;flex-shrink:0
+}
+.pres-chat-h .ct{font-family:var(--mono);font-size:10px;color:var(--t4);font-weight:500;margin-left:auto}
+.pres-chat-msgs{
+  flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0
+}
+.pres-chat-msgs .cp-empty{padding:32px 16px;text-align:center}
+.pres-chat-foot{
+  padding:10px 12px;border-top:1px solid var(--line);background:#fff;
+  flex-shrink:0;display:flex;gap:6px
+}
+.pres-chat-foot input{
+  flex:1;border:1px solid var(--line-2);padding:7px 12px;font-size:12px;outline:none;
+  border-radius:14px;font-family:inherit;color:var(--t1)
+}
+.pres-chat-foot input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
+.pres-chat-foot button{
+  padding:6px 12px;border:none;background:var(--acc);color:#fff;font-size:11px;cursor:pointer;
+  border-radius:14px;font-weight:600;font-family:inherit
+}
+.pres-chat-foot button:hover{background:var(--acc-d)}
+
 /* Dashboard */
 #dash{display:none;position:fixed;inset:46px 0 0 0;z-index:100;background:#FAFBFC;overflow:auto}
 #dash.on{display:block}
@@ -1807,6 +1839,20 @@ function renderPresent(){
   if(!slide) return;
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
+  card.classList.add('with-chat');
+  const chatMsgs = (t.chat || []);
+  const chatBody = chatMsgs.length === 0
+    ? '<div class="cp-empty"><div class="ico">💬</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment on this slide</div></div>'
+    : chatMsgs.map(m => {
+        const isMine = m.a === 'AS';
+        return `<div class="cp-msg ${isMine?'mine':''}">
+          <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
+          <div class="cp-msg-bd">
+            <div class="cp-msg-meta"><span class="ts">${m.ts}</span></div>
+            <div class="cp-msg-bub">${m.text}</div>
+          </div>
+        </div>`;
+      }).join('');
   card.innerHTML = `
     <div class="pres-head">
       <div class="pres-status ${st.cls}"><span class="pip" style="width:6px;height:6px;border-radius:50%;background:${st.c}"></span>${st.l}</div>
@@ -1814,16 +1860,44 @@ function renderPresent(){
       <div style="font-size:12px;color:var(--t4);font-family:var(--mono)">${t.w}</div>
       <button class="pres-close" onclick="closePresent()">×</button>
     </div>
-    <div class="pres-body" style="grid-template-columns:1fr">
-      <div class="pres-pic" style="min-height:480px"><div class="lbl">${slide.label}</div>
-        <img src="${slide.src}" alt="" style="cursor:zoom-in" onclick="openLightbox('${slide.src}','${t.id}',${presentIdx})">
+    <div class="pres-body-grid">
+      <div class="pres-pic-col">
+        <div class="pres-pic" style="min-height:440px;flex:1"><div class="lbl">${slide.label}</div>
+          <img src="${slide.src}" alt="" style="cursor:zoom-in" onclick="openLightbox('${slide.src}','${t.id}',${presentIdx})">
+        </div>
       </div>
+      <aside class="pres-chat-col">
+        <div class="pres-chat-h">💬 Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
+        <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
+        <div class="pres-chat-foot">
+          <input id="presChatInput" placeholder="Write a comment…" onkeydown="if(event.key==='Enter') sendPresChat()">
+          <button onclick="sendPresChat()">Send</button>
+        </div>
+      </aside>
     </div>
     <div class="pres-nav">
       <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
       <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
       <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
     </div>`;
+  // Auto-scroll chat to bottom
+  const msgsEl = document.getElementById('presChatMsgs');
+  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+function sendPresChat(){
+  const inp = document.getElementById('presChatInput');
+  if(!inp) return;
+  const text = inp.value.trim();
+  if(!text || !presentTask) return;
+  if(!presentTask.chat) presentTask.chat = [];
+  presentTask.chat.push({
+    a:'AS',
+    ts:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false}),
+    text
+  });
+  inp.value = '';
+  renderPresent();
 }
 
 // ━━━ LIGHTBOX ━━━
