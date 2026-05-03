@@ -1510,7 +1510,6 @@ function toggleProjGroup(pid){
 
 function renderRow(t){
   const st = STATUSES[t.s] || STATUSES[0];
-  const chatCount = (t.chat||[]).length;
   const height = t.h || 90;
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
@@ -1535,10 +1534,7 @@ function renderRow(t){
     <div class="nt">
       <div class="nt-t" contenteditable="true" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.n}</div>
       <div class="nt-mt">
-        <span class="chat-ic" onclick="event.stopPropagation();toggleChat(event,'${t.id}')">
-          💬 ${chatCount > 0 ? chatCount + (chatCount===1?' reply':' replies') : 'comment'}
-        </span>
-        <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode">
+        <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode (chat available inside)">
           ▶ slideshow
         </span>
       </div>
@@ -1747,7 +1743,7 @@ function onResizeStart(e, taskId){
 // ━━━ ROW CLICK → present ━━━
 function onRowClick(e, taskId){
   if(taskId === 'new') return;
-  if(e.target.closest('input, button, .chat-ic, .pi, .st-wrap, .st, .st-menu, .drag-handle, .resize-h, [contenteditable]')) return;
+  if(e.target.closest('input, button, .play-ic, .pi, .st-wrap, .st, .st-menu, .drag-handle, .resize-h, [contenteditable]')) return;
   if(pasteMode) return;
   openPresent(taskId);
 }
@@ -1992,12 +1988,7 @@ function sendChat(){
   t.chat.push({a:'AS', ts:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false}), text});
   inp.value = '';
   renderChatMsgs(t);
-  // Update counter
-  const ic = document.querySelector(`.row[data-task-id="${activeChatTaskId}"] .chat-ic`);
-  if(ic){
-    const cnt = t.chat.length;
-    ic.innerHTML = `💬 ${cnt} ${cnt===1?'reply':'replies'}`;
-  }
+  // Comment count is now reflected in preview mode (slideshow), not in row.
   // Update header counter
   const cnt = t.chat.length;
   document.getElementById('chatTitle').innerHTML = (t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${t.w} · ${cnt} message${cnt===1?'':'s'}</span>`;
