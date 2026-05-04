@@ -1453,7 +1453,10 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <!-- LIGHTBOX with annotations panel -->
 <div id="lightbox">
   <div class="lb-stage" id="lbStage">
-    <button class="close" onclick="closeLightbox()">×</button>
+    <div style="position:absolute;top:18px;right:24px;display:flex;gap:8px;z-index:50">
+      <button onclick="annotateLightboxImage()" title="Open annotation editor (markers + save)" style="background:rgba(14,165,233,.85);color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;backdrop-filter:blur(4px)">🖍 Annotate</button>
+      <button class="close" onclick="closeLightbox()" style="position:static">×</button>
+    </div>
     <div class="lb-img-wrap" id="lbImgWrap">
       <img id="lightboxImg" alt="">
       <div class="lb-pins" id="lbPins"></div>
@@ -2623,12 +2626,14 @@ function sendPresChat(){
 // ━━━ LIGHTBOX ━━━
 let lbCurrentImageKey = null;
 let lbDraftPin = null; // {x, y} in % when user clicks before typing
+let lbContext = null;  // v0.1.31: {taskId, slotIdx} so we can re-inject annotated img
 
 function openLightbox(dataUrl, taskId, slotIdx){
   const lb = document.getElementById('lightbox');
   document.getElementById('lightboxImg').src = dataUrl;
   // Build a key for this image: taskId + slot index (so each screenshot has its own comments)
   lbCurrentImageKey = (taskId || 'unknown') + ':' + (slotIdx !== undefined ? slotIdx : 0);
+  lbContext = { taskId, slotIdx };
   lbDraftPin = null;
   document.getElementById('lbCommentInput').value = '';
   renderLbComments();
@@ -2638,7 +2643,41 @@ function openLightbox(dataUrl, taskId, slotIdx){
 function closeLightbox(){
   document.getElementById('lightbox').classList.remove('on');
   lbCurrentImageKey = null;
+  lbContext = null;
   lbDraftPin = null;
+}
+
+// v0.1.31: open annotation editor with the current lightbox image (Tauri only)
+let pendingAnnotateContext = null;  // { taskId, slotIdx } — set when launching editor from lightbox
+function annotateLightboxImage(){
+  if(!window.__TAURI__){
+    toast('Annotation editor only works in desktop app');
+    return;
+  }
+  if(!lbContext || !lbContext.taskId){
+    toast('Cannot annotate — no task context');
+    return;
+  }
+  const img = document.getElementById('lightboxImg');
+  const dataUrl = img?.src;
+  if(!dataUrl){
+    toast('No image loaded');
+    return;
+  }
+  pendingAnnotateContext = { ...lbContext };
+  // Close lightbox so editor takes focus
+  closeLightbox();
+  const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  if(invoke){
+    invoke('open_editor_with_image', { dataUrl }).catch(err => {
+      console.error('open_editor_with_image failed:', err);
+      toast('Failed to open editor: ' + err);
+      pendingAnnotateContext = null;
+    });
+  } else {
+    toast('Tauri invoke not available');
+    pendingAnnotateContext = null;
+  }
 }
 
 function getLbComments(){
@@ -2917,7 +2956,25 @@ document.addEventListener('paste', e => {
 });
 
 if(window.__TAURI__){
-  window.__TAURI__.event.listen('screenshot-ready', e => enterPasteMode(e.payload.dataUrl));
+  window.__TAURI__.event.listen('screenshot-ready', e => {
+    const newUrl = e.payload.dataUrl;
+    // v0.1.31: if user came from lightbox 'Annotate', re-inject into same task slot
+    if(pendingAnnotateContext){
+      const { taskId, slotIdx } = pendingAnnotateContext;
+      pendingAnnotateContext = null;
+      const t = TASKS.find(x => x.id === taskId);
+      if(t){
+        if(slotIdx === 0) t.shot1 = newUrl;
+        else if(slotIdx === 1) t.shot2 = newUrl;
+        else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) t.shots[slotIdx - 2] = newUrl;
+        render();
+        toast('✓ Annotations saved to task');
+        return;
+      }
+    }
+    // Default flow: paste mode
+    enterPasteMode(newUrl);
+  });
 }
 
 document.addEventListener('click', e => {
