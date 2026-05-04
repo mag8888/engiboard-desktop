@@ -230,6 +230,57 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--s
 .body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
 /* Filter row + search */
+/* Project picker bar (v0.1.27) */
+.proj-bar{
+  display:flex;align-items:center;gap:14px;padding:14px 24px 10px;border-bottom:1px solid var(--line);
+  background:var(--bg);flex-shrink:0;position:relative
+}
+.proj-picker{position:relative}
+.proj-picker-btn{
+  display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
+  background:var(--surf);border:1px solid var(--line-2);border-radius:10px;
+  cursor:pointer;font-family:inherit;color:var(--t1);transition:.12s;min-width:280px
+}
+.proj-picker-btn:hover{border-color:var(--acc);background:var(--surf)}
+.proj-picker-btn .pp-name{font-size:14px;font-weight:600;flex:1;text-align:left;letter-spacing:-.005em}
+.proj-picker-btn .pp-code{font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:500}
+.proj-picker-btn .pp-arrow{font-size:9px;color:var(--t3);margin-left:6px;transition:transform .15s}
+.proj-picker.open .proj-picker-btn{border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
+.proj-picker.open .pp-arrow{transform:rotate(180deg)}
+.proj-picker-menu{
+  position:absolute;top:calc(100% + 6px);left:0;
+  background:var(--surf);border:1px solid var(--line-2);border-radius:12px;
+  box-shadow:0 10px 28px rgba(15,23,42,.14);z-index:300;
+  min-width:340px;max-width:420px;display:none;flex-direction:column;max-height:60vh
+}
+.proj-picker.open .proj-picker-menu{display:flex}
+.proj-picker-search{
+  padding:9px 14px;font-size:13px;border:none;border-bottom:1px solid var(--line);
+  outline:none;font-family:inherit;background:transparent;color:var(--t1)
+}
+.proj-picker-list{flex:1;overflow-y:auto;padding:4px}
+.proj-picker-item{
+  padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;
+  transition:.12s
+}
+.proj-picker-item:hover{background:var(--bg)}
+.proj-picker-item.on{background:var(--acc);color:#fff}
+.proj-picker-item.on .ppi-meta,.proj-picker-item.on .ppi-code{color:rgba(255,255,255,.85)}
+.proj-picker-item .ppi-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proj-picker-item .ppi-code{font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:500}
+.proj-picker-item .ppi-meta{font-size:10px;color:var(--t4);font-family:var(--mono)}
+body.dark-mode .proj-picker-item:hover{background:var(--bg)}
+body.dark-mode .proj-picker-menu{box-shadow:0 10px 28px rgba(0,0,0,.5)}
+
+.proj-bar-cur{font-size:12px;color:var(--t4);font-family:var(--mono);letter-spacing:.04em}
+.proj-bar-spacer{flex:1}
+.proj-bar-action{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 10px;
+  border:1px solid var(--line-2);background:var(--surf);color:var(--t2);
+  font-size:11px;font-family:inherit;font-weight:500;border-radius:8px;cursor:pointer;transition:.12s
+}
+.proj-bar-action:hover{border-color:var(--acc);color:var(--acc)}
+
 .filters{
   padding:8px 24px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap
@@ -1144,6 +1195,25 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 
   <!-- BODY -->
   <div class="body" id="bodyTasks">
+    <!-- Project picker bar (v0.1.27) -->
+    <div class="proj-bar">
+      <div class="proj-picker" id="projPicker">
+        <button class="proj-picker-btn" onclick="toggleProjPicker(event)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg>
+          <span class="pp-name" id="ppName">All projects</span>
+          <span class="pp-code" id="ppCode"></span>
+          <span class="pp-arrow">▼</span>
+        </button>
+        <div class="proj-picker-menu" id="projPickerMenu">
+          <input type="text" class="proj-picker-search" id="ppSearch" placeholder="Search projects…" data-t-ph="proj.search" oninput="filterProjPicker()">
+          <div class="proj-picker-list" id="ppList"></div>
+        </div>
+      </div>
+      <span class="proj-bar-cur" id="ppCurMeta"></span>
+      <span class="proj-bar-spacer"></span>
+      <button class="proj-bar-action" onclick="openNewProjModal()">+ New project</button>
+    </div>
+
     <div class="filters">
       <button class="chip" id="captureBtn" onclick="captureScreenshot()" style="background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;border:none;font-weight:600;padding:6px 14px;display:flex;align-items:center;gap:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -1301,6 +1371,7 @@ const I18N = {
     'col.statusWk':'Status / Wk', 'col.before':'Pic Before', 'col.after':'Pic After',
     'col.notes':'Notes',
     'btn.send':'Send',
+    'proj.all':'All projects', 'proj.search':'Search projects…',
   },
   ru: {
     'st.0':'Инфо', 'st.1':'Готово', 'st.2':'Не актуально', 'st.3':'На ревью',
@@ -1318,6 +1389,7 @@ const I18N = {
     'col.statusWk':'Статус / Нед', 'col.before':'До', 'col.after':'После',
     'col.notes':'Описание',
     'btn.send':'Отправить',
+    'proj.all':'Все проекты', 'proj.search':'Поиск проектов…',
   },
 };
 let currentLang = (() => {
@@ -1479,7 +1551,11 @@ let TASKS = [
   {id:'t24', proj:'p3', w:'26W17', s:7, n:'Site visit scheduled for next month'}
 ];
 
-let currentProject = 'p1';
+let currentProject = (() => {
+  // v0.1.27: persist project selection
+  try { return localStorage.getItem('eb_current_project') || 'p1'; }
+  catch { return 'p1'; }
+})();
 let curView = 'tasks';
 let curFilter = 'all';
 let curSearch = '';
@@ -1606,7 +1682,10 @@ function showApp(){
     document.getElementById('psMeta').textContent = '0 tasks';
     return;
   }
-  if(!PROJECTS.find(p => p.id === currentProject)) currentProject = PROJECTS[0].id;
+  if(currentProject !== 'all' && !PROJECTS.find(p => p.id === currentProject)){
+    currentProject = PROJECTS[0].id;
+  }
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
   updateHeader();
   setSection('projects');
 }
@@ -1703,10 +1782,13 @@ function renderProjMenu(){
 
 function switchProject(pid){
   currentProject = pid;
+  try { localStorage.setItem('eb_current_project', pid); } catch(_){}
   curFilter = 'all';
   curSearch = '';
-  document.getElementById('searchInp').value = '';
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.f === 'all'));
+  const si = document.getElementById('searchInp');
+  if(si) si.value = '';
+  document.querySelectorAll('.chip[data-f]').forEach(c => c.classList.toggle('on', c.dataset.f === 'all'));
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
   updateHeader();
   if(curView === 'dashboard') setView('tasks');
   render();
@@ -1744,14 +1826,20 @@ function setView(v){
 
 // ━━━ FILTERS ━━━
 function getFilteredTasks(){
-  let result = TASKS.filter(t => t.proj === currentProject);
+  let result = (currentProject === 'all')
+    ? [...TASKS]
+    : TASKS.filter(t => t.proj === currentProject);
   if(curFilter === 'problem') result = result.filter(t => t.s === 5);
   else if(curFilter === 'progress') result = result.filter(t => t.s === 6);
   else if(curFilter === 'done') result = result.filter(t => t.s === 1);
   else if(curFilter === 'thisweek') result = result.filter(t => t.w === '26W17');
   if(curSearch){
     const q = curSearch.toLowerCase();
-    result = result.filter(t => t.n.toLowerCase().includes(q) || (t.chat||[]).some(c => c.text.toLowerCase().includes(q)));
+    result = result.filter(t =>
+      (t.title || t.n || '').toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q) ||
+      (t.chat||[]).some(c => c.text.toLowerCase().includes(q))
+    );
   }
   return result;
 }
@@ -1784,6 +1872,8 @@ function clearFilters(){
 // ━━━ RENDER ━━━
 function render(){
   const list = document.getElementById('list');
+  // Update picker label every render (counts may change)
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
 
   // Empty: no projects at all
   if(PROJECTS.length === 0){
@@ -1791,25 +1881,59 @@ function render(){
     return;
   }
 
-  // Filter tasks across ALL projects
-  let allTasks = TASKS.slice();
+  // v0.1.27: filter scope — single project OR 'all'
+  const isAllMode = currentProject === 'all';
+  let allTasks = isAllMode ? TASKS.slice() : TASKS.filter(t => t.proj === currentProject);
+
   if(curFilter === 'problem') allTasks = allTasks.filter(t => t.s === 5);
   else if(curFilter === 'progress') allTasks = allTasks.filter(t => t.s === 6);
   else if(curFilter === 'done') allTasks = allTasks.filter(t => t.s === 1);
   else if(curFilter === 'thisweek') allTasks = allTasks.filter(t => t.w === '26W17');
   if(curSearch){
     const q = curSearch.toLowerCase();
-    allTasks = allTasks.filter(t => t.n.toLowerCase().includes(q) || (t.chat||[]).some(c => c.text.toLowerCase().includes(q)));
+    allTasks = allTasks.filter(t =>
+      (t.title || t.n || '').toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q) ||
+      (t.chat||[]).some(c => c.text.toLowerCase().includes(q))
+    );
   }
 
   // Empty state for filter
   if(allTasks.length === 0){
+    if(!isAllMode){
+      // Single-project mode but no tasks (yet) — show inline empty input
+      list.innerHTML = renderEmptyRowForProject(currentProject);
+      wireUpEmptyInput();
+      return;
+    }
     list.innerHTML = `<div class="es-mini"><div class="ic">🔍</div><div class="ttl">No matching tasks</div><div class="sb">Try clearing filters or search</div><button onclick="clearFilters()">Clear filters</button></div>`;
     return;
   }
 
-  // Group by project — only show projects that have tasks after filtering
+  // Single-project mode: flat list, no accordion wrapper
   let html = '';
+  if(!isAllMode){
+    const proj = PROJECTS.find(p => p.id === currentProject);
+    if(!proj){
+      // currentProject became invalid — reset to all
+      currentProject = 'all';
+      return render();
+    }
+    // Group by week (no accordion header — picker bar above already shows project)
+    const weeks = [...new Set(allTasks.map(t => t.w))].sort().reverse();
+    weeks.forEach(w => {
+      const wTasks = allTasks.filter(t => t.w === w);
+      const isCurWeek = w === '26W17';
+      html += `<div class="wk-h">${w}<span class="lbl">${isCurWeek?'— current week':''}</span></div>`;
+      wTasks.forEach(t => { html += renderRow(t); });
+    });
+    html += renderEmptyRowForProject(proj.id);
+    list.innerHTML = html;
+    wireUpEmptyInput();
+    return;
+  }
+
+  // 'All' mode — accordion view (existing behavior)
   PROJECTS.forEach(proj => {
     const projTasks = allTasks.filter(t => t.proj === proj.id);
     if(projTasks.length === 0 && curFilter === 'all' && !curSearch){
@@ -3040,6 +3164,91 @@ function captureScreenshot(){
     toast('Tauri invoke not available');
   }
 }
+
+// ━━━ PROJECT PICKER (v0.1.27) ━━━
+// Replace always-visible accordions with single-project picker (200+ projects friendly).
+// currentProject value 'all' means show full accordion view; otherwise one project.
+
+function renderProjPicker(){
+  const list = document.getElementById('ppList');
+  if(!list) return;
+  const search = (document.getElementById('ppSearch')?.value || '').toLowerCase().trim();
+
+  const items = [];
+  // 'All projects' option
+  if(!search || 'all projects'.includes(search) || 'все проекты'.includes(search)){
+    items.push({ id: 'all', name: T('proj.all') || 'All projects', code: '', count: TASKS.length });
+  }
+  // Real projects
+  for(const p of PROJECTS){
+    const hay = (p.name + ' ' + (p.code||'')).toLowerCase();
+    if(!search || hay.includes(search)){
+      items.push({ id: p.id, name: p.name, code: p.code || '', count: TASKS.filter(t => t.proj === p.id).length });
+    }
+  }
+
+  list.innerHTML = items.map(it => `
+    <div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" onclick="selectProject('${it.id}')">
+      <span class="ppi-name">${it.name}</span>
+      ${it.code ? `<span class="ppi-code">${it.code}</span>` : ''}
+      <span class="ppi-meta">${it.count}</span>
+    </div>
+  `).join('') || '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
+}
+
+function updateProjPickerLabel(){
+  const nameEl = document.getElementById('ppName');
+  const codeEl = document.getElementById('ppCode');
+  const metaEl = document.getElementById('ppCurMeta');
+  if(!nameEl) return;
+  if(currentProject === 'all' || !currentProject){
+    nameEl.textContent = T('proj.all') || 'All projects';
+    if(codeEl) codeEl.textContent = '';
+    if(metaEl) metaEl.textContent = `${PROJECTS.length} projects · ${TASKS.length} tasks`;
+  } else {
+    const p = PROJECTS.find(x => x.id === currentProject);
+    nameEl.textContent = p ? p.name : 'Unknown';
+    if(codeEl) codeEl.textContent = p ? (p.code || '') : '';
+    if(metaEl){
+      const cnt = TASKS.filter(t => t.proj === currentProject).length;
+      const done = TASKS.filter(t => t.proj === currentProject && t.s === 1).length;
+      metaEl.textContent = `${done} / ${cnt} done`;
+    }
+  }
+}
+
+function toggleProjPicker(e){
+  if(e) e.stopPropagation();
+  const picker = document.getElementById('projPicker');
+  const isOpen = picker.classList.toggle('open');
+  if(isOpen){
+    renderProjPicker();
+    setTimeout(() => document.getElementById('ppSearch')?.focus(), 50);
+  }
+}
+
+function selectProject(id){
+  currentProject = id;
+  localStorage.setItem('eb_current_project', id);
+  document.getElementById('projPicker').classList.remove('open');
+  const search = document.getElementById('ppSearch');
+  if(search) search.value = '';
+  updateProjPickerLabel();
+  if(typeof updateHeader === 'function') updateHeader();
+  render();
+}
+
+function filterProjPicker(){
+  renderProjPicker();
+}
+
+// Close picker on outside click
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('projPicker');
+  if(picker && picker.classList.contains('open') && !e.target.closest('#projPicker')){
+    picker.classList.remove('open');
+  }
+});
 
 // ━━━ TASK UIDs (v0.1.26) ━━━
 // Sequential numeric ID per project. Stable across reorders.
