@@ -231,13 +231,14 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--s
 
 /* Filter row + search */
 .filters{
-  padding:12px 28px;border-bottom:1px solid var(--line);
-  display:flex;align-items:center;gap:6px;flex-shrink:0
+  padding:8px 24px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap
 }
 .chip{
-  padding:5px 12px;background:var(--surf);border:1px solid var(--line-2);
-  font-size:12px;color:var(--t2);border-radius:20px;cursor:pointer;
-  font-family:inherit;font-weight:500;transition:.12s
+  padding:3px 10px;background:var(--surf);border:1px solid var(--line-2);
+  font-size:11px;color:var(--t2);border-radius:14px;cursor:pointer;
+  font-family:inherit;font-weight:500;transition:.12s;line-height:1.5;
+  white-space:nowrap
 }
 .chip:hover{border-color:var(--acc);color:var(--acc)}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
@@ -281,10 +282,11 @@ body.select-mode .row{cursor:pointer}
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
-  font-size:14px;opacity:0;transition:opacity .12s;user-select:none
+  font-size:14px;opacity:.35;transition:opacity .12s,color .12s;user-select:none
 }
-.row:hover .drag-handle{opacity:.6}
+.row:hover .drag-handle{opacity:.85}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
+.drag-handle:active{cursor:grabbing}
 
 .wk-st{display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding-left:6px;min-width:0}
 .row .wk{font-size:9px;color:var(--t4);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;line-height:1;padding:0}
@@ -322,6 +324,14 @@ body.select-mode .row{cursor:pointer}
 .row .pi.has-img{background:#1E293B}
 .row .pi.has-img img{width:100%;height:100%;object-fit:cover;display:block}
 .row .pi:hover{border-color:var(--acc)}
+.row .pi-lbl{
+  position:absolute;top:6px;left:6px;background:rgba(15,23,42,.72);color:#fff;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.06em;
+  padding:2px 7px;border-radius:4px;text-transform:uppercase;z-index:2;
+  pointer-events:none;backdrop-filter:blur(2px)
+}
+.row .pi.has .pi-lbl{background:rgba(15,23,42,.55)}
+body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 
 .row .nt{padding:0 12px;display:flex;flex-direction:column;gap:3px;min-width:0;height:100%}
 .row .nt-t{
@@ -1734,9 +1744,10 @@ function getFilteredTasks(){
 }
 
 document.addEventListener('click', e => {
-  const chip = e.target.closest('.chip');
+  // Only filter chips (have data-f) toggle the active state
+  const chip = e.target.closest('.chip[data-f]');
   if(chip){
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    document.querySelectorAll('.chip[data-f]').forEach(c => c.classList.remove('on'));
     chip.classList.add('on');
     curFilter = chip.dataset.f;
     render();
@@ -1915,12 +1926,20 @@ function renderRow(t){
 
 function renderPic(t, slot){
   const shotKey = slot === 'before' ? 'shot1' : 'shot2';
+  // Slot label (localized): "BEFORE"/"AFTER" or "ДО"/"ПОСЛЕ"
+  const lblKey = slot === 'before' ? 'col.before' : 'col.after';
+  const lblText = (typeof T === 'function' ? T(lblKey) : lblKey)
+    .replace(/^Pic\s+/i,'').replace('Before','BEFORE').replace('After','AFTER').toUpperCase();
   if(t[shotKey]){
     return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openLightbox('${t[shotKey]}','${t.id}',${slot==='before'?0:1})">
+      <span class="pi-lbl">${lblText}</span>
       <img src="${t[shotKey]}" alt="">
     </div>`;
   }
-  return `<div class="pi" data-task-id="${t.id}" data-slot="${slot}">paste·drop</div>`;
+  return `<div class="pi" data-task-id="${t.id}" data-slot="${slot}">
+    <span class="pi-lbl">${lblText}</span>
+    <span style="opacity:.55">paste·drop</span>
+  </div>`;
 }
 
 function renderEmptyRow(){
