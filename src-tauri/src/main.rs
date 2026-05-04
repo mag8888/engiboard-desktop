@@ -189,15 +189,14 @@ fn sniper_done(app: tauri::AppHandle, data_url: String) {
 fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
     eprintln!("capture_region (CSS px): {}x{} at ({},{})", w, h, x, y);
 
-    // ШАГ 1: УНИЧТОЖАЕМ sniper окно — двумя способами (hide + close)
-    // close() сам по себе асинхронный — окно может ещё быть в macOS compositor
+    // Hide + close sniper window immediately so the screenshot doesn't include the overlay.
     if let Some(win) = app.get_webview_window("sniper") {
-        let _ = win.hide();           // 1. Скрыть из видимости немедленно
-        let _ = win.close();          // 2. Закрыть полностью
+        let _ = win.hide();
+        let _ = win.close();
     }
 
     std::thread::spawn(move || {
-        // ШАГ 2: Ждём пока окно ТОЧНО исчезнет из композитора
+        // Wait for the sniper window to fully exit the compositor.
         for i in 0..40 {
             if app.get_webview_window("sniper").is_none() {
                 eprintln!("sniper destroyed after {}ms", i * 50);
@@ -206,63 +205,126 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
 
-        // ШАГ 3: ДОЛГАЯ пауза для composite redraw
-        // На Retina + Figma + Chrome + Vivox любые GPU apps требуют 1-1.5 сек
-        // чтобы macOS гарантированно перерисовал screen без нашего sniper
-        std::thread::sleep(std::time::Duration::from_millis(1200));
+        // Pause for compositor redraw without our overlay.
+        // macOS + Metal/Figma needs 1-1.5s; Windows is generally faster.
+        let redraw_ms = if cfg!(target_os = "macos") { 1200 } else { 250 };
+        std::thread::sleep(std::time::Duration::from_millis(redraw_ms));
 
-        // ШАГ 3: Делаем скриншот (sniper уже исчез)
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        let _ = std::fs::create_dir_all(format!("{}/Pictures", home));
-        let tmp = format!("{}/Pictures/engiboard_capture.png", home);
-        let _ = std::fs::remove_file(&tmp);
-
-        // ВАЖНО: используем CSS pixels (logical) — screencapture сам разберётся с Retina
-        let region = format!("{},{},{},{}", x, y, w, h);
-        eprintln!("screencapture -R {} (logical pixels) -> {}", region, tmp);
-
-        // -R region, -x silent, -t png format
-        // Прямой вызов screencapture с absolute path
-        eprintln!("screencapture -R {} -t png {}", region, tmp);
-        let status = std::process::Command::new("/usr/sbin/screencapture")
-            .args(["-R", &region, "-x", "-t", "png", &tmp])
-            .status();
-        eprintln!("screencapture status: {:?}", status);
-
-        // КРИТИЧНО: Проверяем что файл реально содержит данные другого приложения
-        // Если screencapture вернул успех но файл маленький (<5KB) — скорее всего нет разрешения
-        let initial_size = std::fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
-        if initial_size > 0 && initial_size < 5000 {
-            eprintln!("⚠️  Screenshot is suspiciously small ({} bytes)", initial_size);
-            eprintln!("   This usually means EngiBoard lacks Screen Recording permission.");
-            eprintln!("   Open: System Settings → Privacy & Security → Screen Recording");
-        }
-
-        // ШАГ 4: Ждём пока файл запишется (Figma и Metal apps требуют больше времени)
-        std::thread::sleep(std::time::Duration::from_millis(500));
-
-        let size = std::fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
-        eprintln!("file: {} = {} bytes", tmp, size);
-
-        // Если файл маленький (<500 bytes) — скорее всего пустой/белый
-        if size > 0 && size < 500 {
-            eprintln!("WARNING: file too small, may be empty/white");
-        }
-
-        if size > 0 {
-            if let Ok(bytes) = std::fs::read(&tmp) {
-                let _ = std::fs::remove_file(&tmp);
-                let url = format!("data:image/png;base64,{}", base64_encode(&bytes));
-                eprintln!("opening editor with image, len={}", url.len());
-                open_editor_with_image(app, url);
+        // Capture into PNG bytes — platform-specific implementation.
+        let png_bytes = match capture_region_to_png(x, y, w, h) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("capture failed: {}", e);
+                if let Some(win) = app.get_webview_window("main") { let _ = win.show(); }
                 return;
             }
+        };
+
+        let size = png_bytes.len();
+        eprintln!("captured PNG bytes: {}", size);
+        if size < 500 {
+            eprintln!("WARNING: capture is suspiciously small, may be empty");
         }
-        eprintln!("FAILED to read capture, showing main");
-        if let Some(win) = app.get_webview_window("main") {
-            let _ = win.show();
-        }
+
+        let url = format!("data:image/png;base64,{}", base64_encode(&png_bytes));
+        eprintln!("opening editor with image, len={}", url.len());
+        open_editor_with_image(app, url);
     });
+}
+
+// ─── Cross-platform screen-region capture ────────────────────────────────
+// macOS: native /usr/sbin/screencapture (best Retina handling)
+// Windows + Linux: xcap crate
+
+#[cfg(target_os = "macos")]
+fn capture_region_to_png(x: i32, y: i32, w: i32, h: i32) -> Result<Vec<u8>, String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    let _ = std::fs::create_dir_all(format!("{}/Pictures", home));
+    let tmp = format!("{}/Pictures/engiboard_capture.png", home);
+    let _ = std::fs::remove_file(&tmp);
+
+    let region = format!("{},{},{},{}", x, y, w, h);
+    eprintln!("screencapture -R {} -t png {}", region, tmp);
+    let status = std::process::Command::new("/usr/sbin/screencapture")
+        .args(["-R", &region, "-x", "-t", "png", &tmp])
+        .status()
+        .map_err(|e| format!("failed to spawn screencapture: {}", e))?;
+    eprintln!("screencapture status: {:?}", status);
+
+    // Wait for file flush (Figma/Metal apps may need it)
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let initial_size = std::fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
+    if initial_size > 0 && initial_size < 5000 {
+        eprintln!("⚠️  Screenshot is suspiciously small ({} bytes)", initial_size);
+        eprintln!("   Probably missing Screen Recording permission.");
+    }
+    let bytes = std::fs::read(&tmp).map_err(|e| format!("read failed: {}", e))?;
+    let _ = std::fs::remove_file(&tmp);
+    Ok(bytes)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn capture_region_to_png(x: i32, y: i32, w: i32, h: i32) -> Result<Vec<u8>, String> {
+    use xcap::Monitor;
+    use image::{ImageBuffer, Rgba};
+    use std::io::Cursor;
+
+    eprintln!("xcap: capturing region {}x{} at ({},{})", w, h, x, y);
+
+    // Find the monitor that contains the rect's top-left.
+    let monitors = Monitor::all().map_err(|e| format!("Monitor::all failed: {}", e))?;
+    if monitors.is_empty() {
+        return Err("no monitors detected".into());
+    }
+    // Convert CSS-px coords to physical (xcap uses physical pixels).
+    // Walk monitors; pick one whose physical bounds contain (x, y) after scaling by its scale_factor.
+    let target = monitors.iter().find(|m| {
+        let mx = m.x();
+        let my = m.y();
+        let mw = m.width() as i32;
+        let mh = m.height() as i32;
+        x >= mx && y >= my && x < mx + mw && y < my + mh
+    }).cloned().or_else(|| monitors.into_iter().next())
+      .ok_or_else(|| "no matching monitor".to_string())?;
+
+    let scale = target.scale_factor() as f64;
+    let mx = target.x();
+    let my = target.y();
+
+    // Capture the whole monitor; crop to requested region.
+    let full = target.capture_image().map_err(|e| format!("capture_image: {}", e))?;
+    let full_w = full.width() as i32;
+    let full_h = full.height() as i32;
+
+    let phys_x = ((x - mx) as f64 * scale).round() as i32;
+    let phys_y = ((y - my) as f64 * scale).round() as i32;
+    let phys_w = (w as f64 * scale).round() as i32;
+    let phys_h = (h as f64 * scale).round() as i32;
+
+    let crop_x = phys_x.max(0);
+    let crop_y = phys_y.max(0);
+    let crop_w = phys_w.min(full_w - crop_x).max(1);
+    let crop_h = phys_h.min(full_h - crop_y).max(1);
+
+    eprintln!(
+        "xcap: monitor {}x{} @ {}x scale; crop {}x{} at ({},{})",
+        full_w, full_h, scale, crop_w, crop_h, crop_x, crop_y
+    );
+
+    // xcap's image is RgbaImage already; image-rs can encode it.
+    let rgba: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(
+        full.width(),
+        full.height(),
+        full.into_raw(),
+    ).ok_or_else(|| "ImageBuffer::from_raw failed".to_string())?;
+
+    let cropped = image::imageops::crop_imm(&rgba, crop_x as u32, crop_y as u32, crop_w as u32, crop_h as u32).to_image();
+
+    let mut out: Vec<u8> = Vec::with_capacity((crop_w * crop_h * 4) as usize);
+    cropped.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+        .map_err(|e| format!("PNG encode: {}", e))?;
+    Ok(out)
 }
 
 
