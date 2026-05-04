@@ -289,7 +289,8 @@ body.select-mode .row{cursor:pointer}
 .drag-handle:active{cursor:grabbing}
 
 .wk-st{display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding-left:6px;min-width:0}
-.row .wk{font-size:9px;color:var(--t4);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;line-height:1;padding:0}
+.row .wk{font-size:10px;color:var(--t4);font-family:var(--mono);letter-spacing:.04em;line-height:1;padding:0;font-weight:600}
+.row .wk-old{font-size:8px;color:var(--t4);opacity:.6;font-family:var(--mono);letter-spacing:.04em;line-height:1;padding:0;display:block;margin-top:1px}
 .row .st-wrap{position:relative}
 .col-hdr .wk-lbl{font-size:9px;color:var(--t4);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;line-height:1;margin-bottom:2px}
 .row .st{
@@ -333,14 +334,24 @@ body.select-mode .row{cursor:pointer}
 .row .pi.has .pi-lbl{background:rgba(15,23,42,.55)}
 body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 
-.row .nt{padding:0 12px;display:flex;flex-direction:column;gap:3px;min-width:0;height:100%}
+.row .nt{padding:0 12px;display:flex;flex-direction:column;gap:2px;min-width:0;height:100%}
 .row .nt-t{
-  font-size:13px;color:var(--t1);line-height:1.4;outline:none;cursor:text;
-  border-radius:4px;padding:2px 4px;margin:-2px -4px;flex:1;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden
+  font-size:13.5px;font-weight:600;color:var(--t1);line-height:1.3;outline:none;cursor:text;
+  border-radius:4px;padding:2px 4px;margin:-2px -4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  letter-spacing:-.005em
 }
+.row .nt-t:empty:before{content:attr(data-placeholder);color:var(--t4);font-weight:500;font-style:italic}
 .row .nt-t:hover{background:#F8FAFC}
 .row .nt-t:focus{background:var(--surf);box-shadow:0 0 0 2px rgba(14,165,233,.2);-webkit-line-clamp:unset;overflow:visible}
+.row .nt-d{
+  font-size:11.5px;color:var(--t3);line-height:1.4;outline:none;cursor:text;
+  border-radius:4px;padding:2px 4px;margin:-2px -4px;flex:1;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+}
+.row .nt-d:empty:before{content:attr(data-placeholder);color:var(--t4);font-style:italic;opacity:.7}
+.row .nt-d:hover{background:#F8FAFC}
+.row .nt-d:focus{background:var(--surf);box-shadow:0 0 0 2px rgba(14,165,233,.2);-webkit-line-clamp:unset;overflow:visible;color:var(--t2)}
 .row .nt-mt{font-size:11px;color:var(--t3);font-family:var(--mono);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .row .nt-mt .play-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -1584,6 +1595,8 @@ function showApp(){
   document.getElementById('APP').classList.add('on');
   // P2-6: restore time tracking state from localStorage
   if(typeof loadTimers === 'function') loadTimers();
+  // v0.1.26: assign sequential numeric UIDs per project + migrate t.n → t.title
+  if(typeof ensureTaskUids === 'function') ensureTaskUids();
   // P2-4: apply current language to all data-t / data-t-ph elements
   if(typeof applyLang === 'function') applyLang();
   if(PROJECTS.length === 0){
@@ -1900,7 +1913,7 @@ function renderRow(t){
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${firstCell}
     <div class="wk-st">
-      <span class="wk">${t.w}</span>
+      <span class="wk">#${t.uid || '?'}${t.w ? `<span class="wk-old"> ${t.w}</span>` : ''}</span>
       <div class="st-wrap">
         <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
           <span class="pip"></span>${st.l}
@@ -1910,7 +1923,8 @@ function renderRow(t){
     <div class="pc">${piBefore}</div>
     <div class="pc">${piAfter}</div>
     <div class="nt">
-      <div class="nt-t" contenteditable="true" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.n}</div>
+      <div class="nt-t" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
+      <div class="nt-d" contenteditable="true" data-placeholder="Description…" onblur="saveTaskNotes('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.notes || ''}</div>
       <div class="nt-mt">
         <span class="time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">
           ${timerLabel}
@@ -1943,27 +1957,29 @@ function renderPic(t, slot){
 }
 
 function renderEmptyRow(){
+  const nextUid = nextTaskUid(currentProject);
   return `<div class="row empty" data-task-id="new" style="min-height:80px">
     <div></div>
     <div class="wk-st">
-      <span class="wk">26W17</span>
+      <span class="wk">#${nextUid}</span>
       <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
-    <div class="pc"><div class="pi">paste·drop</div></div>
-    <div class="pc"><div class="pi">paste·drop</div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.before')||'BEFORE').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.after')||'AFTER').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="nt"><input id="newInp" placeholder="${T('placeholder.newtask')}"></div>
   </div>`;
 }
 
 function renderEmptyRowForProject(projId){
+  const nextUid = nextTaskUid(projId);
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:60px">
     <div></div>
     <div class="wk-st">
-      <span class="wk">26W17</span>
+      <span class="wk">#${nextUid}</span>
       <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
-    <div class="pc"><div class="pi">paste·drop</div></div>
-    <div class="pc"><div class="pi">paste·drop</div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.before')||'BEFORE').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.after')||'AFTER').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="nt"><input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"></div>
   </div>`;
 }
@@ -1982,7 +1998,7 @@ function renderZero(){
       <div class="pc"><div class="pi">paste·drop</div></div>
       <div class="pc"><div class="pi">paste·drop</div></div>
       <div class="nt"><input id="newInpZero" placeholder="What needs to be done?"
-        onkeydown="if(event.key==='Enter'&&this.value.trim()){TASKS.push({id:'t'+Date.now(),proj:currentProject,w:'26W17',s:0,n:this.value.trim()});this.value='';render();updateHeader();toast('✓ Task created');}"></div>
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'26W17',s:0,title:txt,n:txt});this.value='';render();updateHeader();toast('✓ Task created');}"></div>
     </div>
   </div>`;
 }
@@ -1993,8 +2009,16 @@ function wireUpEmptyInput(){
     inp.onkeydown = function(e){
       if(e.key === 'Enter' && this.value.trim()){
         const projId = this.dataset.proj;
-        TASKS.push({id:'t'+Date.now(), proj:projId, w:'26W17', s:0, n:this.value.trim()});
         const text = this.value.trim();
+        TASKS.push({
+          id: 't' + Date.now(),
+          proj: projId,
+          uid: nextTaskUid(projId),  // v0.1.26: assign sequential numeric ID
+          w: '26W17',
+          s: 0,
+          title: text,
+          n: text,  // back-compat
+        });
         this.value = '';
         render();
         updateHeader();
@@ -2011,7 +2035,10 @@ function wireUpEmptyInput(){
 
 function saveTaskName(taskId, name){
   const t = TASKS.find(x => x.id === taskId);
-  if(t && name.trim()) t.n = name.trim();
+  if(t && name.trim()){
+    t.title = name.trim();
+    t.n = name.trim();  // back-compat
+  }
 }
 
 // ━━━ STATUS DROPDOWN ━━━
@@ -3012,6 +3039,44 @@ function captureScreenshot(){
   } else {
     toast('Tauri invoke not available');
   }
+}
+
+// ━━━ TASK UIDs (v0.1.26) ━━━
+// Sequential numeric ID per project. Stable across reorders.
+// Replaces ${t.w} display because tasks roll over weeks (week becomes meaningless).
+function ensureTaskUids(){
+  if(!Array.isArray(PROJECTS) || !Array.isArray(TASKS)) return;
+  for(const proj of PROJECTS){
+    const projTasks = TASKS.filter(t => t.proj === proj.id);
+    let nextUid = 1;
+    // First pass: find highest existing uid in project
+    for(const t of projTasks){
+      if(t.uid && t.uid >= nextUid) nextUid = t.uid + 1;
+    }
+    // Second pass: assign uid to tasks missing one
+    for(const t of projTasks){
+      if(!t.uid){
+        t.uid = nextUid++;
+      }
+      // v0.1.26: split t.n → t.title (back-compat: keep t.n in sync)
+      if(!t.title && t.n) t.title = t.n;
+    }
+  }
+}
+
+function nextTaskUid(projectId){
+  const projTasks = TASKS.filter(t => t.proj === projectId);
+  let max = 0;
+  for(const t of projTasks){
+    if(t.uid && t.uid > max) max = t.uid;
+  }
+  return max + 1;
+}
+
+// Save handlers for split title/notes
+function saveTaskNotes(taskId, notes){
+  const t = TASKS.find(x => x.id === taskId);
+  if(t) t.notes = (notes || '').trim();
 }
 
 // ━━━ BULK SELECT (multi-task actions) ━━━
