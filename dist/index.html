@@ -133,15 +133,30 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--s
 /* Title bar */
 .tbar{
   height:46px;background:var(--surf);border-bottom:1px solid var(--line);
-  display:flex;align-items:center;padding:0 14px 0 18px;gap:14px;flex-shrink:0;
+  display:flex;align-items:center;padding:0 14px 0 0;gap:0;flex-shrink:0;
   -webkit-app-region:drag;app-region:drag
 }
 .tbar > *{-webkit-app-region:no-drag;app-region:no-drag}
+/* macOS traffic-lights buffer (hidden on Windows/Linux, no traffic lights there) */
 .tl-spacer{width:78px;flex-shrink:0;-webkit-app-region:drag;app-region:drag}
+body.platform-win .tl-spacer,
+body.platform-linux .tl-spacer{width:0;display:none}
+
+/* v0.1.36: burger sits in a 54px-wide cell — exactly aligns with the
+   sidebar's collapsed icon column. Brand sits right after, aligned
+   with the sidebar's text column when sidebar is expanded. */
+.tbar-burger-cell{
+  width:54px;height:46px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border-right:1px solid var(--line);
+  -webkit-app-region:no-drag;app-region:no-drag
+}
 
 .brand{
-  display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--t1)
+  display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--t1);
+  padding:0 14px;width:146px;flex-shrink:0;transition:width .22s ease, padding .22s ease
 }
+body.sb-collapsed .brand{width:auto;padding-right:18px}
 .brand .mark{
   width:26px;height:26px;border-radius:7px;
   background:linear-gradient(135deg,var(--acc-2),var(--acc));
@@ -1203,15 +1218,15 @@ body.sb-collapsed #chatPop{left:54px}
 .profile-action.danger:hover{border-color:#B91C1C;color:#B91C1C;background:#FEF2F2}
 
 
-/* Burger button */
+/* Burger button — minimal, centered in its 54px cell to match sidebar icons */
 .burger{
-  border:1px solid var(--line);background:var(--surf);cursor:pointer;
-  width:30px;height:30px;border-radius:7px;
+  border:none;background:transparent;cursor:pointer;
+  width:34px;height:34px;border-radius:7px;
   display:flex;align-items:center;justify-content:center;
   transition:.15s;flex-shrink:0;-webkit-app-region:no-drag;app-region:no-drag
 }
-.burger:hover{border-color:var(--acc);background:rgba(14,165,233,.05)}
-.burger svg{width:14px;height:14px;color:var(--t2);stroke-width:2}
+.burger:hover{background:rgba(14,165,233,.08)}
+.burger svg{width:16px;height:16px;color:var(--t2);stroke-width:2}
 .burger:hover svg{color:var(--acc)}
 
 /* Sidebar collapsed state — icons only */
@@ -1326,13 +1341,15 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
   <!-- TITLE BAR -->
   <div class="tbar" data-tauri-drag-region>
     <div class="tl-spacer"></div>
-    <button class="burger" onclick="toggleSidebar()" title="Toggle sidebar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    </button>
+    <div class="tbar-burger-cell">
+      <button class="burger" onclick="toggleSidebar()" title="Toggle sidebar (⌘B / Ctrl+B)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+    </div>
     <div class="brand"><div class="mark">E</div>EngiBoard</div>
 
     <div class="tbar-spacer"></div>
@@ -1983,6 +2000,17 @@ function toggleDarkMode(){
   const saved = localStorage.getItem('eb_dark_mode');
   const darkOn = saved === '1';  // only dark if explicitly chosen
   applyDarkMode(darkOn);
+})();
+
+// v0.1.36: Detect platform → body class for OS-specific layout (e.g., hide tl-spacer on Windows)
+(function detectPlatform(){
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const platform = (navigator.platform || '').toLowerCase();
+  let cls = '';
+  if(platform.includes('win') || ua.includes('windows')) cls = 'platform-win';
+  else if(platform.includes('linux') && !ua.includes('android')) cls = 'platform-linux';
+  else if(platform.includes('mac') || ua.includes('mac')) cls = 'platform-mac';
+  if(cls) document.body.classList.add(cls);
 })();
 
 // ━━━ HEADER ━━━
