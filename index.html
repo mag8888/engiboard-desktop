@@ -2375,8 +2375,11 @@ function renderPic(t, slot){
   const lblKey = slot === 'before' ? 'col.before' : 'col.after';
   const lblText = (typeof T === 'function' ? T(lblKey) : lblKey)
     .replace(/^Pic\s+/i,'').replace('Before','BEFORE').replace('After','AFTER').toUpperCase();
+  const slotIdx = slot === 'before' ? 0 : 1;
   if(t[shotKey]){
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openLightbox('${t[shotKey]}','${t.id}',${slot==='before'?0:1})">
+    // v0.1.37: click on existing screenshot → open editor with tools immediately
+    // (was: open lightbox first, click button to open editor)
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})">
       <span class="pi-lbl">${lblText}</span>
       <img src="${t[shotKey]}" alt="">
     </div>`;
@@ -2385,6 +2388,39 @@ function renderPic(t, slot){
     <span class="pi-lbl">${lblText}</span>
     <span style="opacity:.55">paste·drop</span>
   </div>`;
+}
+
+// v0.1.37: open existing screenshot directly in editor (with annotation tools loaded)
+function openExistingShotEditor(taskId, slotIdx){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  let dataUrl = null;
+  if(slotIdx === 0) dataUrl = t.shot1;
+  else if(slotIdx === 1) dataUrl = t.shot2;
+  else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) dataUrl = t.shots[slotIdx - 2];
+  if(!dataUrl){ toast('No screenshot in this slot'); return; }
+
+  if(!window.__TAURI__){
+    // Browser fallback — no editor window available, fall back to lightbox view
+    if(typeof openLightbox === 'function') openLightbox(dataUrl, taskId, slotIdx);
+    return;
+  }
+
+  // Set context so editor's save flow puts the annotated image back into this slot
+  pendingAnnotateContext = { taskId, slotIdx };
+  const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  if(invoke){
+    invoke('open_editor_with_image', { dataUrl }).catch(err => {
+      console.error('open_editor_with_image failed:', err);
+      toast('Failed to open editor: ' + err);
+      pendingAnnotateContext = null;
+      // Last-resort fallback to lightbox view
+      if(typeof openLightbox === 'function') openLightbox(dataUrl, taskId, slotIdx);
+    });
+  } else {
+    pendingAnnotateContext = null;
+    if(typeof openLightbox === 'function') openLightbox(dataUrl, taskId, slotIdx);
+  }
 }
 
 function renderEmptyRow(){
@@ -2663,7 +2699,7 @@ function renderPresent(){
     <div class="pres-body-grid">
       <div class="pres-pic-col">
         <div class="pres-pic" style="min-height:440px;flex:1"><div class="lbl">${slide.label}</div>
-          <img src="${slide.src}" alt="" style="cursor:zoom-in" onclick="openLightbox('${slide.src}','${t.id}',${presentIdx})">
+          <img src="${slide.src}" alt="" style="cursor:zoom-in" title="Click to open editor with annotation tools" onclick="openExistingShotEditor('${t.id}',${presentIdx})">
         </div>
       </div>
       <aside class="pres-chat-col">
