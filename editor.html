@@ -111,13 +111,29 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .cbbl{position:absolute;z-index:21;background:#fff;border:1px solid #ddd;min-width:200px;max-width:260px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
 .cmt-pop{position:absolute;z-index:30;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 
-/* Right panel */
+/* Right panel — 2 stacked sections (Layers + Comments), each scrolling internally */
 .rpanel{
   width:220px;background:linear-gradient(to bottom,#19191D,#141417);
-  border-left:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0
+  border-left:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;
+  height:100%;min-height:0
 }
-.rps{padding:14px 16px;border-bottom:1px solid var(--line)}
-.rpl{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.rps-section{
+  flex:1;min-height:0;display:flex;flex-direction:column;
+  border-bottom:1px solid var(--line)
+}
+.rps-section:last-child{border-bottom:none}
+.rps-section-h{padding:12px 16px 8px;flex-shrink:0;display:flex;align-items:center;gap:6px}
+.rpl{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.1em;text-transform:uppercase}
+.rpl-ct{margin-left:auto;font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:500;background:rgba(255,255,255,.04);padding:1px 6px;border-radius:8px}
+.rps-list{
+  flex:1;min-height:0;overflow-y:auto;padding:0 10px 10px;
+}
+.rps-list::-webkit-scrollbar{width:6px}
+.rps-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px}
+.rps-list::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18)}
+.rps-actions{padding:10px 14px;flex-shrink:0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.18)}
+.rps-empty{font-size:11px;color:var(--t3);padding:14px 6px;text-align:center;font-style:italic;opacity:.7}
+
 .ali{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;font-size:12px;color:var(--t2);transition:.1s;border-radius:5px}
 .ali:hover{background:rgba(255,255,255,.04);color:var(--t1)}
 .ali.on{background:rgba(59,130,246,.15);color:var(--acc)}
@@ -201,20 +217,25 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 </div>
 
 <div class="rpanel">
-  <div class="rps">
-    <div class="rpl">Layers</div>
-    <div id="annList"><div style="font-size:11px;color:var(--t3);padding:6px;text-align:center">Empty</div></div>
+  <div class="rps-section">
+    <div class="rps-section-h">
+      <span class="rpl">Layers</span>
+      <span class="rpl-ct" id="annCt">0</span>
+    </div>
+    <div class="rps-list" id="annList"><div class="rps-empty">No annotations yet</div></div>
   </div>
-  <div class="rps">
-    <div class="rpl">Opacity</div>
-    <input type="range" min="10" max="100" value="100" id="opSlider" oninput="setOp(this.value)">
-    <div style="font-size:10px;color:var(--t3);font-family:var(--mono);margin-top:4px" id="opVal">100%</div>
+  <div class="rps-section">
+    <div class="rps-section-h">
+      <span class="rpl">Comments</span>
+      <span class="rpl-ct" id="cmtCt">0</span>
+    </div>
+    <div class="rps-list" id="cmtList"><div class="rps-empty">Click anywhere with the comment tool to add a pin</div></div>
   </div>
-  <div class="rps" style="display:flex;gap:6px">
-    <button onclick="undoLast()" class="tbtn-sm" style="flex:1">⌘Z Undo</button>
-    <button onclick="clearAll()" class="tbtn-sm" style="flex:1">Clear</button>
-  </div>
-  <div style="padding:14px 16px;margin-top:auto;display:flex;flex-direction:column;gap:8px">
+  <div class="rps-actions">
+    <div style="display:flex;gap:6px">
+      <button onclick="undoLast()" class="tbtn-sm" style="flex:1">⌘Z Undo</button>
+      <button onclick="clearAll()" class="tbtn-sm" style="flex:1">Clear</button>
+    </div>
     <button onclick="saveTask()" class="tbtn-sm blue" style="width:100%;padding:10px;font-size:12px">Save to task ↗</button>
     <button onclick="discard()" class="tbtn-sm" style="width:100%;padding:8px">Discard (Esc)</button>
   </div>
@@ -257,7 +278,8 @@ function setTool(t){
 }
 function setCol(el){color=el.dataset.c;document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('on'));el.classList.add('on');}
 function setSW(el){sw=+el.dataset.w;document.querySelectorAll('.sw').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
-function setOp(v){opVal=v/100;document.getElementById('opVal').textContent=v+'%';}
+// v0.1.29: opacity slider removed — opVal stays at 1.0 always
+function setOp(v){ /* no-op */ }
 
 paper.addEventListener('mousedown',e=>{
   if(e.target.closest('#cmtPop,#textInp')) return;
@@ -395,6 +417,7 @@ function renderAll(){
     const pin=document.createElement('div');
     pin.className='cpin cpin-r';
     pin.style.cssText=`left:${c.px}%;top:${c.py}%;background:${c.color}`;
+    pin.dataset.cmtId = c.id;  // v0.1.29: link pin ↔ Comments panel item
     pin.textContent=c.num;
     pin.onclick=ev=>{ev.stopPropagation();toggleBubble(c);};
     annRoot.appendChild(pin);
@@ -446,7 +469,51 @@ function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelecto
 
 const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬'};
 const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker'};
-function updateList(){const el=document.getElementById('annList');const all=[...annotations.map(a=>({...a,_c:true})),...comments.map(c=>({id:'c'+c.id,type:'comment',color:c.color,text:c.text,_c:false}))];if(!all.length){el.innerHTML='<div style="font-size:11px;color:var(--t3);padding:6px;text-align:center">Empty</div>';return;}el.innerHTML=all.map(a=>`<div class="ali ${a.id===selId?'on':''}" onclick="selAnn('${a.id}')"><span style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${ICONS[a.type]||'·'} ${a.type==='text'||a.type==='comment'?(a.text||'').slice(0,16):(NAMES[a.type]||a.type)}</span><button class="adel" onclick="event.stopPropagation();delAnn('${a.id}')">×</button></div>`).join('');}
+function updateList(){
+  // v0.1.29: split into Layers (annotations) and Comments (pin-comments) panels
+  const annEl = document.getElementById('annList');
+  const cmtEl = document.getElementById('cmtList');
+  const annCt = document.getElementById('annCt');
+  const cmtCt = document.getElementById('cmtCt');
+
+  // Layers list — annotations only
+  if(annCt) annCt.textContent = annotations.length;
+  if(!annotations.length){
+    annEl.innerHTML = '<div class="rps-empty">No annotations yet</div>';
+  } else {
+    annEl.innerHTML = annotations.map(a => `
+      <div class="ali ${a.id===selId?'on':''}" onclick="selAnn('${a.id}')">
+        <span style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${ICONS[a.type]||'·'} ${a.type==='text'?(a.text||'').slice(0,16):(NAMES[a.type]||a.type)}</span>
+        <button class="adel" onclick="event.stopPropagation();delAnn('${a.id}')">×</button>
+      </div>
+    `).join('');
+  }
+
+  // Comments list — pin-comments only
+  if(cmtCt) cmtCt.textContent = comments.length;
+  if(!comments.length){
+    cmtEl.innerHTML = '<div class="rps-empty">Click anywhere with the comment tool to add a pin</div>';
+  } else {
+    cmtEl.innerHTML = comments.map(c => `
+      <div class="ali" onclick="selComment(${c.id})">
+        <span style="width:18px;height:18px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${c.num}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--t1)">${(c.text||'').slice(0,28)}</span>
+        <button class="adel" onclick="event.stopPropagation();delCmt(${c.id})">×</button>
+      </div>
+    `).join('');
+  }
+}
+
+function selComment(id){
+  // Highlight pin briefly + scroll into view
+  const pin = document.querySelector(`.cpin[data-cmt-id="${id}"]`);
+  if(pin){
+    pin.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    pin.style.zIndex = 25;
+    setTimeout(() => { pin.style.transform = ''; pin.style.zIndex = ''; }, 600);
+  }
+}
 function selAnn(id){selId=id;renderAll();updateList();}
 function delAnn(id){if(String(id).startsWith('c')){delCmt(+id.slice(1));return;}undoStack.push(JSON.parse(JSON.stringify(annotations)));annotations=annotations.filter(a=>String(a.id)!==String(id));selId=null;renderAll();updateList();updateCount();}
 function updateCount(){const n=annotations.length+comments.length;document.getElementById('sbCount').textContent=`${n} annotation${n!==1?'s':''}`;}
