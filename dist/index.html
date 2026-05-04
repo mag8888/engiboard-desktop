@@ -418,6 +418,55 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 .row .nt-d:empty:before{content:attr(data-placeholder);color:var(--t4);font-style:italic;opacity:.7}
 .row .nt-d:hover{background:#F8FAFC}
 .row .nt-d:focus{background:var(--surf);box-shadow:0 0 0 2px rgba(14,165,233,.2);-webkit-line-clamp:unset;overflow:visible;color:var(--t2)}
+
+/* v0.1.30 — Inline chat panel in task row */
+.row .nt-chat{
+  margin:4px -2px 2px;padding:5px 6px;
+  background:var(--bg);border-radius:6px;border:1px solid var(--line);
+  max-height:84px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:5px;flex-shrink:0;
+  transition:.12s
+}
+.row .nt-chat::-webkit-scrollbar{width:5px}
+.row .nt-chat::-webkit-scrollbar-thumb{background:rgba(15,23,42,.12);border-radius:3px}
+.row .nt-chat:hover{border-color:var(--line-2)}
+.row .nt-chat-empty{font-size:10.5px;color:var(--t4);font-style:italic;text-align:center;padding:6px;line-height:1.3}
+.row .nt-chat-empty .ico{font-size:13px;display:block;margin-bottom:2px;opacity:.5}
+.row .nt-chat-msg{display:flex;align-items:flex-start;gap:6px;font-size:11px;line-height:1.35;cursor:pointer;border-radius:4px;padding:1px 2px;transition:background .1s}
+.row .nt-chat-msg:hover{background:rgba(14,165,233,.06)}
+.row .nt-chat-msg .av{
+  width:17px;height:17px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:8.5px;font-weight:700;color:#fff;line-height:1;
+  background:linear-gradient(135deg,var(--acc-2),var(--acc));
+  margin-top:1px
+}
+.row .nt-chat-msg .av.JD{background:linear-gradient(135deg,#FB923C,#C2410C)}
+.row .nt-chat-msg .av.MK{background:linear-gradient(135deg,#A78BFA,#7C3AED)}
+.row .nt-chat-msg .av.RM{background:linear-gradient(135deg,#34D399,#059669)}
+.row .nt-chat-msg .av.AT{background:linear-gradient(135deg,#FBBF24,#D97706)}
+.row .nt-chat-msg .av.DM{background:linear-gradient(135deg,#F472B6,#DB2777)}
+.row .nt-chat-msg .txt{flex:1;min-width:0;color:var(--t2);word-break:break-word}
+.row .nt-chat-msg .txt b{color:var(--t1);font-weight:600;margin-right:3px}
+.row .nt-chat-msg .ts{font-size:9px;color:var(--t4);font-family:var(--mono);flex-shrink:0;margin-top:2px;opacity:.7}
+.row .nt-chat-input{
+  display:flex;align-items:center;gap:5px;padding:3px;background:var(--surf);border-radius:5px;
+  margin-top:2px;border:1px solid transparent;transition:.12s
+}
+.row .nt-chat-input:focus-within{border-color:var(--acc);background:var(--surf)}
+.row .nt-chat-input input{
+  flex:1;border:none;background:transparent;font-size:11px;color:var(--t1);
+  font-family:inherit;outline:none;padding:3px 4px;min-width:0
+}
+.row .nt-chat-input button{
+  border:none;background:var(--acc);color:#fff;border-radius:4px;
+  font-size:10px;cursor:pointer;padding:3px 8px;font-weight:600;font-family:inherit
+}
+.row .nt-chat-input button:disabled{opacity:.4;cursor:not-allowed;background:var(--t4)}
+
+body.dark-mode .row .nt-chat{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.05)}
+body.dark-mode .row .nt-chat-msg:hover{background:rgba(14,165,233,.1)}
+body.dark-mode .row .nt-chat-input{background:rgba(255,255,255,.03)}
 .row .nt-mt{font-size:11px;color:var(--t3);font-family:var(--mono);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .row .nt-mt .play-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -2039,11 +2088,24 @@ function expandAllProjects(){
 
 function renderRow(t){
   const st = STATUSES[t.s] || STATUSES[0];
-  const height = t.h || 90;
+  // v0.1.30: default row height bumped to fit inline chat panel
+  const height = t.h || 150;
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
   const slideshowLabel = totalShots > 2 ? `▶ slideshow · ${totalShots}` : '▶ slideshow';
+  // v0.1.30: inline chat preview (last 5 msgs, scrollable)
+  const chatMsgs = (t.chat || []).slice(-5);
+  const chatHTML = chatMsgs.length === 0
+    ? '<div class="nt-chat-empty"><span class="ico">💬</span>No comments yet — write one below or open ▶ slideshow</div>'
+    : chatMsgs.map(m => {
+        const initials = (m.a || '?').slice(0, 2).toUpperCase();
+        return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
+          <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
+          <span class="ts">${m.ts||''}</span>
+        </div>`;
+      }).join('');
   // P2-6 timer state
   const isTimerRunning = !!t.timerStart;
   const totalMin = (t.timeMin || 0) + (isTimerRunning ? Math.floor((Date.now() - t.timerStart) / 60000) : 0);
@@ -2075,6 +2137,11 @@ function renderRow(t){
     <div class="nt">
       <div class="nt-t" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
       <div class="nt-d" contenteditable="true" data-placeholder="Description…" onblur="saveTaskNotes('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.notes || ''}</div>
+      <div class="nt-chat" id="ntChat-${t.id}">${chatHTML}</div>
+      <div class="nt-chat-input" onclick="event.stopPropagation()">
+        <input type="text" placeholder="Quick reply…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
+        <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
+      </div>
       <div class="nt-mt">
         <span class="time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">
           ${timerLabel}
@@ -2314,7 +2381,7 @@ function onResizeStart(e, taskId){
 // ━━━ ROW CLICK → present ━━━
 function onRowClick(e, taskId){
   if(taskId === 'new') return;
-  if(e.target.closest('input, button, .play-ic, .pi, .st-wrap, .st, .st-menu, .drag-handle, .resize-h, [contenteditable]')) return;
+  if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
   if(pasteMode) return;
   openPresent(taskId);
 }
@@ -3353,6 +3420,39 @@ function nextTaskUid(projectId){
 function saveTaskNotes(taskId, notes){
   const t = TASKS.find(x => x.id === taskId);
   if(t) t.notes = (notes || '').trim();
+}
+
+// v0.1.30: inline chat send from task row
+function sendInlineChat(inp){
+  if(!inp) return;
+  const taskId = inp.dataset.taskId;
+  const text = (inp.value || '').trim();
+  if(!text) return;
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if(!Array.isArray(t.chat)) t.chat = [];
+  t.chat.push({
+    a: 'AS',
+    ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
+    text,
+  });
+  inp.value = '';
+  // Update only this row's chat panel without full re-render (preserve focus)
+  const panel = document.getElementById('ntChat-' + taskId);
+  if(panel){
+    const chatMsgs = t.chat.slice(-5);
+    panel.innerHTML = chatMsgs.map(m => {
+      const initials = (m.a || '?').slice(0, 2).toUpperCase();
+      return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+        <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
+        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
+        <span class="ts">${m.ts||''}</span>
+      </div>`;
+    }).join('');
+    panel.scrollTop = panel.scrollHeight;
+  }
+  // Re-focus input
+  setTimeout(() => inp.focus(), 0);
 }
 
 // ━━━ BULK SELECT (multi-task actions) ━━━
