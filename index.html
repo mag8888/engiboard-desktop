@@ -281,6 +281,21 @@ body.dark-mode .proj-picker-menu{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 }
 .proj-bar-action:hover{border-color:var(--acc);color:var(--acc)}
 
+/* Dashboard: compact list for projects beyond top-6 */
+.dash-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-width:1200px}
+.dash-list-item{
+  display:flex;align-items:center;gap:14px;padding:10px 16px;
+  background:var(--surf);border:1px solid var(--line);border-radius:10px;cursor:pointer;
+  transition:.12s
+}
+.dash-list-item:hover{border-color:var(--acc)}
+.dli-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)}
+.dli-code{font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:500;flex-shrink:0}
+.dli-bar{flex:0 0 120px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;display:flex}
+.dli-bar > div{height:100%}
+.dli-pct{font-size:11px;color:var(--t3);font-family:var(--mono);width:36px;text-align:right;font-weight:500;flex-shrink:0}
+.dli-meta{font-size:10px;color:var(--t4);font-family:var(--mono);min-width:80px;text-align:right;flex-shrink:0}
+
 .filters{
   padding:8px 24px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:5px;flex-shrink:0;flex-wrap:wrap
@@ -1780,9 +1795,20 @@ function renderProjMenu(){
   }).join('') + `<div class="pm-add" onclick="document.getElementById('projMenu').classList.remove('open');openNewProjModal()">+ New project</div>`;
 }
 
+function getProjectOpens(){
+  try { return JSON.parse(localStorage.getItem('eb_proj_opens') || '{}'); } catch { return {}; }
+}
+function bumpProjectOpens(pid){
+  if(!pid || pid === 'all') return;
+  const opens = getProjectOpens();
+  opens[pid] = (opens[pid] || 0) + 1;
+  try { localStorage.setItem('eb_proj_opens', JSON.stringify(opens)); } catch(_){}
+}
+
 function switchProject(pid){
   currentProject = pid;
   try { localStorage.setItem('eb_current_project', pid); } catch(_){}
+  bumpProjectOpens(pid);
   curFilter = 'all';
   curSearch = '';
   const si = document.getElementById('searchInp');
@@ -2901,7 +2927,18 @@ function renderDashboardSection(){
   const totalRev = TASKS.filter(t => t.s === 3).length;
   const overallPct = totalTasks ? Math.round(totalDone/totalTasks*100) : 0;
 
-  const projCards = PROJECTS.map(p => {
+  // v0.1.28: rank projects by user's open count + task volume → top-6 cards
+  const opens = getProjectOpens();
+  const sorted = [...PROJECTS].sort((a, b) => {
+    const oa = opens[a.id] || 0, ob = opens[b.id] || 0;
+    if(oa !== ob) return ob - oa;
+    return TASKS.filter(t=>t.proj===b.id).length - TASKS.filter(t=>t.proj===a.id).length;
+  });
+  const TOP_N = 6;
+  const top = sorted.slice(0, TOP_N);
+  const rest = sorted.slice(TOP_N);
+
+  const projCard = (p) => {
     const pt = TASKS.filter(t => t.proj === p.id);
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
@@ -2915,8 +2952,8 @@ function renderDashboardSection(){
     }).join('');
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setSection('projects')">
       <div class="dproj-head">
-        <div><div class="dproj-name">${p.name}</div><div class="dproj-meta">${p.code} · ${p.client}</div></div>
-        <span class="dproj-status-badge ${p.status}">${p.status}</span>
+        <div><div class="dproj-name">${p.name}</div><div class="dproj-meta">${p.code || ''}${p.client?' · '+p.client:''}</div></div>
+        <span class="dproj-status-badge ${p.status||'active'}">${p.status||'active'}</span>
       </div>
       <div class="dproj-progress-row">
         <div class="dproj-pct">${pct}<span class="pct-sym">%</span></div>
@@ -2932,22 +2969,51 @@ function renderDashboardSection(){
         <div class="dproj-stat ${probs>0?'danger':''}"><div class="dproj-stat-num">${probs}</div><div class="dproj-stat-lbl">Issues</div></div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const projListItem = (p) => {
+    const pt = TASKS.filter(t => t.proj === p.id);
+    const total = pt.length;
+    const done = pt.filter(t => t.s === 1).length;
+    const probs = pt.filter(t => t.s === 5).length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    const segs = STATUSES.map(s => {
+      const cnt = pt.filter(t => t.s === s.id).length;
+      return cnt > 0 ? `<div style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
+    }).join('');
+    return `<div class="dash-list-item" onclick="switchProject('${p.id}');setSection('projects')">
+      <span class="dli-name">${p.name}</span>
+      ${p.code ? `<span class="dli-code">${p.code}</span>` : ''}
+      <div class="dli-bar">${segs}</div>
+      <span class="dli-pct">${pct}%</span>
+      <span class="dli-meta">${done}/${total}${probs>0?' · '+probs+' ⚠':''}</span>
+    </div>`;
+  };
 
   const addCard = `<div class="dproj add-new" onclick="openNewProjModal()"><div style="text-align:center"><div style="font-size:36px;margin-bottom:8px;line-height:1">+</div><div style="font-size:13px;font-weight:500">New project</div></div></div>`;
+
+  const topCardsHTML = top.map(projCard).join('') + (top.length < TOP_N ? addCard : '');
+  const restListHTML = rest.length > 0
+    ? `<div class="dash-section-title" style="margin-top:24px">All other projects (${rest.length})</div>
+       <div class="dash-list">${rest.map(projListItem).join('')}</div>`
+    : (top.length >= TOP_N
+        ? `<div class="dash-section-title" style="margin-top:24px">Quick add</div>
+           <div class="dash-list"><div class="dash-list-item" onclick="openNewProjModal()" style="justify-content:center;color:var(--acc);font-weight:500">+ New project</div></div>`
+        : '');
 
   view.innerHTML = `
     <div class="dash-h">
       <h2 style="margin:0">Projects <span class="accent">overview</span></h2>
     </div>
     <div class="dash-summary">
-      <div class="ds-card"><span class="lbl">Total projects</span><span class="num">${PROJECTS.length}</span><span class="delta">${PROJECTS.filter(p=>p.status==='active').length} active</span></div>
+      <div class="ds-card"><span class="lbl">Total projects</span><span class="num">${PROJECTS.length}</span><span class="delta">${PROJECTS.filter(p=>p.status==='active'||!p.status).length} active</span></div>
       <div class="ds-card"><span class="lbl">Total tasks</span><span class="num">${totalTasks}</span><span class="delta">${overallPct}% complete</span></div>
       <div class="ds-card progress"><span class="lbl">In progress</span><span class="num">${totalProg}</span><span class="delta">${totalRev} in review</span></div>
       <div class="ds-card problems"><span class="lbl">Open issues</span><span class="num">${totalProb}</span><span class="delta">${totalProb===0?'all clear':'needs attention'}</span></div>
     </div>
-    <div class="dash-section-title">All projects</div>
-    <div class="dash-grid">${projCards}${addCard}</div>
+    <div class="dash-section-title">${rest.length > 0 ? 'Most active' : 'All projects'} ${rest.length>0?'<span style="font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:400;margin-left:6px">'+top.length+' / '+PROJECTS.length+'</span>':''}</div>
+    <div class="dash-grid">${topCardsHTML}</div>
+    ${restListHTML}
   `;
 }
 
@@ -3230,6 +3296,7 @@ function toggleProjPicker(e){
 function selectProject(id){
   currentProject = id;
   localStorage.setItem('eb_current_project', id);
+  if(typeof bumpProjectOpens === 'function') bumpProjectOpens(id);
   document.getElementById('projPicker').classList.remove('open');
   const search = document.getElementById('ppSearch');
   if(search) search.value = '';
