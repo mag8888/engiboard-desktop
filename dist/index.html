@@ -281,6 +281,38 @@ body.dark-mode .proj-picker-menu{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 }
 .proj-bar-action:hover{border-color:var(--acc);color:var(--acc)}
 
+/* v0.1.34: Project members + invite by email */
+.proj-members{
+  border-top:1px solid var(--line);padding:10px 12px;background:var(--bg);flex-shrink:0
+}
+.proj-members-h{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.proj-members-h .ct{margin-left:auto;font-family:var(--mono);font-weight:500;color:var(--t4);text-transform:none;letter-spacing:0}
+.proj-members-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;max-height:120px;overflow-y:auto}
+.proj-member{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surf);border-radius:6px;font-size:11.5px}
+.proj-member .av{
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,var(--acc-2),var(--acc))
+}
+.proj-member .em{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)}
+.proj-member .role{font-size:9px;color:var(--t4);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;background:rgba(15,23,42,.06);padding:2px 6px;border-radius:4px}
+.proj-member .rm{border:none;background:none;color:var(--t3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;border-radius:3px;opacity:.5}
+.proj-member .rm:hover{color:#EF4444;opacity:1;background:rgba(239,68,68,.1)}
+.proj-invite-row{display:flex;gap:6px}
+.proj-invite-row input{
+  flex:1;border:1px solid var(--line-2);background:var(--surf);color:var(--t1);
+  padding:6px 10px;font-size:12px;border-radius:6px;font-family:inherit;outline:none
+}
+.proj-invite-row input:focus{border-color:var(--acc)}
+.proj-invite-row button{
+  border:none;background:var(--acc);color:#fff;padding:6px 14px;font-size:11px;
+  font-family:inherit;font-weight:600;border-radius:6px;cursor:pointer
+}
+.proj-invite-row button:disabled{opacity:.4;cursor:not-allowed}
+body.dark-mode .proj-members{background:rgba(255,255,255,.02)}
+body.dark-mode .proj-member{background:rgba(255,255,255,.04)}
+body.dark-mode .proj-member .role{background:rgba(255,255,255,.06)}
+
 /* Dashboard: compact list for projects beyond top-6 */
 .dash-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-width:1200px}
 .dash-list-item{
@@ -1383,6 +1415,14 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         <div class="proj-picker-menu" id="projPickerMenu">
           <input type="text" class="proj-picker-search" id="ppSearch" placeholder="Search projects…" data-t-ph="proj.search" oninput="filterProjPicker()">
           <div class="proj-picker-list" id="ppList"></div>
+          <div class="proj-members" id="ppMembers" style="display:none">
+            <div class="proj-members-h"><span data-t="proj.members">Members</span><span class="ct" id="ppMembersCt">0</span></div>
+            <div class="proj-members-list" id="ppMembersList"></div>
+            <div class="proj-invite-row">
+              <input type="email" id="ppInviteEmail" placeholder="email@example.com" data-t-ph="proj.invitePh" onkeydown="if(event.key==='Enter') inviteByEmail()">
+              <button id="ppInviteBtn" onclick="inviteByEmail()" data-t="proj.invite">Invite</button>
+            </div>
+          </div>
         </div>
       </div>
       <span class="proj-bar-cur" id="ppCurMeta"></span>
@@ -1574,6 +1614,7 @@ const I18N = {
     'col.notes':'Notes', 'col.task':'Task', 'col.comments':'Comments',
     'btn.send':'Send',
     'proj.all':'All projects', 'proj.search':'Search projects…',
+    'proj.members':'Members', 'proj.invite':'Invite', 'proj.invitePh':'email@example.com',
     'btn.presentation':'Presentation', 'btn.compare':'Compare',
   },
   ru: {
@@ -1593,6 +1634,7 @@ const I18N = {
     'col.notes':'Описание', 'col.task':'Задача', 'col.comments':'Комментарии',
     'btn.send':'Отправить',
     'proj.all':'Все проекты', 'proj.search':'Поиск проектов…',
+    'proj.members':'Участники', 'proj.invite':'Пригласить', 'proj.invitePh':'email@example.com',
     'btn.presentation':'Презентация', 'btn.compare':'Сравнить',
   },
 };
@@ -1833,8 +1875,14 @@ if (window.__TAURI__) {
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
       if (accessToken) {
-        // Decode JWT to get email
-        const payload = JSON.parse(atob(accessToken.split('.')[1]));
+        // v0.1.34: JWT uses base64URL (with -/_ instead of +/), atob() needs standard base64
+        const decodeJWTPayload = (jwt) => {
+          let p = jwt.split('.')[1] || '';
+          p = p.replace(/-/g, '+').replace(/_/g, '/');
+          while (p.length % 4) p += '=';
+          return JSON.parse(decodeURIComponent(escape(atob(p))));
+        };
+        const payload = decodeJWTPayload(accessToken);
         const email = payload.email || 'user@example.com';
         // Hand tokens to Supabase JS client so subsequent db.* calls are authenticated
         if(db.ready && refreshToken){
@@ -3553,8 +3601,90 @@ function toggleProjPicker(e){
   const isOpen = picker.classList.toggle('open');
   if(isOpen){
     renderProjPicker();
+    renderProjMembers();
     setTimeout(() => document.getElementById('ppSearch')?.focus(), 50);
   }
+}
+
+// v0.1.34: Project members & invite by email
+function getCurrentProjectMembers(){
+  if(!currentProject || currentProject === 'all') return null;
+  const proj = PROJECTS.find(p => p.id === currentProject);
+  if(!proj) return null;
+  if(!Array.isArray(proj.members)) proj.members = [];
+  return proj;
+}
+
+function renderProjMembers(){
+  const wrap = document.getElementById('ppMembers');
+  const list = document.getElementById('ppMembersList');
+  const ct = document.getElementById('ppMembersCt');
+  if(!wrap || !list) return;
+  const proj = getCurrentProjectMembers();
+  if(!proj){
+    // 'All projects' or invalid — hide section
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  // Header includes project name + count
+  const me = localStorage.getItem('eb_account') || 'demo@engiboard.app';
+  const allMembers = [{ email: me, role: 'owner' }, ...proj.members.map(em => ({ email: em, role: 'member' }))];
+  ct.textContent = `${allMembers.length} · ${proj.name}`;
+
+  list.innerHTML = allMembers.map(m => {
+    const initials = m.email.split('@')[0].slice(0,2).toUpperCase();
+    const roleLabel = m.role === 'owner' ? 'Owner' : 'Member';
+    return `<div class="proj-member">
+      <span class="av">${initials}</span>
+      <span class="em">${m.email}</span>
+      <span class="role">${roleLabel}</span>
+      ${m.role === 'owner' ? '' : `<button class="rm" onclick="removeProjMember('${m.email.replace(/'/g,"\\'")}')" title="Remove">×</button>`}
+    </div>`;
+  }).join('');
+}
+
+function inviteByEmail(){
+  const inp = document.getElementById('ppInviteEmail');
+  const email = (inp?.value || '').trim().toLowerCase();
+  if(!email){ toast('Type an email first'); inp?.focus(); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    toast('Invalid email format'); inp?.focus(); return;
+  }
+  const proj = getCurrentProjectMembers();
+  if(!proj){ toast('Pick a project first (not All)'); return; }
+  if(!Array.isArray(proj.members)) proj.members = [];
+  if(proj.members.includes(email)){ toast(`${email} already invited`); return; }
+  proj.members.push(email);
+  inp.value = '';
+  renderProjMembers();
+  toast(`✓ ${email} invited to ${proj.name}`, 2200);
+
+  // v1: open mailto: with prepared invite text. Real email delivery deferred to S4.
+  const subject = encodeURIComponent(`You're invited to ${proj.name} on EngiBoard`);
+  const body = encodeURIComponent(
+    `You've been invited to collaborate on the engineering project "${proj.name}" (${proj.code || ''}).\n\n` +
+    `EngiBoard is a desktop app for tracking engineering tasks with screenshots and annotations.\n\n` +
+    `Download for Mac/Windows: https://github.com/mag8888/engiboard-desktop/releases/latest\n\n` +
+    `After install, sign in with this email (${email}) and the project will appear once cloud sync is enabled (Sprint S4).\n\n` +
+    `— ${localStorage.getItem('eb_account') || 'EngiBoard team'}`
+  );
+  setTimeout(() => {
+    if(window.__TAURI__){
+      const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+      try { window.__TAURI__.shell.open(`mailto:${email}?subject=${subject}&body=${body}`); } catch(_){}
+    } else {
+      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    }
+  }, 200);
+}
+
+function removeProjMember(email){
+  const proj = getCurrentProjectMembers();
+  if(!proj || !Array.isArray(proj.members)) return;
+  proj.members = proj.members.filter(e => e !== email);
+  renderProjMembers();
+  toast(`Removed ${email}`);
 }
 
 function selectProject(id){
@@ -3565,6 +3695,7 @@ function selectProject(id){
   const search = document.getElementById('ppSearch');
   if(search) search.value = '';
   updateProjPickerLabel();
+  if(typeof renderProjMembers === 'function') renderProjMembers();
   if(typeof updateHeader === 'function') updateHeader();
   render();
   // v0.1.33: confirmation toast — answers 'не пойму, работает ли переключение?'
