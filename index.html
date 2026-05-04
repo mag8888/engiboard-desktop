@@ -317,7 +317,7 @@ body.dark-mode .proj-picker-menu{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 .search:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
 
 .col-hdr{
-  display:grid;grid-template-columns:24px 110px 1fr 1fr 280px;
+  display:grid;grid-template-columns:24px 160px 240px 1fr 1fr;
   padding:8px 28px 8px 36px;background:var(--bg);border-bottom:1px solid var(--line);
   font-family:var(--mono);font-size:10px;color:var(--t3);
   text-transform:uppercase;letter-spacing:.1em;flex-shrink:0
@@ -334,7 +334,7 @@ body.dark-mode .proj-picker-menu{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 
 /* Row */
 .row{
-  display:grid;grid-template-columns:24px 110px 1fr 1fr 280px;
+  display:grid;grid-template-columns:24px 160px 240px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px
@@ -354,6 +354,23 @@ body.select-mode .row{cursor:pointer}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
 .drag-handle:active{cursor:grabbing}
 
+/* v0.1.31: Title / ID / Status as 3-row stacked column */
+.tit-col{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:2px 8px 2px 6px;min-width:0;justify-content:center;height:100%}
+.tit-col .tc-title{
+  font-size:13.5px;font-weight:600;color:var(--t1);line-height:1.25;letter-spacing:-.005em;
+  outline:none;cursor:text;border-radius:4px;padding:1px 3px;margin:-1px -3px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  width:100%;word-break:break-word
+}
+.tit-col .tc-title:empty:before{content:attr(data-placeholder);color:var(--t4);font-weight:500;font-style:italic}
+.tit-col .tc-title:hover{background:rgba(15,23,42,.04)}
+.tit-col .tc-title:focus{background:var(--surf);box-shadow:0 0 0 2px rgba(14,165,233,.2);-webkit-line-clamp:unset;overflow:visible}
+.tit-col .tc-id{font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:600;letter-spacing:.04em;line-height:1}
+.tit-col .tc-id .tc-week{opacity:.55;margin-left:6px;font-weight:500;font-size:9px}
+.tit-col .tc-status{position:relative}
+body.dark-mode .tit-col .tc-title:hover{background:rgba(255,255,255,.04)}
+
+/* legacy wk-st kept for empty-row backward compat */
 .wk-st{display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding-left:6px;min-width:0}
 .row .wk{font-size:10px;color:var(--t4);font-family:var(--mono);letter-spacing:.04em;line-height:1;padding:0;font-weight:600}
 .row .wk-old{font-size:8px;color:var(--t4);opacity:.6;font-family:var(--mono);letter-spacing:.04em;line-height:1;padding:0;display:block;margin-top:1px}
@@ -380,9 +397,10 @@ body.select-mode .row{cursor:pointer}
 .st-opt:hover{background:#F1F5F9}
 .st-opt .pip{width:7px;height:7px;border-radius:50%}
 
-.row .pc{padding:0 8px}
+/* v0.1.31: pics stretch to full row height with 8px top/bottom padding */
+.row .pc{padding:8px 6px;display:flex;flex-direction:column;height:100%;min-height:0}
 .row .pi{
-  height:64px;border:1px dashed var(--line-2);background:rgba(248,250,252,.6);
+  flex:1;min-height:0;border:1px dashed var(--line-2);background:rgba(248,250,252,.6);
   border-radius:7px;display:flex;align-items:center;justify-content:center;
   font-size:10px;color:var(--t3);font-family:var(--mono);letter-spacing:.06em;
   text-transform:uppercase;transition:.12s;overflow:hidden;position:relative
@@ -419,7 +437,38 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 .row .nt-d:hover{background:#F8FAFC}
 .row .nt-d:focus{background:var(--surf);box-shadow:0 0 0 2px rgba(14,165,233,.2);-webkit-line-clamp:unset;overflow:visible;color:var(--t2)}
 
-/* v0.1.30 — Inline chat panel in task row */
+/* v0.1.31 — chat column (after status col, before pics) */
+.chat-col{
+  display:flex;flex-direction:column;gap:5px;height:100%;min-height:0;
+  padding:8px 8px 8px 0
+}
+.chat-col .chat-list{
+  flex:1;min-height:0;overflow-y:auto;
+  display:flex;flex-direction:column;gap:5px;
+  background:var(--bg);border-radius:6px;border:1px solid var(--line);
+  padding:5px 6px;transition:.12s
+}
+.chat-col .chat-list:hover{border-color:var(--line-2)}
+.chat-col .chat-list::-webkit-scrollbar{width:5px}
+.chat-col .chat-list::-webkit-scrollbar-thumb{background:rgba(15,23,42,.12);border-radius:3px}
+body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.05)}
+
+.chat-col .chat-row-actions{
+  display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap
+}
+.chat-col .chat-row-actions .ic-btn{
+  display:inline-flex;align-items:center;gap:3px;cursor:pointer;
+  padding:3px 7px;border-radius:5px;font-size:11px;color:var(--t3);font-family:var(--mono);
+  transition:.12s;border:1px solid transparent;background:transparent;line-height:1.4;white-space:nowrap
+}
+.chat-col .chat-row-actions .ic-btn:hover{color:var(--acc);background:rgba(14,165,233,.08)}
+.chat-col .chat-row-actions .ic-btn.running{color:#EF4444}
+.chat-col .chat-row-actions .ic-btn.running::before{
+  content:'';width:6px;height:6px;background:#EF4444;border-radius:50%;
+  animation:tk-pulse 1.4s ease-in-out infinite;display:inline-block
+}
+
+/* v0.1.30 (legacy) — Inline chat panel in task row .nt area */
 .row .nt-chat{
   margin:4px -2px 2px;padding:5px 6px;
   background:var(--bg);border-radius:6px;border:1px solid var(--line);
@@ -768,6 +817,68 @@ body.sb-collapsed #chatPop{left:54px}
   border-radius:18px;font-weight:600;font-family:inherit;height:38px;flex-shrink:0
 }
 .cp-send:hover{background:var(--acc-d)}
+
+/* Compare modal — vertical wipe slider (v0.1.31) */
+#compare{
+  display:none;position:fixed;inset:0;z-index:9100;
+  background:rgba(15,23,42,.88);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;padding:48px
+}
+#compare.on{display:flex}
+.cmp-card{
+  background:var(--surf);border-radius:14px;width:90vw;max-width:1280px;max-height:88vh;
+  display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5);
+  overflow:hidden
+}
+.cmp-head{
+  padding:14px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px
+}
+.cmp-head h3{font-size:16px;font-weight:600;flex:1;letter-spacing:-.01em;margin:0}
+.cmp-head .cmp-meta{font-size:11px;color:var(--t4);font-family:var(--mono)}
+.cmp-head .cmp-x{
+  border:none;background:none;font-size:22px;cursor:pointer;color:var(--t3);
+  padding:4px 10px;border-radius:6px;line-height:1
+}
+.cmp-head .cmp-x:hover{background:rgba(15,23,42,.06);color:var(--t1)}
+.cmp-stage{
+  position:relative;flex:1;background:#0f172a;
+  overflow:hidden;user-select:none;cursor:ew-resize;
+  min-height:300px
+}
+.ci-before, .cmp-stage .ci-after{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;
+  pointer-events:none
+}
+.ci-after-clip{
+  position:absolute;top:0;bottom:0;left:0;overflow:hidden;
+  pointer-events:none
+}
+.ci-after-clip .ci-after{
+  position:absolute;left:0;top:0;width:auto;min-width:100vw;height:100%;
+  /* the inner img is sized so the visible portion lines up with the BEFORE behind it */
+}
+.ci-handle{
+  position:absolute;top:0;bottom:0;width:40px;
+  transform:translateX(-50%);cursor:ew-resize;z-index:5;
+  display:flex;align-items:center;justify-content:center
+}
+.ci-line{
+  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
+  width:3px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4)
+}
+.ci-grip{
+  position:relative;width:40px;height:40px;border-radius:50%;background:#fff;color:#0f172a;
+  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
+  box-shadow:0 4px 12px rgba(0,0,0,.5);cursor:grab
+}
+.ci-grip:active{cursor:grabbing}
+.ci-lbl-before, .ci-lbl-after{
+  position:absolute;top:14px;font-family:var(--mono);font-size:10px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:#fff;
+  background:rgba(15,23,42,.7);padding:5px 12px;border-radius:5px;z-index:3;pointer-events:none
+}
+.ci-lbl-before{left:14px}
+.ci-lbl-after{right:14px}
 
 /* Presentation */
 #present{
@@ -1309,7 +1420,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     </div>
 
     <div class="col-hdr">
-      <div></div><div data-t="col.statusWk">Status / Wk</div><div data-t="col.before">Pic Before</div><div data-t="col.after">Pic After</div><div data-t="col.notes">Notes</div>
+      <div></div><div data-t="col.task">Task</div><div data-t="col.comments">Comments</div><div data-t="col.before">Before</div><div data-t="col.after">After</div>
     </div>
 
     <div class="list" id="list"></div>
@@ -1381,6 +1492,29 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <!-- PRESENT -->
 <div id="present"><div class="pres-card" id="presCard"></div></div>
 
+<!-- v0.1.31: Compare modal (BEFORE vs AFTER wipe slider) -->
+<div id="compare">
+  <div class="cmp-card">
+    <div class="cmp-head">
+      <h3 id="cmpTitle">Compare</h3>
+      <span class="cmp-meta" id="cmpMeta">drag the slider to wipe</span>
+      <button class="cmp-x" onclick="closeCompare()" title="Close (Esc)">×</button>
+    </div>
+    <div class="cmp-stage" id="cmpStage">
+      <span class="ci-lbl-before" data-t="col.before">BEFORE</span>
+      <span class="ci-lbl-after" data-t="col.after">AFTER</span>
+      <img class="ci-before" id="ciBefore" alt="">
+      <div class="ci-after-clip" id="ciAfterClip">
+        <img class="ci-after" id="ciAfter" alt="">
+      </div>
+      <div class="ci-handle" id="ciHandle">
+        <div class="ci-line"></div>
+        <div class="ci-grip">⇄</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div id="dash"></div>
 
@@ -1432,10 +1566,11 @@ const I18N = {
     'sb.shortcuts':'Shortcuts', 'sb.profile':'Profile', 'sb.darkmode':'Dark mode',
     'sb.lang':'Language',
     // Misc
-    'col.statusWk':'Status / Wk', 'col.before':'Pic Before', 'col.after':'Pic After',
-    'col.notes':'Notes',
+    'col.statusWk':'Status / Wk', 'col.before':'Before', 'col.after':'After',
+    'col.notes':'Notes', 'col.task':'Task', 'col.comments':'Comments',
     'btn.send':'Send',
     'proj.all':'All projects', 'proj.search':'Search projects…',
+    'btn.presentation':'Presentation', 'btn.compare':'Compare',
   },
   ru: {
     'st.0':'Инфо', 'st.1':'Готово', 'st.2':'Не актуально', 'st.3':'На ревью',
@@ -1451,9 +1586,10 @@ const I18N = {
     'sb.shortcuts':'Хоткеи', 'sb.profile':'Профиль', 'sb.darkmode':'Тёмная тема',
     'sb.lang':'Язык',
     'col.statusWk':'Статус / Нед', 'col.before':'До', 'col.after':'После',
-    'col.notes':'Описание',
+    'col.notes':'Описание', 'col.task':'Задача', 'col.comments':'Комментарии',
     'btn.send':'Отправить',
     'proj.all':'Все проекты', 'proj.search':'Поиск проектов…',
+    'btn.presentation':'Презентация', 'btn.compare':'Сравнить',
   },
 };
 let currentLang = (() => {
@@ -1790,12 +1926,10 @@ function toggleDarkMode(){
 }
 
 // Init dark mode early (before app shows)
+// v0.1.31: default = LIGHT (don't follow system pref). User toggles manually if wanted.
 (function initDarkMode(){
   const saved = localStorage.getItem('eb_dark_mode');
-  let darkOn = false;
-  if(saved === '1') darkOn = true;
-  else if(saved === '0') darkOn = false;
-  else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) darkOn = true;
+  const darkOn = saved === '1';  // only dark if explicitly chosen
   applyDarkMode(darkOn);
 })();
 
@@ -2088,16 +2222,19 @@ function expandAllProjects(){
 
 function renderRow(t){
   const st = STATUSES[t.s] || STATUSES[0];
-  // v0.1.30: default row height bumped to fit inline chat panel
+  // v0.1.31: row height fits 5-col layout (title-col + chat-col + 2 pics)
   const height = t.h || 150;
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
-  const slideshowLabel = totalShots > 2 ? `▶ slideshow · ${totalShots}` : '▶ slideshow';
+  const presLabel = (typeof T==='function' ? T('btn.presentation') : 'Presentation');
+  const slideshowLabel = totalShots > 2 ? `▶ ${presLabel} · ${totalShots}` : `▶ ${presLabel}`;
+  const compareLabel = (typeof T==='function' ? T('btn.compare') : 'Compare');
+  const hasBoth = !!(t.shot1 && t.shot2);
   // v0.1.30: inline chat preview (last 5 msgs, scrollable)
   const chatMsgs = (t.chat || []).slice(-5);
   const chatHTML = chatMsgs.length === 0
-    ? '<div class="nt-chat-empty"><span class="ico">💬</span>No comments yet — write one below or open ▶ slideshow</div>'
+    ? `<div class="nt-chat-empty"><span class="ico">💬</span>No comments yet — write one below or open ▶ ${presLabel}</div>`
     : chatMsgs.map(m => {
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
         return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
@@ -2124,33 +2261,29 @@ function renderRow(t){
     ondragend="onDragEnd(event)"`}
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${firstCell}
-    <div class="wk-st">
-      <span class="wk">#${t.uid || '?'}${t.w ? `<span class="wk-old"> ${t.w}</span>` : ''}</span>
-      <div class="st-wrap">
+    <div class="tit-col">
+      <div class="tc-title" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
+      <div class="tc-id">#${t.uid || '?'}${t.w ? `<span class="tc-week">${t.w}</span>` : ''}</div>
+      <div class="tc-status">
         <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
           <span class="pip"></span>${st.l}
         </span>
       </div>
     </div>
-    <div class="pc">${piBefore}</div>
-    <div class="pc">${piAfter}</div>
-    <div class="nt">
-      <div class="nt-t" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
-      <div class="nt-d" contenteditable="true" data-placeholder="Description…" onblur="saveTaskNotes('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.notes || ''}</div>
-      <div class="nt-chat" id="ntChat-${t.id}">${chatHTML}</div>
-      <div class="nt-chat-input" onclick="event.stopPropagation()">
+    <div class="chat-col" onclick="event.stopPropagation()">
+      <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
+      <div class="nt-chat-input">
         <input type="text" placeholder="Quick reply…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
         <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
       </div>
-      <div class="nt-mt">
-        <span class="time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">
-          ${timerLabel}
-        </span>
-        <span class="play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="Presentation mode (chat + add more screenshots inside)">
-          ${slideshowLabel}
-        </span>
+      <div class="chat-row-actions">
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">${timerLabel}</span>
+        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: before vs after side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
       </div>
     </div>
+    <div class="pc">${piBefore}</div>
+    <div class="pc">${piAfter}</div>
     <div class="resize-h" onmousedown="onResizeStart(event,'${t.id}')"></div>
   </div>`;
 }
@@ -2175,29 +2308,33 @@ function renderPic(t, slot){
 
 function renderEmptyRow(){
   const nextUid = nextTaskUid(currentProject);
-  return `<div class="row empty" data-task-id="new" style="min-height:80px">
+  return `<div class="row empty" data-task-id="new" style="min-height:64px">
     <div></div>
-    <div class="wk-st">
-      <span class="wk">#${nextUid}</span>
+    <div class="tit-col">
+      <span style="font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:600">#${nextUid}</span>
       <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
+    </div>
+    <div class="chat-col" style="padding:10px 8px;justify-content:center">
+      <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.before')||'BEFORE').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.after')||'AFTER').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
-    <div class="nt"><input id="newInp" placeholder="${T('placeholder.newtask')}"></div>
   </div>`;
 }
 
 function renderEmptyRowForProject(projId){
   const nextUid = nextTaskUid(projId);
-  return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:60px">
+  return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
     <div></div>
-    <div class="wk-st">
-      <span class="wk">#${nextUid}</span>
+    <div class="tit-col">
+      <span style="font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:600">#${nextUid}</span>
       <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
+    </div>
+    <div class="chat-col" style="padding:10px 8px;justify-content:center">
+      <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.before')||'BEFORE').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.after')||'AFTER').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
-    <div class="nt"><input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"></div>
   </div>`;
 }
 
@@ -2304,26 +2441,26 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  // Only allow drag if mousedown was on drag-handle
-  if(!window._dragHandleArmed){
+  // v0.1.31: allow drag from anywhere on row EXCEPT interactive areas
+  // (was blocked too aggressively by _dragHandleArmed gate before)
+  if(e.target.closest(
+    'input, textarea, button, [contenteditable], ' +
+    '.pi, .st, .st-wrap, .st-menu, .nt-chat, .nt-chat-input, ' +
+    '.row-check, .resize-h, .time-ic, .play-ic, .compare-ic, .pi-lbl'
+  )){
     e.preventDefault();
     return;
   }
-  window._dragHandleArmed = false;
+  if(selectMode){
+    e.preventDefault();
+    return;
+  }
   dragTaskId = taskId;
-  e.target.closest('.row').classList.add('dragging');
+  const row = e.target.closest('.row');
+  if(row) row.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', taskId);
 }
-
-// Arm drag only when mousedown on .drag-handle
-document.addEventListener('mousedown', e => {
-  if(e.target.closest('.drag-handle')){
-    window._dragHandleArmed = true;
-  } else {
-    window._dragHandleArmed = false;
-  }
-});
 function onDragOver(e){
   e.preventDefault();
   if(!dragTaskId) return;
@@ -2867,6 +3004,7 @@ document.addEventListener('drop', e => {
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     if(pasteMode) exitPasteMode();
+    else if(document.getElementById('compare')?.classList.contains('on')) closeCompare();
     else if(document.getElementById('lightbox').classList.contains('on')) closeLightbox();
     else if(document.getElementById('present').classList.contains('on')) closePresent();
     else if(document.getElementById('newProjModal').classList.contains('on')) closeNewProjModal();
@@ -3421,6 +3559,66 @@ function saveTaskNotes(taskId, notes){
   const t = TASKS.find(x => x.id === taskId);
   if(t) t.notes = (notes || '').trim();
 }
+
+// v0.1.31: Compare modal — BEFORE vs AFTER with wipe slider
+let _cmpDrag = false;
+function openCompare(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !t.shot1 || !t.shot2){
+    toast('Need both BEFORE and AFTER screenshots to compare');
+    return;
+  }
+  document.getElementById('cmpTitle').textContent = t.title || t.n || 'Compare';
+  document.getElementById('ciBefore').src = t.shot1;
+  document.getElementById('ciAfter').src = t.shot2;
+  // Sync clip width with stage width: after image renders the same size as before, then we clip
+  setTimeout(() => {
+    const stage = document.getElementById('cmpStage');
+    const afterImg = document.getElementById('ciAfter');
+    if(stage && afterImg){
+      afterImg.style.width = stage.clientWidth + 'px';
+    }
+    setComparePos(50);
+  }, 30);
+  document.getElementById('compare').classList.add('on');
+}
+function closeCompare(){
+  document.getElementById('compare').classList.remove('on');
+  _cmpDrag = false;
+}
+function setComparePos(pct){
+  pct = Math.max(0, Math.min(100, pct));
+  const clip = document.getElementById('ciAfterClip');
+  const handle = document.getElementById('ciHandle');
+  if(clip) clip.style.width = pct + '%';
+  if(handle) handle.style.left = pct + '%';
+}
+// Drag handlers on the stage — drag anywhere wipes
+(function setupCmpDrag(){
+  const stage = document.getElementById('cmpStage');
+  if(!stage){ setTimeout(setupCmpDrag, 200); return; }
+  const onMove = (clientX) => {
+    const r = stage.getBoundingClientRect();
+    const pct = ((clientX - r.left) / r.width) * 100;
+    setComparePos(pct);
+  };
+  stage.addEventListener('mousedown', e => { _cmpDrag = true; onMove(e.clientX); e.preventDefault(); });
+  document.addEventListener('mousemove', e => { if(_cmpDrag) onMove(e.clientX); });
+  document.addEventListener('mouseup', () => { _cmpDrag = false; });
+  // Also support touch on macOS trackpad / windows touch
+  stage.addEventListener('touchstart', e => { _cmpDrag = true; if(e.touches[0]) onMove(e.touches[0].clientX); });
+  document.addEventListener('touchmove', e => { if(_cmpDrag && e.touches[0]) onMove(e.touches[0].clientX); });
+  document.addEventListener('touchend', () => { _cmpDrag = false; });
+  // Resize observer to keep .ci-after sized correctly
+  if(window.ResizeObserver){
+    new ResizeObserver(() => {
+      const afterImg = document.getElementById('ciAfter');
+      if(afterImg && document.getElementById('compare').classList.contains('on')){
+        afterImg.style.width = stage.clientWidth + 'px';
+      }
+    }).observe(stage);
+  }
+})();
 
 // v0.1.30: inline chat send from task row
 function sendInlineChat(inp){
