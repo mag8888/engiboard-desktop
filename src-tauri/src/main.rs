@@ -24,39 +24,31 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
     eprintln!("open_editor_with_image: data len={}", data_url.len());
     let d = data_url.clone();
 
-    // Если редактор уже открыт — переиспользуем
-    if let Some(win) = app.get_webview_window("editor") {
-        eprintln!("editor exists — reusing, bringing to front");
-        let _ = win.unminimize();
-        let _ = win.show();
-        // Force editor to top and KEEP focus. Don't auto-drop always_on_top —
-        // when user clicks another app, macOS will naturally show it above editor.
-        // When user wants to use editor again, they click on it.
-        let _ = win.set_always_on_top(true);
-        let _ = win.set_focus();
-        // Editor stays on top for the screenshot session.
-        // User closes it via X button or saves via Save button — both close editor
-        // and return focus to main window.
-        // FIX: show main window back (it was hidden during capture)
-        if let Some(main_win) = app.get_webview_window("main") {
-            let _ = main_win.show();
-        }
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(150));
-            let r = win.emit("load-image", d);
-            eprintln!("emit load-image to existing: {:?}", r);
-        });
-        return;
+    // v0.1.39 fix: client reported "пустое окно EngiBoard Annotate" — happens when
+    // a stale editor window is reused but its webview is in broken/half-loaded state.
+    // Always close+recreate to guarantee a clean editor every time.
+    // Also drop always_on_top — it was blocking the user from closing or interacting
+    // with main window, and was reported as "его невозможно закрыть".
+    if let Some(stale) = app.get_webview_window("editor") {
+        eprintln!("closing stale editor window before recreating");
+        let _ = stale.close();
+        // Give compositor a moment to actually destroy it
+        std::thread::sleep(std::time::Duration::from_millis(120));
     }
 
-    // Создаём новое окно
-    eprintln!("creating new editor window");
+    // Make sure main is visible so user always has somewhere to go back to.
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.show();
+    }
+
+    eprintln!("creating fresh editor window");
     let result = WebviewWindowBuilder::new(
         &app, "editor", WebviewUrl::App("editor.html".into()))
         .title("EngiBoard · Annotate")
         .inner_size(1200.0, 780.0)
         .min_inner_size(800.0, 540.0)
-        .always_on_top(true)
+        // v0.1.39: always_on_top removed — was blocking close + capture workflow.
+        // Editor is now a normal window the user can switch away from.
         .center()
         .focused(true)
         .visible(true)
@@ -67,18 +59,25 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
             eprintln!("editor window created OK");
             let _ = win.show();
             let _ = win.set_focus();
-            // Editor stays on top until user saves/closes it.
-            // DO NOT show main window automatically — it would steal focus from editor.
-            // Main stays hidden until user closes editor (then editor closes -> main shows).
+            // v0.1.39: emit load-image with retry. Single emit too early was
+            // resulting in editor showing blank ('пустое окно'). Three retries
+            // at 800/1500/2400ms — editor.html dedupes by checking its 'loaded' flag.
             std::thread::spawn(move || {
-                // Ждём загрузки страницы дольше для нового окна
-                std::thread::sleep(std::time::Duration::from_millis(1200));
-                let r = win.emit("load-image", d);
-                eprintln!("emit load-image to new: {:?}", r);
+                for delay in [800u64, 700, 900] {
+                    std::thread::sleep(std::time::Duration::from_millis(delay));
+                    let r = win.emit("load-image", d.clone());
+                    eprintln!("emit load-image (after {}ms more): {:?}", delay, r);
+                    if r.is_err() { break; }
+                }
             });
         }
         Err(e) => {
             eprintln!("FAILED to create editor: {}", e);
+            // Show main again so user isn't stuck
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+            }
         }
     }
 }

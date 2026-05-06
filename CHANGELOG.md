@@ -5,6 +5,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](htt
 
 ---
 
+## [v0.1.39] — 2026-05-06
+
+### Fixed (client v0.1.38 round-trip — 6 critical bugs)
+- **Project picker не переключал проект** — `updateHeader()` обращался к удалённому
+  `psName`/`psMeta` (старый proj-switch до v0.1.27). TypeError рвал `selectProject()`
+  на середине: picker закрывался, но `render()` не вызывался, контент не обновлялся.
+  Удалили легаси-обращения, header теперь обновляется через `updateProjPickerLabel`.
+- **Status pill не открывал меню** — `toggleStMenu()` искал `.st-wrap`, который
+  переименован в `.tc-status` в v0.1.31. Меню не появлялось вообще, поэтому
+  "невозможно присвоить тип таски". Селектор расширен на оба варианта.
+- **Editor "EngiBoard Annotate" пустое окно** — переиспользование старого окна
+  через `get_webview_window("editor")` могло наткнуться на полусдохший webview.
+  Теперь окно всегда `close()` + `recreate`. Убран `always_on_top` (мешал закрыть).
+  `load-image` event ретраится 3× (800/700/900мс) с дедупом по hash в editor.html.
+- **Capture region захватывался "левее" рамки** — sniper отдавал window-relative
+  `clientX/Y`, а на Windows borderless+transparent окне Aero добавляет невидимый
+  фрейм → реальная позиция != (0,0). Перешли на абсолютные `screenX/Y`.
+- **Save из slideshow не привязывался к таске** — кнопка `+ 📷 Add` запускала
+  капчер без контекста, скриншот падал в paste-mode и требовал второй клик.
+  Добавлен флаг `pendingPresentAttach` — после save сразу `addShotToPresentTask()`.
+- **Чат рассинхронизировался между slideshow и task row** — `sendPresChat`
+  обновлял только slideshow, а `sendInlineChat` дёргал innerHTML панели в строке.
+  Когда юзер закрывал презентацию → видел старый чат; писал новое → внезапно
+  всплывали сообщения "из презентации". Добавлена `syncTaskRowChat()`, которая
+  обновляет inline-панель строки после `sendPresChat` и при `closePresent`.
+
+### Internal
+- Bumped Cargo + tauri.conf.json to 0.1.39.
+
+---
+
 ## [v0.1.21] — 2026-05-03
 
 ### Added

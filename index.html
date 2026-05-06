@@ -1918,8 +1918,8 @@ function showApp(){
   if(PROJECTS.length === 0){
     // No projects — show empty
     document.getElementById('list').innerHTML = `<div class="es-zero"><div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div><div class="es-zero-h">No projects yet</div><div class="es-zero-s">Create your first project to start</div><button class="dbtn" style="max-width:240px;margin:0 auto" onclick="openNewProjModal()">+ Create project</button></div>`;
-    document.getElementById('psName').textContent = 'No project';
-    document.getElementById('psMeta').textContent = '0 tasks';
+    // v0.1.39 fix: psName/psMeta no longer exist; updateProjPickerLabel() handles header label.
+    if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
     return;
   }
   if(currentProject !== 'all' && !PROJECTS.find(p => p.id === currentProject)){
@@ -1987,15 +1987,15 @@ function toggleDarkMode(){
 // ━━━ HEADER ━━━
 function updateHeader(){
   updateSidebarCounts();
-  const proj = PROJECTS.find(p => p.id === currentProject);
-  if(!proj) return;
-  const pt = TASKS.filter(t => t.proj === currentProject);
-  document.getElementById('psName').textContent = proj.name;
-  document.getElementById('psMeta').textContent = proj.code + ' · ' + pt.length + ' tasks';
+  // v0.1.39 fix: psName/psMeta were removed in v0.1.27 (replaced by project picker bar).
+  // Legacy lookups here threw TypeError → broke selectProject() mid-flight.
+  // Project name + meta now lives in ppName / ppCurMeta updated by updateProjPickerLabel().
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
 
   // Profile email
   const account = localStorage.getItem('eb_account') || 'demo';
-  document.getElementById('prmEmail').textContent = account === 'demo' ? 'demo@engiboard.app' : account;
+  const prm = document.getElementById('prmEmail');
+  if(prm) prm.textContent = account === 'demo' ? 'demo@engiboard.app' : account;
 }
 
 // Project switcher dropdown
@@ -2490,8 +2490,11 @@ function toggleStMenu(e, taskId){
   const existing = openStMenu;
   closeStMenu();
   if(existing && existing.dataset.taskId === taskId) return;
-  const wrap = e.target.closest('.st-wrap');
+  // v0.1.39 fix: layout v0.1.31 renamed .st-wrap → .tc-status; keep both for safety
+  const wrap = e.target.closest('.tc-status') || e.target.closest('.st-wrap');
   if(!wrap) return;
+  // tc-status doesn't have position:relative by default — ensure menu anchors to it
+  if(getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
   const menu = document.createElement('div');
   menu.className = 'st-menu open';
   menu.dataset.taskId = taskId;
@@ -2633,6 +2636,10 @@ function openPresent(taskId){
   document.getElementById('present').classList.add('on');
 }
 function closePresent(){
+  // v0.1.39: ensure row's inline chat panel reflects messages added inside slideshow
+  // before fading the modal out. Without this the user comes back to a row showing
+  // stale chat history.
+  if(presentTask && presentTask.id) syncTaskRowChat(presentTask.id);
   document.getElementById('present').classList.remove('on');
   presentIdx = -1;
 }
@@ -2685,7 +2692,7 @@ function renderPresent(){
     <div class="pres-nav">
       <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
       <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
-      <button onclick="captureScreenshot()" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
+      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
       <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
     </div>`;
   // Auto-scroll chat to bottom
@@ -2706,6 +2713,29 @@ function sendPresChat(){
   });
   inp.value = '';
   renderPresent();
+  // v0.1.39 fix: client reported "при добавлении сообщения в режиме презентации
+  // оно не сразу отображается в чате задачи". Refresh task row chat panel inline
+  // (cheap — just innerHTML update, doesn't full-rerender list).
+  syncTaskRowChat(presentTask.id);
+}
+
+// v0.1.39: keep task-row inline chat in sync with presentTask.chat (used by both
+// sendPresChat and closePresent so a user closing slideshow always sees current state).
+function syncTaskRowChat(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const panel = document.getElementById('ntChat-' + taskId);
+  if(!panel) return;
+  const chatMsgs = (t.chat || []).slice(-8);
+  panel.innerHTML = chatMsgs.map(m => {
+    const initials = (m.a || '?').slice(0, 2).toUpperCase();
+    return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+      <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
+      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
+      <span class="ts">${m.ts||''}</span>
+    </div>`;
+  }).join('');
+  panel.scrollTop = panel.scrollHeight;
 }
 
 // ━━━ LIGHTBOX ━━━
@@ -3054,6 +3084,15 @@ if(window.__TAURI__){
         else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) t.shots[slotIdx - 2] = newUrl;
         render();
         toast('✓ Annotations saved to task');
+        return;
+      }
+    }
+    // v0.1.39: capture started from slideshow "+ Add" button → attach directly
+    if(pendingPresentAttach && presentTask){
+      pendingPresentAttach = false;
+      if(typeof addShotToPresentTask === 'function'){
+        addShotToPresentTask(newUrl);
+        render(); // refresh row chips/counts in main list as well
         return;
       }
     }
@@ -3523,10 +3562,20 @@ function updateSidebarCounts(){
 }
 
 
-function captureScreenshot(){
+// v0.1.39: when capture is triggered from inside slideshow, mark intent so the
+// screenshot lands directly in the presented task's shots[] (was: paste-mode requiring
+// extra click which client described as "не добавляется в режиме презентации").
+let pendingPresentAttach = false;
+
+function captureScreenshot(opts){
   if(!window.__TAURI__){
     toast('Screenshot only works in desktop app');
     return;
+  }
+  // If called from slideshow's "+ Add", set the flag — handler in screenshot-ready
+  // will directly call addShotToPresentTask without needing the user to click target.
+  if(opts && opts.fromPresent && presentTask){
+    pendingPresentAttach = true;
   }
   // Hide window briefly so it doesn't appear in screenshot
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
@@ -3534,6 +3583,7 @@ function captureScreenshot(){
     invoke('open_sniper').catch(err => {
       console.error('open_sniper failed:', err);
       toast('Capture failed: ' + err);
+      pendingPresentAttach = false;
     });
   } else {
     toast('Tauri invoke not available');

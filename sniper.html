@@ -78,13 +78,24 @@ document.addEventListener('mousemove', e => {
   }
 });
 
+// v0.1.39 fix: client reported "изображение захватывается левее от рамки выделения".
+// Cause: sniper was sending clientX/Y (window-relative). On Windows with DPI scaling +
+// borderless/transparent window, the sniper window's actual screen origin is not exactly
+// (0,0) — Aero adds a few px of invisible frame, so clientX is offset from real screenX.
+// Fix: use screenX/screenY which are absolute screen coords, then backend uses them
+// directly without window-position guessing.
 document.addEventListener('mousedown', e => {
   if (e.button !== 0) return;
-  sx = e.clientX; sy = e.clientY; down = true;
+  sx = e.clientX; sy = e.clientY;
+  // also record absolute screen coords for the actual capture
+  sxScreen = e.screenX; syScreen = e.screenY;
+  down = true;
   sel.style.display = 'none';
   dim.style.display = 'block';
   dims.style.display = 'none';
 });
+
+let sxScreen = 0, syScreen = 0;
 
 document.addEventListener('mouseup', async e => {
   if (!down) return;
@@ -97,10 +108,14 @@ document.addEventListener('mouseup', async e => {
   document.body.style.visibility = 'hidden';
   await new Promise(r => setTimeout(r, 120));
 
+  // Use absolute screen coords for the capture rectangle.
+  const xScreen = Math.min(sxScreen, e.screenX);
+  const yScreen = Math.min(syScreen, e.screenY);
+
   try {
     await window.__TAURI__.core.invoke('capture_region', {
-      x: Math.round(Math.min(sx, e.clientX)),
-      y: Math.round(Math.min(sy, e.clientY)),
+      x: Math.round(xScreen),
+      y: Math.round(yScreen),
       w: Math.round(w),
       h: Math.round(h)
     });
