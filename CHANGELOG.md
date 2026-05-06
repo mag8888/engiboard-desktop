@@ -5,6 +5,31 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](htt
 
 ---
 
+## [v0.1.40] — 2026-05-06 — Stage-1-strict build
+
+### Changed
+- **Сборка теперь строго соответствует Этапу 1 договора.** UI полностью
+  на месте (клиент видит весь дизайн), но клик по функциям, запланированным
+  на Этап 2, открывает модалку «Функция пока недоступна» с указанием релиза.
+
+### Out-of-scope (под модалкой)
+- 📄 PDF-экспорт отчётов · chip в шапке списка
+- 📥 CSV-импорт задач · chip в шапке списка
+- ☑ Bulk-select / массовые действия
+- ⏱ Учёт времени по задачам (timer button в строках)
+- ⌨ Настройка горячих клавиш (sidebar item Shortcuts)
+- ✉ Приглашение в проект по email + удаление участников (project picker)
+- 🔌 Slack-уведомления о статусах (profile → Integrations)
+- ↕ Drag-reorder задач между неделями/проектами
+
+### Stays in Stage 1
+- Login (Google OAuth + Demo) · создание проектов и задач · статусы ·
+  скриншот через capture/paste/drop · аннотации в editor (11 инструментов) ·
+  inline-чат в задаче · полный чат в режиме презентации ·
+  BEFORE/AFTER compare wipe · light/dark theme · RU/EN · project picker.
+
+---
+
 ## [v0.1.39] — 2026-05-06
 
 ### Fixed (client v0.1.38 round-trip — 6 critical bugs)

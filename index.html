@@ -655,6 +655,65 @@ body.select-mode .bulk-bar{display:flex}
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
+/* ━━━ STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) ━━━
+   Functions outside Stage 1 deliverables are kept in the UI but, when clicked,
+   surface this modal explaining when the feature ships. UI is NOT trimmed —
+   client sees the full design while the build is honest about scope. */
+.oos-overlay{
+  position:fixed;inset:0;z-index:9500;
+  background:rgba(15,23,42,.55);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .18s ease
+}
+.oos-overlay.on{display:flex;opacity:1}
+.oos-card{
+  background:var(--surf);border:1px solid var(--line-2);border-radius:14px;
+  width:440px;max-width:calc(100vw - 48px);
+  padding:32px 32px 28px;box-shadow:0 24px 64px rgba(15,23,42,.18);
+  transform:translateY(8px);transition:transform .18s ease;
+  text-align:center;font-family:var(--font);color:var(--t1)
+}
+.oos-overlay.on .oos-card{transform:translateY(0)}
+.oos-icon{
+  width:54px;height:54px;border-radius:14px;margin:0 auto 18px;
+  background:linear-gradient(135deg,#FEF3C7,#FDE68A);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px
+}
+.oos-tag{
+  display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--acc);background:rgba(14,165,233,.08);
+  padding:4px 10px;border-radius:5px;letter-spacing:.16em;text-transform:uppercase;
+  margin-bottom:14px
+}
+.oos-title{font-size:19px;font-weight:600;letter-spacing:-.012em;margin-bottom:10px;line-height:1.3}
+.oos-feature{color:var(--acc-d);font-weight:600}
+body.dark-mode .oos-feature{color:var(--acc-2)}
+.oos-body{font-size:13.5px;color:var(--t2);line-height:1.55;margin-bottom:20px}
+.oos-when{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font-size:12px;color:var(--t2);
+  margin-bottom:24px;font-family:var(--mono)
+}
+.oos-when b{color:var(--t1);font-weight:600;font-family:var(--font)}
+.oos-actions{display:flex;gap:10px;justify-content:center}
+.oos-actions button{
+  border:1px solid var(--line-2);background:var(--surf);color:var(--t2);
+  padding:9px 22px;border-radius:8px;font-size:13px;font-weight:500;
+  cursor:pointer;font-family:inherit;transition:.12s
+}
+.oos-actions button:hover{border-color:var(--acc);color:var(--acc)}
+.oos-actions button.primary{
+  background:linear-gradient(135deg,var(--acc-2),var(--acc));
+  border-color:transparent;color:#fff;font-weight:600;
+  box-shadow:0 4px 12px rgba(14,165,233,.25)
+}
+.oos-actions button.primary:hover{box-shadow:0 6px 16px rgba(14,165,233,.4);color:#fff;border-color:transparent}
+body.dark-mode .oos-card{background:#18181b;border-color:rgba(255,255,255,.10)}
+body.dark-mode .oos-when{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+body.dark-mode .oos-actions button{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);color:var(--t2)}
+
 /* Empty states */
 .es-zero{padding:60px 32px;text-align:center;background:var(--bg)}
 .es-zero-ico{
@@ -1367,7 +1426,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <span data-t="sb.projects">Projects</span>
           <span class="sb-ct" id="sbProjCount">3</span>
         </div>
-        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="setSection('shortcuts')">
+        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="outOfScope('Настройка горячих клавиш','Этап 2')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
           <span data-t="sb.shortcuts">Shortcuts</span>
         </div>
@@ -1410,8 +1469,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
             <div class="proj-members-h"><span data-t="proj.members">Members</span><span class="ct" id="ppMembersCt">0</span></div>
             <div class="proj-members-list" id="ppMembersList"></div>
             <div class="proj-invite-row">
-              <input type="email" id="ppInviteEmail" placeholder="email@example.com" data-t-ph="proj.invitePh" onkeydown="if(event.key==='Enter') inviteByEmail()">
-              <button id="ppInviteBtn" onclick="inviteByEmail()" data-t="proj.invite">Invite</button>
+              <input type="email" id="ppInviteEmail" placeholder="email@example.com" data-t-ph="proj.invitePh" onkeydown="if(event.key==='Enter') outOfScope('Приглашение в проект по email','Этап 2')">
+              <button id="ppInviteBtn" onclick="outOfScope('Приглашение в проект по email','Этап 2')" data-t="proj.invite">Invite</button>
             </div>
           </div>
         </div>
@@ -1434,9 +1493,9 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <span style="flex:1"></span>
       <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.collapseAll">⊟ Collapse all</button>
       <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.expandAll">⊞ Expand all</button>
-      <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
-      <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV (title,project,status,week,notes)" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
-      <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks for bulk actions" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">☑ Select</button>
+      <button class="chip" onclick="outOfScope('PDF-экспорт отчётов','Этап 2')" title="Экспорт отчётов в PDF — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
+      <button class="chip" onclick="outOfScope('CSV-импорт задач','Этап 2')" title="Импорт задач из CSV — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
+      <button class="chip" onclick="outOfScope('Массовые действия (bulk-select)','Этап 2')" title="Множественный выбор задач — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">☑ Select</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
       <input class="search" id="searchInp" placeholder="Search tasks…" data-t-ph="placeholder.search">
     </div>
@@ -1473,6 +1532,22 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) -->
+<div class="oos-overlay" id="oosOverlay" onclick="if(event.target===this) closeOOS()">
+  <div class="oos-card" role="dialog" aria-modal="true">
+    <div class="oos-icon">🛠</div>
+    <div class="oos-tag" id="oosTag">Этап 2 · после релиза 1</div>
+    <div class="oos-title">Функция «<span class="oos-feature" id="oosFeature">…</span>» пока недоступна</div>
+    <div class="oos-body" id="oosBody">
+      Текущая сборка соответствует Этапу 1 договора (бизнес-стадия инициации, проектирования и старта работ). Эта функция запланирована на следующий этап.
+    </div>
+    <div class="oos-when">📅 Релиз: <b id="oosWhen">Этап 2</b></div>
+    <div class="oos-actions">
+      <button onclick="closeOOS()">Закрыть</button>
+    </div>
+  </div>
+</div>
 
 <!-- PASTE OVERLAY -->
 <div id="pasteOverlay">
@@ -2329,7 +2404,7 @@ function renderRow(t){
         <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
       </div>
       <div class="chat-row-actions">
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">${timerLabel}</span>
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();outOfScope('Учёт времени по задачам','Этап 2')" title="Учёт времени — Этап 2">${timerLabel}</span>
         <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
         ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: before vs after side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
       </div>
@@ -2532,25 +2607,19 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  // v0.1.31: allow drag from anywhere on row EXCEPT interactive areas
-  // (was blocked too aggressively by _dragHandleArmed gate before)
+  // v0.1.40 stage-1-strict: drag-reorder задач — Этап 2.
+  // Surface the OOS modal once user actually attempts to drag (so dragging
+  // a screenshot file onto a row still works — that goes through .pi handler).
   if(e.target.closest(
     'input, textarea, button, [contenteditable], ' +
-    '.pi, .st, .st-wrap, .st-menu, .nt-chat, .nt-chat-input, ' +
+    '.pi, .st, .st-wrap, .tc-status, .st-menu, .nt-chat, .nt-chat-input, ' +
     '.row-check, .resize-h, .time-ic, .play-ic, .compare-ic, .pi-lbl'
   )){
     e.preventDefault();
     return;
   }
-  if(selectMode){
-    e.preventDefault();
-    return;
-  }
-  dragTaskId = taskId;
-  const row = e.target.closest('.row');
-  if(row) row.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', taskId);
+  e.preventDefault();
+  outOfScope('Drag-reorder задач между неделями/проектами','Этап 2');
 }
 function onDragOver(e){
   e.preventDefault();
@@ -3532,16 +3601,16 @@ function renderProfileSection(){
       <div class="profile-card-h">Integrations · Slack webhook</div>
       <div style="padding:10px 0;display:flex;flex-direction:column;gap:8px">
         <div style="font-size:11px;color:var(--t4);line-height:1.5">
-          Notifications fire automatically when a task transitions to <b>Done</b> or <b>Problem</b>.
-          Get a webhook URL from Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
+          Уведомления при переходе задачи в <b>Done</b> или <b>Problem</b>.
+          URL берётся в Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
         </div>
-        <input id="slackWebhookInp" type="url" value="${getWebhookUrl().replace(/"/g,'&quot;')}" placeholder="https://hooks.slack.com/services/T.../B.../..."
+        <input id="slackWebhookInp" type="url" placeholder="https://hooks.slack.com/services/T.../B.../..."
           style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)"
-          onblur="setWebhookUrl(this.value)">
+          onfocus="this.blur();outOfScope('Slack-уведомления о статусах задач','Этап 2')">
         <div style="display:flex;gap:8px">
-          <button class="profile-action" onclick="setWebhookUrl(document.getElementById('slackWebhookInp').value); toast('✓ Saved')">Save</button>
-          <button class="profile-action" onclick="testWebhook()">Send test</button>
-          <button class="profile-action danger" onclick="setWebhookUrl(''); document.getElementById('slackWebhookInp').value=''; toast('Cleared')">Clear</button>
+          <button class="profile-action" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Save</button>
+          <button class="profile-action" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Send test</button>
+          <button class="profile-action danger" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Clear</button>
         </div>
       </div>
     </div>
@@ -3686,7 +3755,7 @@ function renderProjMembers(){
       <span class="av">${initials}</span>
       <span class="em">${m.email}</span>
       <span class="role">${roleLabel}</span>
-      ${m.role === 'owner' ? '' : `<button class="rm" onclick="removeProjMember('${m.email.replace(/'/g,"\\'")}')" title="Remove">×</button>`}
+      ${m.role === 'owner' ? '' : `<button class="rm" onclick="outOfScope('Управление участниками проекта','Этап 2')" title="Удалить участника">×</button>`}
     </div>`;
   }).join('');
 }
@@ -4563,6 +4632,39 @@ function toast(msg, ms=1800){
   clearTimeout(t._t);
   t._t = setTimeout(() => t.classList.remove('show'), ms);
 }
+
+// ━━━ STAGE-1 OUT-OF-SCOPE GUARD (v0.1.40) ━━━
+// Surfaces a modal explaining that a feature ships in a later contract stage.
+// UI controls remain visible — only the action is gated. This is the
+// stage-1-strict build the client requested.
+function outOfScope(feature, sprint){
+  feature = feature || 'Эта функция';
+  sprint = sprint || 'Этап 2';
+  const ov = document.getElementById('oosOverlay');
+  if(!ov) return;
+  const tag = document.getElementById('oosTag');
+  const ft = document.getElementById('oosFeature');
+  const body = document.getElementById('oosBody');
+  const when = document.getElementById('oosWhen');
+  if(ft) ft.textContent = feature;
+  if(when) when.textContent = sprint;
+  if(tag) tag.textContent = sprint + ' · после релиза 1';
+  if(body){
+    body.innerHTML = `Текущая сборка соответствует <b>Этапу 1</b> договора (бизнес-стадия инициации, проектирования и старта работ). Функция запланирована на <b>${sprint}</b> — UI оставили на месте, чтобы можно было обсуждать дизайн уже сейчас.`;
+  }
+  ov.classList.add('on');
+}
+function closeOOS(){
+  const ov = document.getElementById('oosOverlay');
+  if(ov) ov.classList.remove('on');
+}
+// ESC closes the modal
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    const ov = document.getElementById('oosOverlay');
+    if(ov && ov.classList.contains('on')) closeOOS();
+  }
+});
 </script>
 
 </body>
