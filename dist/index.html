@@ -655,6 +655,65 @@ body.select-mode .bulk-bar{display:flex}
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
+/* ━━━ STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) ━━━
+   Functions outside Stage 1 deliverables are kept in the UI but, when clicked,
+   surface this modal explaining when the feature ships. UI is NOT trimmed —
+   client sees the full design while the build is honest about scope. */
+.oos-overlay{
+  position:fixed;inset:0;z-index:9500;
+  background:rgba(15,23,42,.55);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .18s ease
+}
+.oos-overlay.on{display:flex;opacity:1}
+.oos-card{
+  background:var(--surf);border:1px solid var(--line-2);border-radius:14px;
+  width:440px;max-width:calc(100vw - 48px);
+  padding:32px 32px 28px;box-shadow:0 24px 64px rgba(15,23,42,.18);
+  transform:translateY(8px);transition:transform .18s ease;
+  text-align:center;font-family:var(--font);color:var(--t1)
+}
+.oos-overlay.on .oos-card{transform:translateY(0)}
+.oos-icon{
+  width:54px;height:54px;border-radius:14px;margin:0 auto 18px;
+  background:linear-gradient(135deg,#FEF3C7,#FDE68A);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px
+}
+.oos-tag{
+  display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;
+  color:var(--acc);background:rgba(14,165,233,.08);
+  padding:4px 10px;border-radius:5px;letter-spacing:.16em;text-transform:uppercase;
+  margin-bottom:14px
+}
+.oos-title{font-size:19px;font-weight:600;letter-spacing:-.012em;margin-bottom:10px;line-height:1.3}
+.oos-feature{color:var(--acc-d);font-weight:600}
+body.dark-mode .oos-feature{color:var(--acc-2)}
+.oos-body{font-size:13.5px;color:var(--t2);line-height:1.55;margin-bottom:20px}
+.oos-when{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font-size:12px;color:var(--t2);
+  margin-bottom:24px;font-family:var(--mono)
+}
+.oos-when b{color:var(--t1);font-weight:600;font-family:var(--font)}
+.oos-actions{display:flex;gap:10px;justify-content:center}
+.oos-actions button{
+  border:1px solid var(--line-2);background:var(--surf);color:var(--t2);
+  padding:9px 22px;border-radius:8px;font-size:13px;font-weight:500;
+  cursor:pointer;font-family:inherit;transition:.12s
+}
+.oos-actions button:hover{border-color:var(--acc);color:var(--acc)}
+.oos-actions button.primary{
+  background:linear-gradient(135deg,var(--acc-2),var(--acc));
+  border-color:transparent;color:#fff;font-weight:600;
+  box-shadow:0 4px 12px rgba(14,165,233,.25)
+}
+.oos-actions button.primary:hover{box-shadow:0 6px 16px rgba(14,165,233,.4);color:#fff;border-color:transparent}
+body.dark-mode .oos-card{background:#18181b;border-color:rgba(255,255,255,.10)}
+body.dark-mode .oos-when{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+body.dark-mode .oos-actions button{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.10);color:var(--t2)}
+
 /* Empty states */
 .es-zero{padding:60px 32px;text-align:center;background:var(--bg)}
 .es-zero-ico{
@@ -1305,13 +1364,13 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="lp-mark">E</div>
     <div class="lp-h1">EngiBoard</div>
     <div class="lp-h2">Engineering tracker · Desktop</div>
-    <button class="gbtn" onclick="loginGoogle()">
+    <button class="gbtn" onclick="outOfScope('Вход через Google (облачные аккаунты)','Этап 2 · cloud sync')">
       <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Sign in with Google
     </button>
     <div class="lp-or">OR</div>
     <button class="dbtn" onclick="loginDemo()">▸ Try demo (no signup)</button>
-    <div class="lp-foot">Demo includes 3 projects with 24 tasks.<br>Google sign-in registers a new account.</div>
+    <div class="lp-foot">В Этапе 1 доступен только Demo-режим — облачные аккаунты в Этапе 2.</div>
   </div>
 </div>
 
@@ -1367,7 +1426,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <span data-t="sb.projects">Projects</span>
           <span class="sb-ct" id="sbProjCount">3</span>
         </div>
-        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="setSection('shortcuts')">
+        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="outOfScope('Настройка горячих клавиш','Этап 2')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
           <span data-t="sb.shortcuts">Shortcuts</span>
         </div>
@@ -1410,8 +1469,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
             <div class="proj-members-h"><span data-t="proj.members">Members</span><span class="ct" id="ppMembersCt">0</span></div>
             <div class="proj-members-list" id="ppMembersList"></div>
             <div class="proj-invite-row">
-              <input type="email" id="ppInviteEmail" placeholder="email@example.com" data-t-ph="proj.invitePh" onkeydown="if(event.key==='Enter') inviteByEmail()">
-              <button id="ppInviteBtn" onclick="inviteByEmail()" data-t="proj.invite">Invite</button>
+              <input type="email" id="ppInviteEmail" placeholder="email@example.com" data-t-ph="proj.invitePh" onkeydown="if(event.key==='Enter') outOfScope('Приглашение в проект по email','Этап 2')">
+              <button id="ppInviteBtn" onclick="outOfScope('Приглашение в проект по email','Этап 2')" data-t="proj.invite">Invite</button>
             </div>
           </div>
         </div>
@@ -1434,9 +1493,9 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <span style="flex:1"></span>
       <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.collapseAll">⊟ Collapse all</button>
       <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.expandAll">⊞ Expand all</button>
-      <button class="chip" onclick="exportPDF()" title="Export tasks as PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
-      <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV (title,project,status,week,notes)" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
-      <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks for bulk actions" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">☑ Select</button>
+      <button class="chip" onclick="outOfScope('PDF-экспорт отчётов','Этап 2')" title="Экспорт отчётов в PDF — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
+      <button class="chip" onclick="outOfScope('CSV-импорт задач','Этап 2')" title="Импорт задач из CSV — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
+      <button class="chip" onclick="outOfScope('Массовые действия (bulk-select)','Этап 2')" title="Множественный выбор задач — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">☑ Select</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
       <input class="search" id="searchInp" placeholder="Search tasks…" data-t-ph="placeholder.search">
     </div>
@@ -1473,6 +1532,22 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
+
+<!-- STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) -->
+<div class="oos-overlay" id="oosOverlay" onclick="if(event.target===this) closeOOS()">
+  <div class="oos-card" role="dialog" aria-modal="true">
+    <div class="oos-icon">🛠</div>
+    <div class="oos-tag" id="oosTag">Этап 2 · после релиза 1</div>
+    <div class="oos-title">Функция «<span class="oos-feature" id="oosFeature">…</span>» пока недоступна</div>
+    <div class="oos-body" id="oosBody">
+      Текущая сборка соответствует Этапу 1 договора (бизнес-стадия инициации, проектирования и старта работ). Эта функция запланирована на следующий этап.
+    </div>
+    <div class="oos-when">📅 Релиз: <b id="oosWhen">Этап 2</b></div>
+    <div class="oos-actions">
+      <button onclick="closeOOS()">Закрыть</button>
+    </div>
+  </div>
+</div>
 
 <!-- PASTE OVERLAY -->
 <div id="pasteOverlay">
@@ -1918,8 +1993,8 @@ function showApp(){
   if(PROJECTS.length === 0){
     // No projects — show empty
     document.getElementById('list').innerHTML = `<div class="es-zero"><div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div><div class="es-zero-h">No projects yet</div><div class="es-zero-s">Create your first project to start</div><button class="dbtn" style="max-width:240px;margin:0 auto" onclick="openNewProjModal()">+ Create project</button></div>`;
-    document.getElementById('psName').textContent = 'No project';
-    document.getElementById('psMeta').textContent = '0 tasks';
+    // v0.1.39 fix: psName/psMeta no longer exist; updateProjPickerLabel() handles header label.
+    if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
     return;
   }
   if(currentProject !== 'all' && !PROJECTS.find(p => p.id === currentProject)){
@@ -1987,15 +2062,15 @@ function toggleDarkMode(){
 // ━━━ HEADER ━━━
 function updateHeader(){
   updateSidebarCounts();
-  const proj = PROJECTS.find(p => p.id === currentProject);
-  if(!proj) return;
-  const pt = TASKS.filter(t => t.proj === currentProject);
-  document.getElementById('psName').textContent = proj.name;
-  document.getElementById('psMeta').textContent = proj.code + ' · ' + pt.length + ' tasks';
+  // v0.1.39 fix: psName/psMeta were removed in v0.1.27 (replaced by project picker bar).
+  // Legacy lookups here threw TypeError → broke selectProject() mid-flight.
+  // Project name + meta now lives in ppName / ppCurMeta updated by updateProjPickerLabel().
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
 
   // Profile email
   const account = localStorage.getItem('eb_account') || 'demo';
-  document.getElementById('prmEmail').textContent = account === 'demo' ? 'demo@engiboard.app' : account;
+  const prm = document.getElementById('prmEmail');
+  if(prm) prm.textContent = account === 'demo' ? 'demo@engiboard.app' : account;
 }
 
 // Project switcher dropdown
@@ -2289,7 +2364,7 @@ function renderRow(t){
     ? ''
     : chatMsgs.map(m => {
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+        return `<div class="nt-chat-msg" onclick="event.stopPropagation();outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка')">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
           <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
           <span class="ts">${m.ts||''}</span>
@@ -2325,13 +2400,13 @@ function renderRow(t){
     <div class="chat-col" onclick="event.stopPropagation()">
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
-        <input type="text" placeholder="Quick reply…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
-        <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
+        <input type="text" placeholder="Чат — финальная отладка" data-task-id="${t.id}" onfocus="this.blur();outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка')">
+        <button onclick="event.stopPropagation();outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка')" title="Чат — в стабилизации">▷</button>
       </div>
       <div class="chat-row-actions">
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="${isTimerRunning?'Click to stop timer':'Click to start tracking time'}">${timerLabel}</span>
-        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: before vs after side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();outOfScope('Учёт времени по задачам','Этап 2')" title="Учёт времени — Этап 2">${timerLabel}</span>
+        <span class="ic-btn" onclick="event.stopPropagation();outOfScope('Режим презентации (полноэкранный slideshow для созвонов)','v0.1.42 — финальная отладка')" title="${presLabel}">${slideshowLabel}</span>
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();outOfScope('BEFORE/AFTER compare с wipe-слайдером','v0.1.42 — финальная отладка')" title="Compare — Этап 1 (в стабилизации)">⇄ ${compareLabel}</span>` : ''}
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -2350,7 +2425,7 @@ function renderPic(t, slot){
   if(t[shotKey]){
     // v0.1.37: click on existing screenshot → open editor with tools immediately
     // (was: open lightbox first, click button to open editor)
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})">
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();outOfScope('Редактор аннотаций (стрелки, текст, прямоугольники)','v0.1.42 — финальная отладка')">
       <span class="pi-lbl">${lblText}</span>
       <img src="${t[shotKey]}" alt="">
     </div>`;
@@ -2363,6 +2438,11 @@ function renderPic(t, slot){
 
 // v0.1.37: open existing screenshot directly in editor (with annotation tools loaded)
 function openExistingShotEditor(taskId, slotIdx){
+  // v0.1.41 stage-1-strict: editor с инструментами в стабилизации, не открываем.
+  if(typeof outOfScope === 'function'){
+    outOfScope('Редактор аннотаций (стрелки, текст, прямоугольники)','v0.1.42 — финальная отладка');
+    return;
+  }
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   let dataUrl = null;
@@ -2490,8 +2570,11 @@ function toggleStMenu(e, taskId){
   const existing = openStMenu;
   closeStMenu();
   if(existing && existing.dataset.taskId === taskId) return;
-  const wrap = e.target.closest('.st-wrap');
+  // v0.1.39 fix: layout v0.1.31 renamed .st-wrap → .tc-status; keep both for safety
+  const wrap = e.target.closest('.tc-status') || e.target.closest('.st-wrap');
   if(!wrap) return;
+  // tc-status doesn't have position:relative by default — ensure menu anchors to it
+  if(getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
   const menu = document.createElement('div');
   menu.className = 'st-menu open';
   menu.dataset.taskId = taskId;
@@ -2529,25 +2612,19 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  // v0.1.31: allow drag from anywhere on row EXCEPT interactive areas
-  // (was blocked too aggressively by _dragHandleArmed gate before)
+  // v0.1.40 stage-1-strict: drag-reorder задач — Этап 2.
+  // Surface the OOS modal once user actually attempts to drag (so dragging
+  // a screenshot file onto a row still works — that goes through .pi handler).
   if(e.target.closest(
     'input, textarea, button, [contenteditable], ' +
-    '.pi, .st, .st-wrap, .st-menu, .nt-chat, .nt-chat-input, ' +
+    '.pi, .st, .st-wrap, .tc-status, .st-menu, .nt-chat, .nt-chat-input, ' +
     '.row-check, .resize-h, .time-ic, .play-ic, .compare-ic, .pi-lbl'
   )){
     e.preventDefault();
     return;
   }
-  if(selectMode){
-    e.preventDefault();
-    return;
-  }
-  dragTaskId = taskId;
-  const row = e.target.closest('.row');
-  if(row) row.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', taskId);
+  e.preventDefault();
+  outOfScope('Drag-reorder задач между неделями/проектами','Этап 2');
 }
 function onDragOver(e){
   e.preventDefault();
@@ -2606,13 +2683,19 @@ function onResizeStart(e, taskId){
 // ━━━ ROW CLICK → present ━━━
 function onRowClick(e, taskId){
   if(taskId === 'new') return;
-  if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
+  if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .tc-status, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
   if(pasteMode) return;
-  openPresent(taskId);
+  // v0.1.41 stage-1-strict: row-click → presentation is locked behind OOS modal.
+  outOfScope('Режим презентации (полноэкранный slideshow для созвонов)','v0.1.42 — финальная отладка');
 }
 
 // ━━━ PRESENT ━━━
 function openPresent(taskId){
+  // v0.1.41 stage-1-strict: every entrypoint into presentation goes through this guard.
+  if(typeof outOfScope === 'function'){
+    outOfScope('Режим презентации (полноэкранный slideshow для созвонов)','v0.1.42 — финальная отладка');
+    return;
+  }
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   // Build slides: shot1 (before), shot2 (after), then any extras in t.shots[]
@@ -2633,6 +2716,10 @@ function openPresent(taskId){
   document.getElementById('present').classList.add('on');
 }
 function closePresent(){
+  // v0.1.39: ensure row's inline chat panel reflects messages added inside slideshow
+  // before fading the modal out. Without this the user comes back to a row showing
+  // stale chat history.
+  if(presentTask && presentTask.id) syncTaskRowChat(presentTask.id);
   document.getElementById('present').classList.remove('on');
   presentIdx = -1;
 }
@@ -2685,7 +2772,7 @@ function renderPresent(){
     <div class="pres-nav">
       <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
       <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
-      <button onclick="captureScreenshot()" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
+      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
       <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
     </div>`;
   // Auto-scroll chat to bottom
@@ -2706,6 +2793,29 @@ function sendPresChat(){
   });
   inp.value = '';
   renderPresent();
+  // v0.1.39 fix: client reported "при добавлении сообщения в режиме презентации
+  // оно не сразу отображается в чате задачи". Refresh task row chat panel inline
+  // (cheap — just innerHTML update, doesn't full-rerender list).
+  syncTaskRowChat(presentTask.id);
+}
+
+// v0.1.39: keep task-row inline chat in sync with presentTask.chat (used by both
+// sendPresChat and closePresent so a user closing slideshow always sees current state).
+function syncTaskRowChat(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const panel = document.getElementById('ntChat-' + taskId);
+  if(!panel) return;
+  const chatMsgs = (t.chat || []).slice(-8);
+  panel.innerHTML = chatMsgs.map(m => {
+    const initials = (m.a || '?').slice(0, 2).toUpperCase();
+    return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+      <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
+      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
+      <span class="ts">${m.ts||''}</span>
+    </div>`;
+  }).join('');
+  panel.scrollTop = panel.scrollHeight;
 }
 
 // ━━━ LIGHTBOX ━━━
@@ -2735,6 +2845,11 @@ function closeLightbox(){
 // v0.1.31: open annotation editor with the current lightbox image (Tauri only)
 let pendingAnnotateContext = null;  // { taskId, slotIdx } — set when launching editor from lightbox
 function annotateLightboxImage(){
+  // v0.1.41 stage-1-strict
+  if(typeof outOfScope === 'function'){
+    outOfScope('Редактор аннотаций (стрелки, текст, прямоугольники)','v0.1.42 — финальная отладка');
+    return;
+  }
   if(!window.__TAURI__){
     toast('Annotation editor only works in desktop app');
     return;
@@ -3054,6 +3169,15 @@ if(window.__TAURI__){
         else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) t.shots[slotIdx - 2] = newUrl;
         render();
         toast('✓ Annotations saved to task');
+        return;
+      }
+    }
+    // v0.1.39: capture started from slideshow "+ Add" button → attach directly
+    if(pendingPresentAttach && presentTask){
+      pendingPresentAttach = false;
+      if(typeof addShotToPresentTask === 'function'){
+        addShotToPresentTask(newUrl);
+        render(); // refresh row chips/counts in main list as well
         return;
       }
     }
@@ -3493,16 +3617,16 @@ function renderProfileSection(){
       <div class="profile-card-h">Integrations · Slack webhook</div>
       <div style="padding:10px 0;display:flex;flex-direction:column;gap:8px">
         <div style="font-size:11px;color:var(--t4);line-height:1.5">
-          Notifications fire automatically when a task transitions to <b>Done</b> or <b>Problem</b>.
-          Get a webhook URL from Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
+          Уведомления при переходе задачи в <b>Done</b> или <b>Problem</b>.
+          URL берётся в Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
         </div>
-        <input id="slackWebhookInp" type="url" value="${getWebhookUrl().replace(/"/g,'&quot;')}" placeholder="https://hooks.slack.com/services/T.../B.../..."
+        <input id="slackWebhookInp" type="url" placeholder="https://hooks.slack.com/services/T.../B.../..."
           style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)"
-          onblur="setWebhookUrl(this.value)">
+          onfocus="this.blur();outOfScope('Slack-уведомления о статусах задач','Этап 2')">
         <div style="display:flex;gap:8px">
-          <button class="profile-action" onclick="setWebhookUrl(document.getElementById('slackWebhookInp').value); toast('✓ Saved')">Save</button>
-          <button class="profile-action" onclick="testWebhook()">Send test</button>
-          <button class="profile-action danger" onclick="setWebhookUrl(''); document.getElementById('slackWebhookInp').value=''; toast('Cleared')">Clear</button>
+          <button class="profile-action" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Save</button>
+          <button class="profile-action" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Send test</button>
+          <button class="profile-action danger" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Clear</button>
         </div>
       </div>
     </div>
@@ -3523,10 +3647,20 @@ function updateSidebarCounts(){
 }
 
 
-function captureScreenshot(){
+// v0.1.39: when capture is triggered from inside slideshow, mark intent so the
+// screenshot lands directly in the presented task's shots[] (was: paste-mode requiring
+// extra click which client described as "не добавляется в режиме презентации").
+let pendingPresentAttach = false;
+
+function captureScreenshot(opts){
   if(!window.__TAURI__){
     toast('Screenshot only works in desktop app');
     return;
+  }
+  // If called from slideshow's "+ Add", set the flag — handler in screenshot-ready
+  // will directly call addShotToPresentTask without needing the user to click target.
+  if(opts && opts.fromPresent && presentTask){
+    pendingPresentAttach = true;
   }
   // Hide window briefly so it doesn't appear in screenshot
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
@@ -3534,6 +3668,7 @@ function captureScreenshot(){
     invoke('open_sniper').catch(err => {
       console.error('open_sniper failed:', err);
       toast('Capture failed: ' + err);
+      pendingPresentAttach = false;
     });
   } else {
     toast('Tauri invoke not available');
@@ -3636,7 +3771,7 @@ function renderProjMembers(){
       <span class="av">${initials}</span>
       <span class="em">${m.email}</span>
       <span class="role">${roleLabel}</span>
-      ${m.role === 'owner' ? '' : `<button class="rm" onclick="removeProjMember('${m.email.replace(/'/g,"\\'")}')" title="Remove">×</button>`}
+      ${m.role === 'owner' ? '' : `<button class="rm" onclick="outOfScope('Управление участниками проекта','Этап 2')" title="Удалить участника">×</button>`}
     </div>`;
   }).join('');
 }
@@ -3753,6 +3888,11 @@ function saveTaskNotes(taskId, notes){
 // v0.1.31: Compare modal — BEFORE vs AFTER with wipe slider
 let _cmpDrag = false;
 function openCompare(taskId){
+  // v0.1.41 stage-1-strict: compare wipe в стабилизации.
+  if(typeof outOfScope === 'function'){
+    outOfScope('BEFORE/AFTER compare с wipe-слайдером','v0.1.42 — финальная отладка');
+    return;
+  }
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !t.shot1 || !t.shot2){
     toast('Need both BEFORE and AFTER screenshots to compare');
@@ -3812,6 +3952,11 @@ function setComparePos(pct){
 
 // v0.1.33: inline chat send from task row — keeps last 8 in DOM, scrolls to bottom
 function sendInlineChat(inp){
+  // v0.1.41 stage-1-strict: chat в финальной отладке.
+  if(typeof outOfScope === 'function'){
+    outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка');
+    return;
+  }
   if(!inp) return;
   const taskId = inp.dataset.taskId;
   const text = (inp.value || '').trim();
@@ -4513,6 +4658,39 @@ function toast(msg, ms=1800){
   clearTimeout(t._t);
   t._t = setTimeout(() => t.classList.remove('show'), ms);
 }
+
+// ━━━ STAGE-1 OUT-OF-SCOPE GUARD (v0.1.40) ━━━
+// Surfaces a modal explaining that a feature ships in a later contract stage.
+// UI controls remain visible — only the action is gated. This is the
+// stage-1-strict build the client requested.
+function outOfScope(feature, sprint){
+  feature = feature || 'Эта функция';
+  sprint = sprint || 'Этап 2';
+  const ov = document.getElementById('oosOverlay');
+  if(!ov) return;
+  const tag = document.getElementById('oosTag');
+  const ft = document.getElementById('oosFeature');
+  const body = document.getElementById('oosBody');
+  const when = document.getElementById('oosWhen');
+  if(ft) ft.textContent = feature;
+  if(when) when.textContent = sprint;
+  if(tag) tag.textContent = sprint + ' · после релиза 1';
+  if(body){
+    body.innerHTML = `Текущая сборка соответствует <b>Этапу 1</b> договора (бизнес-стадия инициации, проектирования и старта работ). Функция запланирована на <b>${sprint}</b> — UI оставили на месте, чтобы можно было обсуждать дизайн уже сейчас.`;
+  }
+  ov.classList.add('on');
+}
+function closeOOS(){
+  const ov = document.getElementById('oosOverlay');
+  if(ov) ov.classList.remove('on');
+}
+// ESC closes the modal
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape'){
+    const ov = document.getElementById('oosOverlay');
+    if(ov && ov.classList.contains('on')) closeOOS();
+  }
+});
 </script>
 
 </body>

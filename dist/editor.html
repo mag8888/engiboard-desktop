@@ -595,7 +595,17 @@ function loadScreenshotAsBg(dataUrl){
 }
 (async function(){
   if(!window.__TAURI__) return;
-  await window.__TAURI__.event.listen('load-image',e=>{if(e.payload) loadScreenshotAsBg(e.payload);});
+  // v0.1.39: backend retries load-image up to 3 times to avoid blank-window race.
+  // Dedupe here so user-edited canvas isn't reset by late retries.
+  let _loadedHash = null;
+  const hash = (s) => { let h=0; for(let i=0;i<Math.min(s.length,512);i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h; };
+  await window.__TAURI__.event.listen('load-image', e => {
+    if(!e.payload) return;
+    const h = hash(e.payload);
+    if(h === _loadedHash) return; // already loaded same image — ignore
+    _loadedHash = h;
+    loadScreenshotAsBg(e.payload);
+  });
 })();
 </script>
 </body>
