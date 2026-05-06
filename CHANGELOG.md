@@ -5,6 +5,37 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](htt
 
 ---
 
+## [v0.1.43] — 2026-05-06 — Editor + presentation + chat re-enabled
+
+### Reverted (was over-restricted in v0.1.41)
+- **Editor c инструментами разметки вернули в скоуп** — спринт 1.4 ТЗ
+  ("Базовые визуальные аннотации поверх скриншотов: стрелки, текст").
+  Раньше клиент жаловался: "сам скриншоттер с инструментами не появляется"
+  — потому что я по ошибке закрыл его OOS-модалкой. Возвращён.
+- **Режим презентации** — спринт 1.4 ТЗ ("Сборка Режима презентации").
+- **Мини-чат внутри карточки задачи** — спринт 1.4 ТЗ ("Интеграция мини-чата
+  непосредственно внутрь карточки задачи").
+
+### Capture flow now matches the spec
+```
+Capture button / ⇧⌘5
+  → sniper overlay (dim + crosshair)
+  → выделить регион
+  → editor открывается с инструментами (стрелки, прямоугольники, текст,
+     маркер, blur, dimension, freehand, comment)
+  → юзер размечает картинку
+  → Save → screenshot-ready → paste-mode → click BEFORE/AFTER slot
+  → готово
+```
+
+### Still locked behind OOS modal (Stage 2)
+- ⇄ BEFORE/AFTER compare wipe (не упомянуто в Этапе 1 ТЗ)
+- 🔑 Sign in with Google (cloud sync — Этап 2)
+- 📄 PDF export · 📥 CSV import · ☑ Bulk select · ⏱ Timer
+- ⌨ Shortcuts page · ✉ Invite by email · 🔌 Slack webhook · ↕ Drag-reorder
+
+---
+
 ## [v0.1.42] — 2026-05-06 — Capture flow fix
 
 ### Fixed

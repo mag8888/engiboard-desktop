@@ -2364,7 +2364,7 @@ function renderRow(t){
     ? ''
     : chatMsgs.map(m => {
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg" onclick="event.stopPropagation();outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка')">
+        return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
           <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
           <span class="ts">${m.ts||''}</span>
@@ -2400,13 +2400,13 @@ function renderRow(t){
     <div class="chat-col" onclick="event.stopPropagation()">
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
-        <input type="text" placeholder="Чат — финальная отладка" data-task-id="${t.id}" onfocus="this.blur();outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка')">
-        <button onclick="event.stopPropagation();outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка')" title="Чат — в стабилизации">▷</button>
+        <input type="text" placeholder="Quick reply…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
+        <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
       </div>
       <div class="chat-row-actions">
         <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();outOfScope('Учёт времени по задачам','Этап 2')" title="Учёт времени — Этап 2">${timerLabel}</span>
-        <span class="ic-btn" onclick="event.stopPropagation();outOfScope('Режим презентации (полноэкранный slideshow для созвонов)','v0.1.42 — финальная отладка')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();outOfScope('BEFORE/AFTER compare с wipe-слайдером','v0.1.42 — финальная отладка')" title="Compare — Этап 1 (в стабилизации)">⇄ ${compareLabel}</span>` : ''}
+        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();outOfScope('BEFORE/AFTER compare с wipe-слайдером','Этап 2')" title="Compare — Этап 2">⇄ ${compareLabel}</span>` : ''}
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -2425,7 +2425,7 @@ function renderPic(t, slot){
   if(t[shotKey]){
     // v0.1.37: click on existing screenshot → open editor with tools immediately
     // (was: open lightbox first, click button to open editor)
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();outOfScope('Редактор аннотаций (стрелки, текст, прямоугольники)','v0.1.42 — финальная отладка')">
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})">
       <span class="pi-lbl">${lblText}</span>
       <img src="${t[shotKey]}" alt="">
     </div>`;
@@ -2438,11 +2438,7 @@ function renderPic(t, slot){
 
 // v0.1.37: open existing screenshot directly in editor (with annotation tools loaded)
 function openExistingShotEditor(taskId, slotIdx){
-  // v0.1.41 stage-1-strict: editor с инструментами в стабилизации, не открываем.
-  if(typeof outOfScope === 'function'){
-    outOfScope('Редактор аннотаций (стрелки, текст, прямоугольники)','v0.1.42 — финальная отладка');
-    return;
-  }
+  // v0.1.43: editor вернули — это спринт 1.4 (визуальные аннотации поверх скриншотов).
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   let dataUrl = null;
@@ -2685,17 +2681,12 @@ function onRowClick(e, taskId){
   if(taskId === 'new') return;
   if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .tc-status, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
   if(pasteMode) return;
-  // v0.1.41 stage-1-strict: row-click → presentation is locked behind OOS modal.
-  outOfScope('Режим презентации (полноэкранный slideshow для созвонов)','v0.1.42 — финальная отладка');
+  openPresent(taskId);
 }
 
 // ━━━ PRESENT ━━━
 function openPresent(taskId){
-  // v0.1.41 stage-1-strict: every entrypoint into presentation goes through this guard.
-  if(typeof outOfScope === 'function'){
-    outOfScope('Режим презентации (полноэкранный slideshow для созвонов)','v0.1.42 — финальная отладка');
-    return;
-  }
+  // v0.1.43: режим презентации вернули — это спринт 1.4 ТЗ.
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   // Build slides: shot1 (before), shot2 (after), then any extras in t.shots[]
@@ -2845,11 +2836,7 @@ function closeLightbox(){
 // v0.1.31: open annotation editor with the current lightbox image (Tauri only)
 let pendingAnnotateContext = null;  // { taskId, slotIdx } — set when launching editor from lightbox
 function annotateLightboxImage(){
-  // v0.1.41 stage-1-strict
-  if(typeof outOfScope === 'function'){
-    outOfScope('Редактор аннотаций (стрелки, текст, прямоугольники)','v0.1.42 — финальная отладка');
-    return;
-  }
+  // v0.1.43: editor возвращён в скоуп Этапа 1.
   if(!window.__TAURI__){
     toast('Annotation editor only works in desktop app');
     return;
@@ -3952,11 +3939,7 @@ function setComparePos(pct){
 
 // v0.1.33: inline chat send from task row — keeps last 8 in DOM, scrolls to bottom
 function sendInlineChat(inp){
-  // v0.1.41 stage-1-strict: chat в финальной отладке.
-  if(typeof outOfScope === 'function'){
-    outOfScope('Чат внутри карточки задачи','v0.1.42 — финальная отладка');
-    return;
-  }
+  // v0.1.43: chat возвращён — это спринт 1.4 ТЗ (мини-чат внутри карточки задачи).
   if(!inp) return;
   const taskId = inp.dataset.taskId;
   const text = (inp.value || '').trim();

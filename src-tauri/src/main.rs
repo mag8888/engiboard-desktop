@@ -225,24 +225,12 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
         }
 
         let url = format!("data:image/png;base64,{}", base64_encode(&png_bytes));
-        eprintln!("captured: emit screenshot-ready (len={}), stage-1 skips editor", url.len());
+        eprintln!("captured: opening editor with image, len={}", url.len());
 
-        // v0.1.41 stage-1-strict: do NOT open the annotation editor on capture.
-        // Editor is out-of-scope for the Stage-1 build. Emit screenshot-ready
-        // directly to the main window — the JS handler will route the image
-        // into paste-mode so the user clicks BEFORE/AFTER slot to attach.
-        if let Some(main_win) = app.get_webview_window("main") {
-            let _ = main_win.unminimize();
-            let _ = main_win.show();
-            let _ = main_win.set_focus();
-            // Give the main webview a moment to be ready before firing event.
-            std::thread::sleep(std::time::Duration::from_millis(150));
-            if let Err(e) = main_win.emit("screenshot-ready", serde_json::json!({ "dataUrl": url })) {
-                eprintln!("emit screenshot-ready failed: {}", e);
-            } else {
-                eprintln!("emit screenshot-ready ok");
-            }
-        }
+        // v0.1.43: editor с инструментами (стрелки, маркеры, текст) — это
+        // спринт 1.4 ТЗ ("Базовые визуальные аннотации поверх скриншотов").
+        // Capture → editor → save → screenshot-ready → paste-mode → click slot.
+        open_editor_with_image(app, url);
     });
 }
 
