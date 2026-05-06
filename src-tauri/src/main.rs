@@ -84,66 +84,53 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
 
 #[tauri::command]
 fn open_sniper(app: tauri::AppHandle) {
-    eprintln!("open_sniper — opening custom sniper.html overlay");
+    eprintln!("open_sniper — opening custom sniper.html overlay (v0.1.42 simple flow)");
 
-    // STEP 1: Hide main and editor windows so they don't appear in screenshot
+    // v0.1.42: Drop the AppleScript "set visible of process to false/true" trick.
+    // On a fresh user library it raced with WebviewWindowBuilder, restoring the
+    // main window on top of the (uncreated-yet) sniper. Result: client saw the
+    // main app instead of the dim overlay. Now: just hide main + close any stale
+    // sniper, then create a fresh sniper window.
+
+    // Capture monitor info BEFORE hiding main (hidden window may not report monitor).
+    let monitor = app
+        .get_webview_window("main")
+        .and_then(|w| w.primary_monitor().ok().flatten())
+        .or_else(|| {
+            tauri::Manager::webview_windows(&app)
+                .values()
+                .next()
+                .and_then(|w| w.primary_monitor().ok().flatten())
+        });
+
+    let (w, h) = if let Some(ref m) = monitor {
+        let size = m.size();
+        let scale = m.scale_factor();
+        ((size.width as f64 / scale), (size.height as f64 / scale))
+    } else {
+        (1920.0, 1080.0)
+    };
+
+    // Hide main + close any stale editor (we don't open editor anymore in stage 1,
+    // but kill it just in case it's hanging from a previous flow).
     if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.set_always_on_top(false);
         let _ = main_win.hide();
     }
     if let Some(editor_win) = app.get_webview_window("editor") {
-        let _ = editor_win.set_always_on_top(false);
-        let _ = editor_win.hide();
+        let _ = editor_win.close();
+    }
+    // Always close stale sniper; reuse breaks `transparent(true)` on macOS.
+    if let Some(stale) = app.get_webview_window("sniper") {
+        let _ = stale.close();
     }
 
-    // STEP 2: AppleScript to hide the entire app process (covers all edge cases)
-    let _ = std::process::Command::new("osascript")
-        .args(["-e", "tell application \"System Events\" to set visible of process \"EngiBoard\" to false"])
-        .status();
-
-    // STEP 3: Reuse existing sniper window or create new one
-    if let Some(win) = app.get_webview_window("sniper") {
-        eprintln!("sniper exists — showing");
-        let _ = win.show();
-        let _ = win.set_focus();
-        let _ = win.set_always_on_top(true);
-        return;
-    }
-
-    // STEP 4: Create FULLSCREEN borderless transparent always-on-top window
-    // for area selection. Must cover ENTIRE screen including menu bar and dock.
     let app_clone = app.clone();
     std::thread::spawn(move || {
-        // Wait for compositor to redraw without main window
-        std::thread::sleep(std::time::Duration::from_millis(400));
+        // Brief pause for compositor to drop main window from the screen.
+        std::thread::sleep(std::time::Duration::from_millis(200));
 
-        // Show app process again (we need it for sniper window to render)
-        let _ = std::process::Command::new("osascript")
-            .args(["-e", "tell application \"System Events\" to set visible of process \"EngiBoard\" to true"])
-            .status();
-
-        // Get primary monitor size
-        let monitor = app_clone
-            .get_webview_window("main")
-            .and_then(|w| w.primary_monitor().ok().flatten())
-            .or_else(|| {
-                // Fallback: try to get from any window
-                tauri::Manager::webview_windows(&app_clone)
-                    .values()
-                    .next()
-                    .and_then(|w| w.primary_monitor().ok().flatten())
-            });
-
-        let (w, h) = if let Some(m) = monitor {
-            let size = m.size();
-            let scale = m.scale_factor();
-            ((size.width as f64 / scale), (size.height as f64 / scale))
-        } else {
-            (1920.0, 1080.0)
-        };
-
-        eprintln!("Creating sniper window: {}x{}", w, h);
-
+        eprintln!("creating sniper window: {}x{}", w, h);
         let result = WebviewWindowBuilder::new(
             &app_clone, "sniper", WebviewUrl::App("sniper.html".into()))
             .title("EngiBoard Sniper")
@@ -160,15 +147,16 @@ fn open_sniper(app: tauri::AppHandle) {
 
         match result {
             Ok(win) => {
-                eprintln!("sniper window created");
+                eprintln!("sniper window created OK");
                 let _ = win.show();
                 let _ = win.set_focus();
+                let _ = win.set_always_on_top(true);
             }
             Err(e) => {
-                eprintln!("FAILED to create sniper: {}", e);
-                // Restore main on failure
+                eprintln!("FAILED to create sniper: {} — restoring main", e);
                 if let Some(main_win) = app_clone.get_webview_window("main") {
                     let _ = main_win.show();
+                    let _ = main_win.set_focus();
                 }
             }
         }
@@ -180,8 +168,19 @@ fn sniper_done(app: tauri::AppHandle, data_url: String) {
     if let Some(w) = app.get_webview_window("sniper") {
         let _ = w.close();
     }
+    // v0.1.42: Always bring main back so user isn't stuck with no window.
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.unminimize();
+        let _ = main_win.show();
+        let _ = main_win.set_focus();
+    }
+    // Stage-1 build: editor is locked behind OOS. If a data_url ever arrives
+    // here (cancel sends empty), feed it into the main window via the same
+    // screenshot-ready event so paste-mode picks it up.
     if data_url.is_empty() { return; }
-    open_editor_with_image(app, data_url);
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.emit("screenshot-ready", serde_json::json!({ "dataUrl": data_url }));
+    }
 }
 
 #[tauri::command]

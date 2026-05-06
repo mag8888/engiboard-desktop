@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](htt
 
 ---
 
+## [v0.1.42] — 2026-05-06 — Capture flow fix
+
+### Fixed
+- **Capture открывал главное окно вместо overlay-сниппера** (clean install).
+  AppleScript-трюк `set visible of process to false/true` гонщился с
+  `WebviewWindowBuilder` — main возвращался поверх ещё-не-созданного sniper.
+  Удалили AppleScript полностью: только `main_win.hide()` → 200мс пауза →
+  создаём sniper window, при ошибке возвращаем main.
+- `sniper_done` (cancel из sniper) теперь надёжно возвращает main window
+  через `show()` + `set_focus()` — раньше при отмене пользователь оставался
+  без видимого окна.
+
+---
+
 ## [v0.1.41] — 2026-05-06 — Stage-1-strict (narrowed: capture-only)
 
 ### Changed
