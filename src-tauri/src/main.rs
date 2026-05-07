@@ -220,8 +220,21 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
 
         let size = png_bytes.len();
         eprintln!("captured PNG bytes: {}", size);
-        if size < 500 {
-            eprintln!("WARNING: capture is suspiciously small, may be empty");
+
+        // v0.1.45: detect missing Screen Recording permission (macOS).
+        // When permission is denied, /usr/sbin/screencapture writes a tiny
+        // empty/black PNG instead of an error. Heuristic: < 1500 bytes for
+        // a non-trivial selection means we got nothing useful.
+        let area_px = (w as i64) * (h as i64);
+        let suspicious = cfg!(target_os = "macos") && area_px > 5000 && size < 1500;
+        if suspicious {
+            eprintln!("WARNING: capture {} bytes for {}x{} px area — likely missing Screen Recording permission", size, w, h);
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+                let _ = main_win.emit("capture-needs-permission", serde_json::json!({}));
+            }
+            return;
         }
 
         let url = format!("data:image/png;base64,{}", base64_encode(&png_bytes));

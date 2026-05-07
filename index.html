@@ -3163,6 +3163,39 @@ if(window.__TAURI__){
     // Default flow: paste mode
     enterPasteMode(newUrl);
   });
+
+  // v0.1.45: backend сигнал что captured PNG подозрительно мал — обычно
+  // это macOS Screen Recording permission deny. Показываем модалку с
+  // прямой кнопкой "Открыть Системные настройки → Запись экрана".
+  window.__TAURI__.event.listen('capture-needs-permission', () => {
+    if(typeof showPermissionModal === 'function') showPermissionModal();
+  });
+}
+
+function showPermissionModal(){
+  let m = document.getElementById('permModal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'permModal';
+    m.className = 'oos-overlay on';
+    m.innerHTML = `
+      <div class="oos-card">
+        <div class="oos-icon" style="background:linear-gradient(135deg,#FCA5A5,#EF4444)">⚠</div>
+        <div class="oos-tag" style="color:#B91C1C;background:rgba(239,68,68,.10)">macOS · разрешение</div>
+        <div class="oos-title">Нужно разрешение «Запись экрана»</div>
+        <div class="oos-body">
+          macOS заблокировал захват экрана для EngiBoard — поэтому скриншот пустой и редактор не открывается.<br><br>
+          Открой <b>Системные настройки → Конфиденциальность и безопасность → Запись экрана</b>, включи переключатель <b>EngiBoard</b>, перезапусти приложение и попробуй ещё раз.
+        </div>
+        <div class="oos-actions" style="flex-wrap:wrap;gap:10px;justify-content:center">
+          <button class="primary" onclick="if(window.__TAURI__&&window.__TAURI__.core)window.__TAURI__.core.invoke('open_screen_recording_settings');">Открыть настройки</button>
+          <button onclick="document.getElementById('permModal').remove()">Закрыть</button>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+  } else {
+    m.classList.add('on');
+  }
 }
 
 document.addEventListener('click', e => {
