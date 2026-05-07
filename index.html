@@ -1489,7 +1489,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip" data-f="problem" data-t="filter.problem">Problems</button>
       <button class="chip" data-f="progress" data-t="filter.progress">In progress</button>
       <button class="chip" data-f="done" data-t="filter.done">Done</button>
-      <button class="chip" data-f="thisweek" data-t="filter.thisweek">This week</button>
+      <!-- v0.1.44: chip "This week" убран вместе с группировкой по неделям -->
       <span style="flex:1"></span>
       <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.collapseAll">⊟ Collapse all</button>
       <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.expandAll">⊞ Expand all</button>
@@ -2254,14 +2254,9 @@ function render(){
       currentProject = 'all';
       return render();
     }
-    // Group by week (no accordion header — picker bar above already shows project)
-    const weeks = [...new Set(allTasks.map(t => t.w))].sort().reverse();
-    weeks.forEach(w => {
-      const wTasks = allTasks.filter(t => t.w === w);
-      const isCurWeek = w === '26W17';
-      html += `<div class="wk-h">${w}<span class="lbl">${isCurWeek?'— current week':''}</span></div>`;
-      wTasks.forEach(t => { html += renderRow(t); });
-    });
+    // v0.1.44: убрали группировку по неделям — клиент попросил выкинуть код недели/дату.
+    // Просто плоский список задач в порядке их создания.
+    allTasks.forEach(t => { html += renderRow(t); });
     html += renderEmptyRowForProject(proj.id);
     list.innerHTML = html;
     wireUpEmptyInput();
@@ -2297,16 +2292,10 @@ function renderProjGroup(proj, tasks){
     return cnt > 0 ? `<div class="proj-group-bar-seg" style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
   }).join('');
 
-  // Group tasks by week
+  // v0.1.44: убрали группировку по неделям — плоский список задач.
   let bodyHtml = '';
   if(tasks.length > 0){
-    const weeks = [...new Set(tasks.map(t => t.w))].sort().reverse();
-    weeks.forEach(w => {
-      const wTasks = tasks.filter(t => t.w === w);
-      const isCurWeek = w === '26W17';
-      bodyHtml += `<div class="wk-h">${w}<span class="lbl">${isCurWeek?'— current week':''}</span></div>`;
-      wTasks.forEach(t => { bodyHtml += renderRow(t); });
-    });
+    tasks.forEach(t => { bodyHtml += renderRow(t); });
   } else {
     bodyHtml = `<div style="padding:14px 28px;font-size:12px;color:var(--t3);font-style:italic">No tasks in this project yet</div>`;
   }
@@ -2349,7 +2338,10 @@ function expandAllProjects(){
 function renderRow(t){
   const st = STATUSES[t.s] || STATUSES[0];
   // v0.1.31: row height fits 5-col layout (title-col + chat-col + 2 pics)
-  const height = t.h || 150;
+  // v0.1.44: default min-height снижен с 150 до 96 — компактная строка под
+  // самый "плоский" 16:9 скриншот при доступной ширине pic-cell.
+  // Пользователь по-прежнему может тянуть resize-handle вниз для увеличения.
+  const height = t.h || 96;
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
@@ -2390,7 +2382,7 @@ function renderRow(t){
     ${firstCell}
     <div class="tit-col">
       <div class="tc-title" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
-      <div class="tc-id">#${t.uid || '?'}${t.w ? `<span class="tc-week">${t.w}</span>` : ''}</div>
+      <div class="tc-id">#${t.uid || '?'}</div>
       <div class="tc-status">
         <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
           <span class="pip"></span>${st.l}
