@@ -1640,7 +1640,13 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="close" onclick="closeLightbox()" style="position:static">×</button>
     </div>
     <div class="lb-img-wrap" id="lbImgWrap">
-      <img id="lightboxImg" alt="">
+      <img id="lightboxImg" alt=""
+           onerror="this.style.display='none';document.getElementById('lbBrokenMsg').style.display='flex'">
+      <div id="lbBrokenMsg" style="display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;opacity:.7;font-family:var(--font);position:absolute;inset:0">
+        <div style="font-size:48px;opacity:.4">—</div>
+        <div style="font-size:14px;font-weight:500">Screenshot data is missing or corrupted</div>
+        <div style="font-size:12px;opacity:.6">Close this view and re-capture the screenshot.</div>
+      </div>
       <div class="lb-pins" id="lbPins"></div>
       <div class="lb-hint" id="lbHint">Click on the image to add a comment</div>
     </div>
@@ -2922,7 +2928,19 @@ let lbContext = null;  // v0.1.31: {taskId, slotIdx} so we can re-inject annotat
 
 function openLightbox(dataUrl, taskId, slotIdx){
   const lb = document.getElementById('lightbox');
-  document.getElementById('lightboxImg').src = dataUrl;
+  // v0.1.47: guard against empty/corrupted dataUrl that would render
+  // the macOS WebView default broken-image SVG at full size.
+  const img = document.getElementById('lightboxImg');
+  const broken = document.getElementById('lbBrokenMsg');
+  if(!dataUrl || typeof dataUrl !== 'string' || dataUrl.length < 32){
+    img.removeAttribute('src');
+    img.style.display = 'none';
+    if(broken) broken.style.display = 'flex';
+  } else {
+    img.style.display = '';
+    if(broken) broken.style.display = 'none';
+    img.src = dataUrl;
+  }
   // Build a key for this image: taskId + slot index (so each screenshot has its own comments)
   lbCurrentImageKey = (taskId || 'unknown') + ':' + (slotIdx !== undefined ? slotIdx : 0);
   lbContext = { taskId, slotIdx };

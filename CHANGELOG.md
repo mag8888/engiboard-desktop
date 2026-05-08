@@ -1,3 +1,14 @@
+## [v0.1.48] — 2026-05-08 — Hotfix: lightbox broken-image fallback
+
+### Fixed
+- v0.1.47 covered slideshow + .pi thumbnails but **lightbox** (the
+  full-screen single-image view with comments panel) had its own
+  `<img id="lightboxImg">` element with no guard. Empty/short dataURL
+  rendered the macOS WebView default broken-image SVG at full size.
+- `openLightbox()` now validates `dataUrl` (length ≥ 32) and toggles
+  between the image and a friendly "Screenshot data missing" overlay.
+- `<img>` also gets an `onerror` handler as belt-and-suspenders.
+
 # Changelog
 
 All notable changes per release are documented here.
