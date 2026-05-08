@@ -5,6 +5,36 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](htt
 
 ---
 
+## [v0.1.46] — 2026-05-08 — UX pass: tbar picker · chat-left · 8-status filters · EN-only
+
+### Changed (UX consolidation from validated case-study mockups)
+- **Project picker moved into the title-bar** (was in `.proj-bar` row beneath
+  it). `.proj-bar` removed entirely — saves ~50 px vertical space. The `+ New
+  project` action is now a floating button in the top-right corner of the list.
+- **Chat is now the leftmost data column in every task row.** Grid changed
+  from `24 / 160 / 240 / 1fr / 1fr` to `24 / 260 / 240 / 1fr / 1fr` and source
+  order swapped: `drag · chat · title-id-status · BEFORE · AFTER`.
+- **Chat fills the full row height** — the previous `max-height: 64px` on
+  `.chat-list` is gone. Bigger conversations are visible without scroll.
+- **Filter chips: all 8 statuses with their colors.** Replaces the old set
+  (`All · Problem · In progress · Done`) with `All` + 8 status-tinted chips
+  matching the pill colors. `data-f` is now the int status index (0..7); legacy
+  string filters still accepted. CSS classes: `.chip.fc-info` … `.chip.fc-up`.
+- **Column header row removed.** `.col-hdr` no longer rendered (legacy class
+  retained for back-compat but `display:none`).
+- **Language toggle removed.** EN-only build — the sidebar bottom no longer
+  has the RU/EN switch. The `I18N` map and `applyLang()` are kept for future
+  re-enable but no UI affordance.
+- **Compare button** in row actions: now opens the wipe modal again
+  (was `outOfScope` in v0.1.40 — wipe is in scope of Sprint 2).
+
+### Notes
+- Dashboard, slideshow split-view, and full SVG-icon pass deferred to v0.1.47
+  to keep this delta reviewable on Mac.
+- Sprint 2 plan committed: `docs/SPRINT2_PLAN.md`.
+
+---
+
 ## [v0.1.45] — 2026-05-07 — Permission fail-safe for empty captures
 
 ### Added

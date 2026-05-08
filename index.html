@@ -245,12 +245,66 @@ body.sb-collapsed .brand{width:auto;padding-right:18px}
 .body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
 /* Filter row + search */
-/* Project picker bar (v0.1.27) */
-.proj-bar{
-  display:flex;align-items:center;gap:14px;padding:14px 24px 10px;border-bottom:1px solid var(--line);
-  background:var(--bg);flex-shrink:0;position:relative
-}
+/* v0.1.46: project picker is now embedded in .tbar (no .proj-bar row).
+   .proj-bar styles kept for back-compat but collapsed to nothing if used. */
+.proj-bar{display:none}
+
+/* Picker base */
 .proj-picker{position:relative}
+
+/* In-titlebar variant (v0.1.46) */
+.tbar-proj-picker{margin-left:8px}
+.tbar-proj-picker .proj-picker-btn{
+  background:transparent;border:1px solid transparent;
+  padding:6px 28px 6px 10px;min-width:auto;
+  display:inline-flex;align-items:center;gap:8px;
+  border-radius:7px;font-family:inherit;color:var(--t1);cursor:pointer;
+  transition:.12s
+}
+.tbar-proj-picker .proj-picker-btn:hover{
+  background:#F1F5F9;border-color:var(--line-2)
+}
+body.dark-mode .tbar-proj-picker .proj-picker-btn:hover{
+  background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)
+}
+.tbar-proj-picker .pp-name{font-size:13.5px;font-weight:600;letter-spacing:-.005em}
+.tbar-proj-picker .pp-code{font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:500}
+.tbar-proj-picker .pp-arrow{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-size:9px;color:var(--t3);transition:transform .15s
+}
+.tbar-proj-picker.open .proj-picker-btn{
+  background:#F1F5F9;border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.10)
+}
+.tbar-proj-picker.open .pp-arrow{transform:translateY(-50%) rotate(180deg)}
+.tbar-proj-picker .proj-picker-menu{
+  position:absolute;top:calc(100% + 4px);left:0;
+  background:var(--surf);border:1px solid var(--line-2);border-radius:12px;
+  box-shadow:0 10px 28px rgba(15,23,42,.14);z-index:300;
+  min-width:340px;max-width:420px;display:none;flex-direction:column;max-height:60vh
+}
+.tbar-proj-picker.open .proj-picker-menu{display:flex}
+
+/* Counter chip in tbar (was .proj-bar-cur) */
+.tbar-proj-meta{
+  font-size:11.5px;color:var(--t4);font-family:var(--mono);
+  letter-spacing:.02em;margin-left:14px
+}
+
+/* Floating "+ New project" button (replaces proj-bar-action) */
+.proj-floating-action{
+  position:absolute;top:14px;right:24px;z-index:5;
+  display:inline-flex;align-items:center;gap:5px;padding:6px 12px;
+  border:1px solid var(--line-2);background:var(--surf);color:var(--t2);
+  font-size:12px;font-family:inherit;font-weight:500;border-radius:8px;cursor:pointer;
+  transition:.12s
+}
+.proj-floating-action:hover{border-color:var(--acc);color:var(--acc)}
+body.dark-mode .proj-floating-action{background:rgba(255,255,255,.04)}
+
+/* Legacy non-tbar picker — keep for backward compat (compare modal etc.) */
+.proj-picker-btn{
+  display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
 .proj-picker-btn{
   display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
   background:var(--surf);border:1px solid var(--line-2);border-radius:10px;
@@ -355,6 +409,32 @@ body.dark-mode .proj-member .role{background:rgba(255,255,255,.06)}
 }
 .chip:hover{border-color:var(--acc);color:var(--acc)}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+/* v0.1.46: status-colored filter chips */
+.chip.fc-info { color:#475569; border-color:#94A3B8; background:rgba(148,163,184,.06) }
+.chip.fc-done { color:#15803D; border-color:#22C55E; background:rgba(34,197,94,.08) }
+.chip.fc-not  { color:#64748B; border-color:#94A3B8; background:rgba(148,163,184,.04) }
+.chip.fc-rev  { color:#6D28D9; border-color:#A78BFA; background:rgba(167,139,250,.08) }
+.chip.fc-req  { color:#0284C7; border-color:#0EA5E9; background:rgba(14,165,233,.08) }
+.chip.fc-prob { color:#B91C1C; border-color:#EF4444; background:rgba(239,68,68,.08) }
+.chip.fc-prog { color:#C2410C; border-color:#F97316; background:rgba(249,115,22,.08) }
+.chip.fc-up   { color:#0284C7; border-color:#0EA5E9; background:rgba(14,165,233,.08) }
+.chip.fc-info.on { background:#94A3B8; color:#fff; border-color:#94A3B8 }
+.chip.fc-done.on { background:#22C55E; color:#fff; border-color:#22C55E }
+.chip.fc-not.on  { background:#94A3B8; color:#fff; border-color:#94A3B8 }
+.chip.fc-rev.on  { background:#A78BFA; color:#fff; border-color:#A78BFA }
+.chip.fc-req.on  { background:#0EA5E9; color:#fff; border-color:#0EA5E9 }
+.chip.fc-prob.on { background:#EF4444; color:#fff; border-color:#EF4444 }
+.chip.fc-prog.on { background:#F97316; color:#fff; border-color:#F97316 }
+.chip.fc-up.on   { background:#0EA5E9; color:#fff; border-color:#0EA5E9 }
+body.dark-mode .chip.fc-info { color:#cbd5e1; background:rgba(148,163,184,.10) }
+body.dark-mode .chip.fc-done { color:#86efac; background:rgba(34,197,94,.10) }
+body.dark-mode .chip.fc-not  { color:#94a3b8; background:rgba(148,163,184,.06) }
+body.dark-mode .chip.fc-rev  { color:#c4b5fd; background:rgba(167,139,250,.10) }
+body.dark-mode .chip.fc-req  { color:#7dd3fc; background:rgba(14,165,233,.10) }
+body.dark-mode .chip.fc-prob { color:#fca5a5; background:rgba(239,68,68,.10) }
+body.dark-mode .chip.fc-prog { color:#fdba74; background:rgba(249,115,22,.10) }
+body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 .search{
   margin-left:auto;background:var(--surf);border:1px solid var(--line-2);padding:6px 14px 6px 32px;
   border-radius:20px;font-size:12px;outline:none;width:240px;font-family:inherit;color:var(--t1);
@@ -363,8 +443,9 @@ body.dark-mode .proj-member .role{background:rgba(255,255,255,.06)}
 }
 .search:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.1)}
 
-.col-hdr{
-  display:grid;grid-template-columns:24px 160px 240px 1fr 1fr;
+/* v0.1.46: col-hdr no longer rendered, but legacy class kept */
+.col-hdr{display:none;
+  grid-template-columns:24px 240px 240px 1fr 1fr;
   padding:8px 28px 8px 36px;background:var(--bg);border-bottom:1px solid var(--line);
   font-family:var(--mono);font-size:10px;color:var(--t3);
   text-transform:uppercase;letter-spacing:.1em;flex-shrink:0
@@ -381,7 +462,8 @@ body.dark-mode .proj-member .role{background:rgba(255,255,255,.06)}
 
 /* Row */
 .row{
-  display:grid;grid-template-columns:24px 160px 240px 1fr 1fr;
+  /* v0.1.46: grid order: drag · CHAT (was 3rd) · title-id-status · before · after */
+  display:grid;grid-template-columns:24px 260px 240px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px
@@ -490,7 +572,8 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
   padding:8px 8px 8px 0
 }
 .chat-col .chat-list{
-  flex:0 1 auto;min-height:0;max-height:64px;overflow-y:auto;
+  /* v0.1.46: chat fills full row height (was max-height:64px) */
+  flex:1 1 auto;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:5px;
   background:var(--bg);border-radius:6px;border:1px solid var(--line);
   padding:5px 6px;transition:.12s
@@ -1390,6 +1473,28 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     </div>
     <div class="brand"><div class="mark">E</div>EngiBoard</div>
 
+    <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
+    <div class="proj-picker tbar-proj-picker" id="projPicker">
+      <button class="proj-picker-btn" onclick="toggleProjPicker(event)">
+        <span class="pp-name" id="ppName">All projects</span>
+        <span class="pp-code" id="ppCode"></span>
+        <span class="pp-arrow">▼</span>
+      </button>
+      <div class="proj-picker-menu" id="projPickerMenu">
+        <input type="text" class="proj-picker-search" id="ppSearch" placeholder="Search projects…" oninput="filterProjPicker()">
+        <div class="proj-picker-list" id="ppList"></div>
+        <div class="proj-members" id="ppMembers" style="display:none">
+          <div class="proj-members-h"><span>Members</span><span class="ct" id="ppMembersCt">0</span></div>
+          <div class="proj-members-list" id="ppMembersList"></div>
+          <div class="proj-invite-row">
+            <input type="email" id="ppInviteEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter') outOfScope('Invite project members by email','Sprint 2.4')">
+            <button id="ppInviteBtn" onclick="outOfScope('Invite project members by email','Sprint 2.4')">Invite</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="tbar-proj-meta" id="ppCurMeta"></span>
+
     <div class="tbar-spacer"></div>
 
     <div class="profile-btn" onclick="toggleProfileMenu(event)" id="profileBtn" title="Profile">
@@ -1432,10 +1537,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </div>
       </div>
       <div class="sb-bottom">
-        <div class="sb-i" data-label="Language" onclick="toggleLang()" id="langToggle" title="RU ↔ EN">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          <span><span data-t="sb.lang">Language</span> · <span id="langCurrent" style="font-family:var(--mono);text-transform:uppercase;font-size:11px;color:var(--acc)"></span></span>
-        </div>
+        <!-- v0.1.46: language toggle removed — EN-only build -->
         <div class="sb-i" data-label="Theme" onclick="toggleDarkMode()" id="themeToggle" title="Toggle dark mode (⌘⇧T)">
           <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -1453,51 +1555,30 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 
   <!-- BODY -->
   <div class="body" id="bodyTasks">
-    <!-- Project picker bar (v0.1.27) -->
-    <div class="proj-bar">
-      <div class="proj-picker" id="projPicker">
-        <button class="proj-picker-btn" onclick="toggleProjPicker(event)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg>
-          <span class="pp-name" id="ppName">All projects</span>
-          <span class="pp-code" id="ppCode"></span>
-          <span class="pp-arrow">▼</span>
-        </button>
-        <div class="proj-picker-menu" id="projPickerMenu">
-          <input type="text" class="proj-picker-search" id="ppSearch" placeholder="Search projects…" data-t-ph="proj.search" oninput="filterProjPicker()">
-          <div class="proj-picker-list" id="ppList"></div>
-          <div class="proj-members" id="ppMembers" style="display:none">
-            <div class="proj-members-h"><span data-t="proj.members">Members</span><span class="ct" id="ppMembersCt">0</span></div>
-            <div class="proj-members-list" id="ppMembersList"></div>
-            <div class="proj-invite-row">
-              <input type="email" id="ppInviteEmail" placeholder="email@example.com" data-t-ph="proj.invitePh" onkeydown="if(event.key==='Enter') outOfScope('Приглашение в проект по email','Этап 2')">
-              <button id="ppInviteBtn" onclick="outOfScope('Приглашение в проект по email','Этап 2')" data-t="proj.invite">Invite</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <span class="proj-bar-cur" id="ppCurMeta"></span>
-      <span class="proj-bar-spacer"></span>
-      <button class="proj-bar-action" onclick="openNewProjModal()">+ New project</button>
-    </div>
+    <!-- v0.1.46: .proj-bar removed — picker is now in .tbar -->
+    <button class="proj-floating-action" onclick="openNewProjModal()" title="Create new project">+ New project</button>
 
     <div class="filters">
+      <!-- v0.1.46: 8 status filter chips with their colors. Order matches STATUSES[]. -->
       <button class="chip" id="captureBtn" onclick="captureScreenshot()" style="background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;border:none;font-weight:600;padding:6px 14px;display:flex;align-items:center;gap:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        <span data-t="btn.capture">Capture</span>
+        <span>Capture</span>
       </button>
-      <button class="chip on" data-f="all" data-t="filter.all" style="margin-left:8px">All</button>
-      <button class="chip" data-f="problem" data-t="filter.problem">Problems</button>
-      <button class="chip" data-f="progress" data-t="filter.progress">In progress</button>
-      <button class="chip" data-f="done" data-t="filter.done">Done</button>
-      <!-- v0.1.44: chip "This week" убран вместе с группировкой по неделям -->
+      <button class="chip on" data-f="all" style="margin-left:8px">All</button>
+      <button class="chip fc-info" data-f="0">Info</button>
+      <button class="chip fc-not"  data-f="2">Not started</button>
+      <button class="chip fc-prog" data-f="6">In progress</button>
+      <button class="chip fc-rev"  data-f="3">Review</button>
+      <button class="chip fc-req"  data-f="4">Requested</button>
+      <button class="chip fc-prob" data-f="5">Problem</button>
+      <button class="chip fc-up"   data-f="7">Updated</button>
+      <button class="chip fc-done" data-f="1">Done</button>
       <span style="flex:1"></span>
-      <button class="chip" onclick="collapseAllProjects()" title="Свернуть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.collapseAll">⊟ Collapse all</button>
-      <button class="chip" onclick="expandAllProjects()" title="Раскрыть все проекты" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em" data-t="btn.expandAll">⊞ Expand all</button>
-      <button class="chip" onclick="outOfScope('PDF-экспорт отчётов','Этап 2')" title="Экспорт отчётов в PDF — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.exportPDF">📄 PDF</button>
-      <button class="chip" onclick="outOfScope('CSV-импорт задач','Этап 2')" title="Импорт задач из CSV — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)" data-t="btn.importCSV">📥 CSV</button>
-      <button class="chip" onclick="outOfScope('Массовые действия (bulk-select)','Этап 2')" title="Множественный выбор задач — запланирован на Этап 2" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">☑ Select</button>
+      <button class="chip" onclick="outOfScope('PDF report export','Sprint 2.5')" title="Export PDF report — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
+      <button class="chip" onclick="outOfScope('CSV task import','Sprint 2.5')" title="Import tasks from CSV — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">CSV</button>
+      <button class="chip" onclick="outOfScope('Bulk task actions','Sprint 2.5')" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
-      <input class="search" id="searchInp" placeholder="Search tasks…" data-t-ph="placeholder.search">
+      <input class="search" id="searchInp" placeholder="Search tasks…">
     </div>
 
     <div class="bulk-bar" id="bulkBar">
@@ -1510,10 +1591,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button onclick="toggleSelectMode()">Cancel</button>
     </div>
 
-    <div class="col-hdr">
-      <div></div><div data-t="col.task">Task</div><div data-t="col.comments">Comments</div><div data-t="col.before">Before</div><div data-t="col.after">After</div>
-    </div>
-
+    <!-- v0.1.46: col-hdr removed — list goes straight to rows -->
     <div class="list" id="list"></div>
   </div>
 
@@ -2164,10 +2242,17 @@ function getFilteredTasks(){
   let result = (currentProject === 'all')
     ? [...TASKS]
     : TASKS.filter(t => t.proj === currentProject);
-  if(curFilter === 'problem') result = result.filter(t => t.s === 5);
-  else if(curFilter === 'progress') result = result.filter(t => t.s === 6);
-  else if(curFilter === 'done') result = result.filter(t => t.s === 1);
-  else if(curFilter === 'thisweek') result = result.filter(t => t.w === '26W17');
+  // v0.1.46: filter by status int (0..7) when curFilter is numeric.
+  // Legacy strings ('problem','progress','done','thisweek') kept for back-compat.
+  if(curFilter !== 'all' && curFilter !== ''){
+    const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
+    if(!isNaN(sIdx) && sIdx >= 0 && sIdx <= 7){
+      result = result.filter(t => t.s === sIdx);
+    } else if(curFilter === 'problem')  result = result.filter(t => t.s === 5);
+    else if(curFilter === 'progress')   result = result.filter(t => t.s === 6);
+    else if(curFilter === 'done')       result = result.filter(t => t.s === 1);
+    else if(curFilter === 'thisweek')   result = result.filter(t => t.w === '26W17');
+  }
   if(curSearch){
     const q = curSearch.toLowerCase();
     result = result.filter(t =>
@@ -2220,10 +2305,16 @@ function render(){
   const isAllMode = currentProject === 'all';
   let allTasks = isAllMode ? TASKS.slice() : TASKS.filter(t => t.proj === currentProject);
 
-  if(curFilter === 'problem') allTasks = allTasks.filter(t => t.s === 5);
-  else if(curFilter === 'progress') allTasks = allTasks.filter(t => t.s === 6);
-  else if(curFilter === 'done') allTasks = allTasks.filter(t => t.s === 1);
-  else if(curFilter === 'thisweek') allTasks = allTasks.filter(t => t.w === '26W17');
+  // v0.1.46: filter by status int (0..7) when curFilter is numeric.
+  if(curFilter !== 'all' && curFilter !== ''){
+    const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
+    if(!isNaN(sIdx) && sIdx >= 0 && sIdx <= 7){
+      allTasks = allTasks.filter(t => t.s === sIdx);
+    } else if(curFilter === 'problem')  allTasks = allTasks.filter(t => t.s === 5);
+    else if(curFilter === 'progress')   allTasks = allTasks.filter(t => t.s === 6);
+    else if(curFilter === 'done')       allTasks = allTasks.filter(t => t.s === 1);
+    else if(curFilter === 'thisweek')   allTasks = allTasks.filter(t => t.w === '26W17');
+  }
   if(curSearch){
     const q = curSearch.toLowerCase();
     allTasks = allTasks.filter(t =>
@@ -2380,15 +2471,7 @@ function renderRow(t){
     ondragend="onDragEnd(event)"`}
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${firstCell}
-    <div class="tit-col">
-      <div class="tc-title" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
-      <div class="tc-id">#${t.uid || '?'}</div>
-      <div class="tc-status">
-        <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
-          <span class="pip"></span>${st.l}
-        </span>
-      </div>
-    </div>
+    <!-- v0.1.46: chat moved BEFORE title-col (chat is now leftmost data column) -->
     <div class="chat-col" onclick="event.stopPropagation()">
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
@@ -2396,9 +2479,18 @@ function renderRow(t){
         <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
       </div>
       <div class="chat-row-actions">
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();outOfScope('Учёт времени по задачам','Этап 2')" title="Учёт времени — Этап 2">${timerLabel}</span>
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();outOfScope('Time tracking per task','Sprint 2.5')" title="Time tracking — Sprint 2.5">${timerLabel}</span>
         <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();outOfScope('BEFORE/AFTER compare с wipe-слайдером','Этап 2')" title="Compare — Этап 2">⇄ ${compareLabel}</span>` : ''}
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
+      </div>
+    </div>
+    <div class="tit-col">
+      <div class="tc-title" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
+      <div class="tc-id">#${t.uid || '?'}</div>
+      <div class="tc-status">
+        <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
+          <span class="pip"></span>${st.l}
+        </span>
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -2464,17 +2556,18 @@ function openExistingShotEditor(taskId, slotIdx){
 
 function renderEmptyRow(){
   const nextUid = nextTaskUid(currentProject);
+  // v0.1.46: chat-col first (matches new column order)
   return `<div class="row empty" data-task-id="new" style="min-height:64px">
     <div></div>
+    <div class="chat-col" style="padding:10px 8px;justify-content:center">
+      <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
+    </div>
     <div class="tit-col">
       <span style="font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:600">#${nextUid}</span>
       <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
-    <div class="chat-col" style="padding:10px 8px;justify-content:center">
-      <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
-    </div>
-    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.before')||'BEFORE').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
-    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.after')||'AFTER').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
   </div>`;
 }
 
@@ -2482,15 +2575,15 @@ function renderEmptyRowForProject(projId){
   const nextUid = nextTaskUid(projId);
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
     <div></div>
+    <div class="chat-col" style="padding:10px 8px;justify-content:center">
+      <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
+    </div>
     <div class="tit-col">
       <span style="font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:600">#${nextUid}</span>
       <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
-    <div class="chat-col" style="padding:10px 8px;justify-content:center">
-      <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
-    </div>
-    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.before')||'BEFORE').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
-    <div class="pc"><div class="pi"><span class="pi-lbl">${(T('col.after')||'AFTER').replace(/^Pic\s+/i,'').toUpperCase()}</span><span style="opacity:.55">paste·drop</span></div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
+    <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
   </div>`;
 }
 
