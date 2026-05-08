@@ -81,6 +81,19 @@ body.dark-mode .col-hdr{background:var(--bg)}
 
 html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--surf);color:var(--t1)}
 
+/* v0.1.49: GLOBAL DEFENSE — hide any <img> whose src is empty, undefined,
+   "null", "data:," or anything obviously broken. macOS WebView otherwise
+   renders its default broken-image SVG at parent-cell size, which looks like
+   gigantic dark squares (e.g. when a base64 dataURL got truncated). */
+img[src=""],
+img:not([src]),
+img[src="undefined"],
+img[src="null"],
+img[src="data:,"],
+img[src="data:"],
+img[src*="data:image/png;base64,$"]
+{ display:none !important }
+
 /* ━━━ LOGIN ━━━ */
 .lp{
   position:fixed;inset:0;z-index:9000;
@@ -1471,7 +1484,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard</div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.49</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2096,6 +2109,34 @@ window.addEventListener('load', () => {
   if(localStorage.getItem('eb_account')){
     showApp();
   }
+
+  // v0.1.49: install a MutationObserver that catches every <img> the moment it
+  // enters the DOM, attaches an onerror that hides it on broken-image, and
+  // pre-checks suspiciously short data URLs.
+  const isBadSrc = (s) => !s || typeof s !== 'string' || s.length < 32 ||
+                          s === 'data:' || s === 'data:,' || s.endsWith('base64,');
+  const guard = (img) => {
+    if(img.dataset.imgGuarded) return;
+    img.dataset.imgGuarded = '1';
+    if(isBadSrc(img.getAttribute('src'))){
+      img.style.display = 'none';
+      img.removeAttribute('src');
+    }
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+    }, { passive: true });
+  };
+  document.querySelectorAll('img').forEach(guard);
+  const obs = new MutationObserver(records => {
+    for(const r of records){
+      r.addedNodes && r.addedNodes.forEach(n => {
+        if(n.nodeType !== 1) return;
+        if(n.tagName === 'IMG') guard(n);
+        else n.querySelectorAll && n.querySelectorAll('img').forEach(guard);
+      });
+    }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
 });
 
 
