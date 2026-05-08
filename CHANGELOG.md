@@ -5,6 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) · [SemVer](htt
 
 ---
 
+## [v0.1.47] — 2026-05-08 — Hotfix: broken-image fallback in slideshow + .pi
+
+### Fixed
+- When a task's screenshot dataURL was empty/corrupted, slideshow and task-row
+  thumbnails would render the macOS WebView default broken-image icon at full
+  cell size. Now both paths check for a usable string (≥32 chars) and render a
+  graceful placeholder instead. `<img onerror>` also catches in-flight load
+  failures.
+
+### Note
+This is a defensive patch — the underlying cause (stale/corrupt base64 in
+localStorage) goes away in Phase B when screenshots move to Supabase Storage.
+
+---
+
 ## [v0.1.46] — 2026-05-08 — UX pass: tbar picker · chat-left · 8-status filters · EN-only
 
 ### Changed (UX consolidation from validated case-study mockups)

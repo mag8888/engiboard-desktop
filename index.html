@@ -2508,10 +2508,18 @@ function renderPic(t, slot){
   const slotIdx = slot === 'before' ? 0 : 1;
   if(t[shotKey]){
     // v0.1.37: click on existing screenshot → open editor with tools immediately
-    // (was: open lightbox first, click button to open editor)
+    // v0.1.47: guard against empty/short data URL (was rendering huge broken-image
+    // icon when t.shot1/shot2 string is corrupted or missing payload).
+    const src = t[shotKey];
+    if(!src || typeof src !== 'string' || src.length < 32){
+      return `<div class="pi" data-task-id="${t.id}" data-slot="${slot}">
+        <span class="pi-lbl">${lblText}</span>
+        <span style="opacity:.55;color:#EF4444">data missing — re-capture</span>
+      </div>`;
+    }
     return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})">
       <span class="pi-lbl">${lblText}</span>
-      <img src="${t[shotKey]}" alt="">
+      <img src="${src}" alt="" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
   }
   return `<div class="pi" data-task-id="${t.id}" data-slot="${slot}">
@@ -2807,6 +2815,17 @@ function renderPresent(){
   if(!t) return;
   const slide = presentSlides[presentIdx];
   if(!slide) return;
+  // v0.1.47: guard against broken/empty src — webview shows huge "broken-image"
+  // sidebar-like icon if src is empty or invalid. Skip those slides.
+  if(!slide.src || typeof slide.src !== 'string' || slide.src.length < 32){
+    console.warn('[renderPresent] slide src missing/short — skipping render', slide);
+    // Try to skip to next valid slide if exists
+    const nextValid = presentSlides.findIndex((s,i) => i !== presentIdx && s.src && s.src.length >= 32);
+    if(nextValid >= 0){ presentIdx = nextValid; return renderPresent(); }
+    closePresent();
+    toast('Screenshot data missing for this task — close and re-capture.');
+    return;
+  }
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
   card.classList.add('with-chat');
@@ -2833,7 +2852,9 @@ function renderPresent(){
     <div class="pres-body-grid">
       <div class="pres-pic-col">
         <div class="pres-pic" style="min-height:440px;flex:1"><div class="lbl">${slide.label}</div>
-          <img src="${slide.src}" alt="" style="cursor:zoom-in" title="Click to open editor with annotation tools" onclick="openExistingShotEditor('${t.id}',${presentIdx})">
+          <img src="${slide.src}" alt="" style="cursor:zoom-in" title="Click to open editor"
+               onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div class=\\'pres-pic-empty\\' style=\\'display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px\\'><div style=\\'font-size:32px;opacity:.4\\'>—</div><div>Screenshot data missing</div></div>')"
+               onclick="openExistingShotEditor('${t.id}',${presentIdx})">
         </div>
       </div>
       <aside class="pres-chat-col">
