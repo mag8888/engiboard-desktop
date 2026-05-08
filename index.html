@@ -81,18 +81,33 @@ body.dark-mode .col-hdr{background:var(--bg)}
 
 html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--surf);color:var(--t1)}
 
-/* v0.1.49: GLOBAL DEFENSE — hide any <img> whose src is empty, undefined,
+/* v0.1.50: GLOBAL DEFENSE — hide any <img> whose src is empty, undefined,
    "null", "data:," or anything obviously broken. macOS WebView otherwise
    renders its default broken-image SVG at parent-cell size, which looks like
-   gigantic dark squares (e.g. when a base64 dataURL got truncated). */
+   gigantic dark squares. */
 img[src=""],
 img:not([src]),
 img[src="undefined"],
 img[src="null"],
 img[src="data:,"],
-img[src="data:"],
-img[src*="data:image/png;base64,$"]
+img[src="data:"]
 { display:none !important }
+
+/* v0.1.50: HARD pixel cap on lightbox/slideshow/compare images so broken-image
+   icon (if it sneaks past the JS guard) physically cannot exceed reasonable
+   bounds. Also constrains by aspect-ratio fallback. */
+.pres-pic img,
+.lb-img-wrap img,
+#lightbox img,
+.ci-img,
+img.ci-img,
+.cmp-img-wrap img {
+  max-width: min(100%, 70vw) !important;
+  max-height: min(100%, 70vh) !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
 
 /* ━━━ LOGIN ━━━ */
 .lp{
@@ -1466,7 +1481,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     </button>
     <div class="lp-or">OR</div>
     <button class="dbtn" onclick="loginDemo()">▸ Try demo (no signup)</button>
-    <div class="lp-foot">В Этапе 1 доступен только Demo-режим — облачные аккаунты в Этапе 2.</div>
+    <div class="lp-foot">Demo mode only in Stage 1 — cloud accounts arrive in Stage 2.</div>
   </div>
 </div>
 
@@ -1484,7 +1499,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.49</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.50</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1544,7 +1559,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <span data-t="sb.projects">Projects</span>
           <span class="sb-ct" id="sbProjCount">3</span>
         </div>
-        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="outOfScope('Настройка горячих клавиш','Этап 2')">
+        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="setSection('shortcuts')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
           <span data-t="sb.shortcuts">Shortcuts</span>
         </div>
@@ -1587,9 +1602,9 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip fc-up"   data-f="7">Updated</button>
       <button class="chip fc-done" data-f="1">Done</button>
       <span style="flex:1"></span>
-      <button class="chip" onclick="outOfScope('PDF report export','Sprint 2.5')" title="Export PDF report — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
-      <button class="chip" onclick="outOfScope('CSV task import','Sprint 2.5')" title="Import tasks from CSV — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">CSV</button>
-      <button class="chip" onclick="outOfScope('Bulk task actions','Sprint 2.5')" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
+      <button class="chip" onclick="exportPDF()" title="Export PDF report — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
+      <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">CSV</button>
+      <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
       <input class="search" id="searchInp" placeholder="Search tasks…">
     </div>
@@ -1628,14 +1643,14 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <div class="oos-overlay" id="oosOverlay" onclick="if(event.target===this) closeOOS()">
   <div class="oos-card" role="dialog" aria-modal="true">
     <div class="oos-icon">🛠</div>
-    <div class="oos-tag" id="oosTag">Этап 2 · после релиза 1</div>
-    <div class="oos-title">Функция «<span class="oos-feature" id="oosFeature">…</span>» пока недоступна</div>
+    <div class="oos-tag" id="oosTag">Stage 2 · after Stage 1 release</div>
+    <div class="oos-title">Feature «<span class="oos-feature" id="oosFeature">…</span>» — coming soon</div>
     <div class="oos-body" id="oosBody">
-      Текущая сборка соответствует Этапу 1 договора (бизнес-стадия инициации, проектирования и старта работ). Эта функция запланирована на следующий этап.
+      Текущая сборка соответствует Этапу 1 of the contract (initiation, design and kickoff phase). Эта функция запланирована на следующий этап.
     </div>
-    <div class="oos-when">📅 Релиз: <b id="oosWhen">Этап 2</b></div>
+    <div class="oos-when">📅 Release: <b id="oosWhen">Stage 2</b></div>
     <div class="oos-actions">
-      <button onclick="closeOOS()">Закрыть</button>
+      <button onclick="closeOOS()">Close</button>
     </div>
   </div>
 </div>
@@ -1649,7 +1664,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <div id="lightbox">
   <div class="lb-stage" id="lbStage">
     <div style="position:absolute;top:18px;right:24px;display:flex;gap:10px;z-index:50;align-items:center">
-      <button onclick="annotateLightboxImage()" title="Открыть редактор с инструментами (стрелки, прямоугольники, текст, blur, маркер) + сохранить обратно в задачу" style="background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(14,165,233,.4);display:inline-flex;align-items:center;gap:6px">🖍 Инструменты / Editor</button>
+      <button onclick="annotateLightboxImage()" title="Открыть редактор с инструментами (стрелки, прямоугольники, текст, blur, маркер) + сохранить обратно в задачу" style="background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(14,165,233,.4);display:inline-flex;align-items:center;gap:6px">🖍 Annotation tools / Editor</button>
       <button class="close" onclick="closeLightbox()" style="position:static">×</button>
     </div>
     <div class="lb-img-wrap" id="lbImgWrap">
@@ -1798,12 +1813,11 @@ const I18N = {
     'btn.presentation':'Презентация', 'btn.compare':'Сравнить',
   },
 };
-let currentLang = (() => {
-  const saved = localStorage.getItem('eb_lang');
-  if(saved && I18N[saved]) return saved;
-  // detect from navigator
-  return (navigator.language || 'en').toLowerCase().startsWith('ru') ? 'ru' : 'en';
-})();
+// v0.1.50: EN-only build — language toggle removed in v0.1.46. Hard-code 'en'
+// so the app doesn't auto-switch to RU on a Russian-locale macOS just because
+// navigator.language reports 'ru'. The I18N map and setLang/toggleLang are
+// preserved for future re-enable.
+let currentLang = 'en';
 function T(key){ return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en[key] || key); }
 function setLang(lang){
   if(!I18N[lang]) return;
@@ -2110,11 +2124,19 @@ window.addEventListener('load', () => {
     showApp();
   }
 
-  // v0.1.49: install a MutationObserver that catches every <img> the moment it
-  // enters the DOM, attaches an onerror that hides it on broken-image, and
-  // pre-checks suspiciously short data URLs.
-  const isBadSrc = (s) => !s || typeof s !== 'string' || s.length < 32 ||
-                          s === 'data:' || s === 'data:,' || s.endsWith('base64,');
+  // v0.1.50: strict src validation. Investigator found that v0.1.50 length<32
+  // missed mid-truncated base64 (e.g. 50–500 chars but still corrupt). Now
+  // require: starts with "data:image/" prefix AND has at least 1KB of payload
+  // after "base64,". Anything else → hide the <img>.
+  const isBadSrc = (s) => {
+    if(!s || typeof s !== 'string') return true;
+    if(s.length < 64) return true;
+    if(!s.startsWith('data:image/')) return true;
+    const i = s.indexOf('base64,');
+    if(i < 0) return true;
+    if(s.length - i - 7 < 1024) return true; // <1KB payload — almost certainly truncated
+    return false;
+  };
   const guard = (img) => {
     if(img.dataset.imgGuarded) return;
     img.dataset.imgGuarded = '1';
@@ -2526,7 +2548,7 @@ function renderRow(t){
         <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
       </div>
       <div class="chat-row-actions">
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();outOfScope('Time tracking per task','Sprint 2.5')" title="Time tracking — Sprint 2.5">${timerLabel}</span>
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking — Sprint 2.5">${timerLabel}</span>
         <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
         ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
       </div>
@@ -2748,7 +2770,9 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  // v0.1.40 stage-1-strict: drag-reorder задач — Этап 2.
+  // v0.1.50: allow file drops from Finder — only intercept HTML5 drags between rows.
+  if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
+  // stage-1-strict: drag-reorder задач — Sprint 2.4
   // Surface the OOS modal once user actually attempts to drag (so dragging
   // a screenshot file onto a row still works — that goes through .pi handler).
   if(e.target.closest(
@@ -2760,7 +2784,7 @@ function onDragStart(e, taskId){
     return;
   }
   e.preventDefault();
-  outOfScope('Drag-reorder задач между неделями/проектами','Этап 2');
+  outOfScope('Drag-reorder tasks between weeks / projects','Sprint 2.4');
 }
 function onDragOver(e){
   e.preventDefault();
@@ -3354,15 +3378,15 @@ function showPermissionModal(){
     m.innerHTML = `
       <div class="oos-card">
         <div class="oos-icon" style="background:linear-gradient(135deg,#FCA5A5,#EF4444)">⚠</div>
-        <div class="oos-tag" style="color:#B91C1C;background:rgba(239,68,68,.10)">macOS · разрешение</div>
-        <div class="oos-title">Нужно разрешение «Запись экрана»</div>
+        <div class="oos-tag" style="color:#B91C1C;background:rgba(239,68,68,.10)">macOS · permission</div>
+        <div class="oos-title">Screen Recording permission required</div>
         <div class="oos-body">
-          macOS заблокировал захват экрана для EngiBoard — поэтому скриншот пустой и редактор не открывается.<br><br>
-          Открой <b>Системные настройки → Конфиденциальность и безопасность → Запись экрана</b>, включи переключатель <b>EngiBoard</b>, перезапусти приложение и попробуй ещё раз.
+          macOS blocked screen capture for EngiBoard — that's why the screenshot is empty and the editor does not open.<br><br>
+          Open <b>System Settings → Privacy & Security → Screen Recording</b>, toggle <b>EngiBoard</b> on, restart the app and try again.
         </div>
         <div class="oos-actions" style="flex-wrap:wrap;gap:10px;justify-content:center">
-          <button class="primary" onclick="if(window.__TAURI__&&window.__TAURI__.core)window.__TAURI__.core.invoke('open_screen_recording_settings');">Открыть настройки</button>
-          <button onclick="document.getElementById('permModal').remove()">Закрыть</button>
+          <button class="primary" onclick="if(window.__TAURI__&&window.__TAURI__.core)window.__TAURI__.core.invoke('open_screen_recording_settings');">Open Settings</button>
+          <button onclick="document.getElementById('permModal').remove()">Close</button>
         </div>
       </div>`;
     document.body.appendChild(m);
@@ -3807,11 +3831,11 @@ function renderProfileSection(){
         </div>
         <input id="slackWebhookInp" type="url" placeholder="https://hooks.slack.com/services/T.../B.../..."
           style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)"
-          onfocus="this.blur();outOfScope('Slack-уведомления о статусах задач','Этап 2')">
+          onfocus="this.blur();outOfScope('Slack status notifications','Stage 2')">
         <div style="display:flex;gap:8px">
-          <button class="profile-action" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Save</button>
-          <button class="profile-action" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Send test</button>
-          <button class="profile-action danger" onclick="outOfScope('Slack-уведомления о статусах задач','Этап 2')">Clear</button>
+          <button class="profile-action" onclick="outOfScope('Slack status notifications','Stage 2')">Save</button>
+          <button class="profile-action" onclick="outOfScope('Slack status notifications','Stage 2')">Send test</button>
+          <button class="profile-action danger" onclick="outOfScope('Slack status notifications','Stage 2')">Clear</button>
         </div>
       </div>
     </div>
@@ -3956,7 +3980,7 @@ function renderProjMembers(){
       <span class="av">${initials}</span>
       <span class="em">${m.email}</span>
       <span class="role">${roleLabel}</span>
-      ${m.role === 'owner' ? '' : `<button class="rm" onclick="outOfScope('Управление участниками проекта','Этап 2')" title="Удалить участника">×</button>`}
+      ${m.role === 'owner' ? '' : `<button class="rm" onclick="outOfScope('Project members management','Sprint 2.4')" title="Удалить участника">×</button>`}
     </div>`;
   }).join('');
 }
@@ -4857,7 +4881,7 @@ function outOfScope(feature, sprint){
   if(when) when.textContent = sprint;
   if(tag) tag.textContent = sprint + ' · после релиза 1';
   if(body){
-    body.innerHTML = `Текущая сборка соответствует <b>Этапу 1</b> договора (бизнес-стадия инициации, проектирования и старта работ). Функция запланирована на <b>${sprint}</b> — UI оставили на месте, чтобы можно было обсуждать дизайн уже сейчас.`;
+    body.innerHTML = `Current build matches <b>Stage 1</b> of the contract (initiation, design and kickoff phase). Feature planned for <b>${sprint}</b> — UI kept in place so design can be reviewed now.`;
   }
   ov.classList.add('on');
 }
