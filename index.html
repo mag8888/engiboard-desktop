@@ -81,7 +81,7 @@ body.dark-mode .col-hdr{background:var(--bg)}
 
 html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--surf);color:var(--t1)}
 
-/* v0.1.50: GLOBAL DEFENSE — hide any <img> whose src is empty, undefined,
+/* v0.1.51: GLOBAL DEFENSE — hide any <img> whose src is empty, undefined,
    "null", "data:," or anything obviously broken. macOS WebView otherwise
    renders its default broken-image SVG at parent-cell size, which looks like
    gigantic dark squares. */
@@ -93,7 +93,7 @@ img[src="data:,"],
 img[src="data:"]
 { display:none !important }
 
-/* v0.1.50: HARD pixel cap on lightbox/slideshow/compare images so broken-image
+/* v0.1.51: HARD pixel cap on lightbox/slideshow/compare images so broken-image
    icon (if it sneaks past the JS guard) physically cannot exceed reasonable
    bounds. Also constrains by aspect-ratio fallback. */
 .pres-pic img,
@@ -1499,7 +1499,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.50</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.51</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1813,7 +1813,7 @@ const I18N = {
     'btn.presentation':'Презентация', 'btn.compare':'Сравнить',
   },
 };
-// v0.1.50: EN-only build — language toggle removed in v0.1.46. Hard-code 'en'
+// v0.1.51: EN-only build — language toggle removed in v0.1.46. Hard-code 'en'
 // so the app doesn't auto-switch to RU on a Russian-locale macOS just because
 // navigator.language reports 'ru'. The I18N map and setLang/toggleLang are
 // preserved for future re-enable.
@@ -2124,7 +2124,7 @@ window.addEventListener('load', () => {
     showApp();
   }
 
-  // v0.1.50: strict src validation. Investigator found that v0.1.50 length<32
+  // v0.1.51: strict src validation. Investigator found that v0.1.50 length<32
   // missed mid-truncated base64 (e.g. 50–500 chars but still corrupt). Now
   // require: starts with "data:image/" prefix AND has at least 1KB of payload
   // after "base64,". Anything else → hide the <img>.
@@ -2159,6 +2159,58 @@ window.addEventListener('load', () => {
     }
   });
   obs.observe(document.body, { childList: true, subtree: true });
+
+  // v0.1.51 DEBUG OVERLAY: any non-container element bigger than 400×400 px gets
+  // pinned in a yellow debug box with its tag/class/id/outerHTML and computed
+  // styles, so we can identify which DOM node is rendering the giant black
+  // icons that all the <img> defenses don't catch (likely an inline <svg>,
+  // CSS background-image div, or a custom element with no width/height cap).
+  let _hugeFoundOnce = false;
+  const findHuge = () => {
+    const all = document.querySelectorAll('img,svg,canvas,div,span,button,picture,video,object,embed,a,section,article');
+    const offenders = [];
+    const skipIds = new Set(['app','APP','LP','lightbox','present','sb','bodyTasks','dashView','profileView','shortcutsView','toast','pasteOverlay','oosOverlay','permModal']);
+    const skipClasses = new Set(['app','app-body','main-area','list','sb','tbar','body','section-view','lightbox','present','lb-stage','lb-img-wrap','lb-panel','lb-panel-list','pres-body','pres-pic-col','pres-card']);
+    for(const el of all){
+      const r = el.getBoundingClientRect();
+      if(r.width <= 400 || r.height <= 400) continue;
+      if(el === document.body || el === document.documentElement) continue;
+      if(skipIds.has(el.id)) continue;
+      if(typeof el.className === 'string' && el.className.split(/\s+/).some(c => skipClasses.has(c))) continue;
+      // skip elements that are at least 80% of the viewport (true containers)
+      if(r.width >= window.innerWidth * 0.85 && r.height >= window.innerHeight * 0.85) continue;
+      offenders.push({el, w: r.width, h: r.height});
+    }
+    const existing = document.getElementById('qaHugeBox');
+    if(!offenders.length){ if(existing) existing.remove(); return; }
+    if(_hugeFoundOnce && existing) return; // already shown
+
+    const box = existing || document.createElement('div');
+    box.id = 'qaHugeBox';
+    box.style.cssText = 'position:fixed;top:60px;left:14px;width:600px;max-height:60vh;overflow:auto;z-index:999999;background:#fffbeb;border:2px solid #f97316;border-radius:10px;padding:14px;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.45;color:#0f172a;box-shadow:0 12px 40px rgba(0,0,0,.35)';
+    let html = '<b style="color:#b91c1c">⚠ QA DEBUG · huge non-container elements found:</b><br><br>';
+    offenders.slice(0,5).forEach((o,i) => {
+      const tag = o.el.tagName.toLowerCase();
+      const cls = (typeof o.el.className === 'string' && o.el.className) ? '.'+o.el.className.split(/\s+/).filter(Boolean).slice(0,3).join('.') : '';
+      const id = o.el.id ? '#'+o.el.id : '';
+      const path = tag + cls + id;
+      const cs = getComputedStyle(o.el);
+      const oh = (o.el.outerHTML || '').slice(0,300).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      html += `<div style="border-bottom:1px solid #fed7aa;padding:8px 0">
+        <b style="color:#9a3412">[${i+1}] ${o.w.toFixed(0)}×${o.h.toFixed(0)}px · ${path}</b><br>
+        <div style="color:#6b7280;font-size:10px;margin-top:3px">pos=${cs.position} · disp=${cs.display} · w=${cs.width} · h=${cs.height}</div>
+        <div style="color:#6b7280;font-size:10px">bg-image=${cs.backgroundImage.slice(0,90)}</div>
+        <div style="background:#fde68a;padding:6px;margin-top:4px;border-radius:4px;font-size:10px;word-break:break-all">${oh}</div>
+      </div>`;
+    });
+    html += '<button onclick="document.getElementById(\'qaHugeBox\').remove()" style="margin-top:8px;padding:6px 14px;border:none;background:#f97316;color:#fff;border-radius:6px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600">Close</button>';
+    box.innerHTML = html;
+    if(!existing) document.body.appendChild(box);
+    _hugeFoundOnce = true;
+    try { console.error('[QA-DEBUG] huge elements:', offenders); } catch(_){}
+  };
+  setTimeout(findHuge, 1500);
+  setInterval(findHuge, 2000);
 });
 
 
@@ -2770,7 +2822,7 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  // v0.1.50: allow file drops from Finder — only intercept HTML5 drags between rows.
+  // v0.1.51: allow file drops from Finder — only intercept HTML5 drags between rows.
   if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
   // stage-1-strict: drag-reorder задач — Sprint 2.4
   // Surface the OOS modal once user actually attempts to drag (so dragging
