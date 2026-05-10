@@ -1,3 +1,55 @@
+## [v0.1.54] — 2026-05-10 — THE actual root cause: broken CSS parser
+
+### What it really was
+Versions v0.1.47 → v0.1.53 hunted the wrong target. The "huge icons" Roman
+kept reporting were **not** broken-image renders, **not** unscaled
+screenshots, **not** lightbox content. They were SVG icons in the **sidebar**
+(`.sb-i svg`) rendering at their natural ~1440px size because their CSS rule
+`.sb-i svg { width:16px; height:16px }` was being silently dropped.
+
+### The actual bug
+Lines 340-343 of `index.html` had a duplicated `.proj-picker-btn{` selector
+**without a closing `}` between them**:
+
+```css
+.proj-picker-btn{
+  display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
+.proj-picker-btn{                                  ← duplicate, no } above
+  display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
+  background:var(--surf);...
+}
+```
+
+A CSS parser sees an unbalanced `{` and silently swallows hundreds of
+subsequent rules — including `.sb-i svg { width:16px }`. Without that rule,
+the sidebar SVG icons fell back to the user-agent default and stretched to
+fill their flex container, giving Roman gigantic black rounded squares with
+white rectangles inside (the actual SVG glyphs at 1440×1440).
+
+### The fix
+Removed the duplicate `.proj-picker-btn{` block. CSS brace count is now
+balanced (641 open / 641 close).
+
+### How it was finally diagnosed
+Enabled Tauri devtools (`features = ["devtools"]` on `tauri` crate),
+right-clicked → Inspect Element on one of the giant icons. DevTools showed
+`<svg viewBox="0 0 24 24">` at computed `1440×1440px` inside `<div class="sb-i">`,
+with **no `.sb-i svg` rule in the matched-rules pane**. That immediately
+pointed to a CSS parser breakdown rather than anything image-related.
+Python brace-counter on the `<style>` block confirmed `{=642 }=641`, and
+locating the unclosed nesting was straightforward.
+
+### Removed
+- v0.1.53's blanket image-size caps and the `img[src=""]{display:none}` guard
+  are kept; they're cheap defense-in-depth, harmless either way.
+
+### Lesson
+When a rendering bug doesn't move under image- or layout-targeted fixes,
+check whether the relevant CSS rule is actually applying. A single typo
+upstream can silently nullify an entire stylesheet section.
+
+---
+
 ## [v0.1.53] — 2026-05-10 — REAL FIX: lightbox image size cap (root-cause)
 
 ### Fixed (the actual bug)
