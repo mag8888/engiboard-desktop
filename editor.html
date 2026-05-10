@@ -160,10 +160,11 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
   <div style="width:78px;flex-shrink:0"></div>
   <div class="ttl">EngiBoard · Annotate</div>
   <div class="tact">
-    <button class="tbtn-sm" onclick="undoLast()">⌘Z</button>
+    <button class="tbtn-sm" onclick="undoLast()" title="Undo (⌘Z)">↶</button>
+    <button class="tbtn-sm" onclick="redoNext()" title="Redo (⌘⇧Z)">↷</button>
     <button class="tbtn-sm" onclick="clearAll()">Clear</button>
     <button class="tbtn-sm" onclick="discard()">Esc</button>
-    <button class="tbtn-sm blue" onclick="saveTask()">Save to task ↗</button>
+    <button class="tbtn-sm blue" onclick="saveTask()" title="Done — closes window and saves to task (autosaves on close too)">Done ✓</button>
   </div>
 </div>
 
@@ -233,10 +234,11 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
   </div>
   <div class="rps-actions">
     <div style="display:flex;gap:6px">
-      <button onclick="undoLast()" class="tbtn-sm" style="flex:1">⌘Z Undo</button>
+      <button onclick="undoLast()" class="tbtn-sm" style="flex:1">↶ Undo (⌘Z)</button>
+      <button onclick="redoNext()" class="tbtn-sm" style="flex:1">↷ Redo (⌘⇧Z)</button>
       <button onclick="clearAll()" class="tbtn-sm" style="flex:1">Clear</button>
     </div>
-    <button onclick="saveTask()" class="tbtn-sm blue" style="width:100%;padding:10px;font-size:12px">Save to task ↗</button>
+    <button onclick="saveTask()" class="tbtn-sm blue" style="width:100%;padding:10px;font-size:12px">Done ✓</button>
     <button onclick="discard()" class="tbtn-sm" style="width:100%;padding:8px">Discard (Esc)</button>
   </div>
 </div>
@@ -254,7 +256,13 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 let tool='select', color='#FF453A', sw=2, opVal=1;
-let annotations=[], undoStack=[], comments=[], commentCount=0;
+let annotations=[], undoStack=[], redoStack=[], comments=[], commentCount=0;
+const HISTORY_MAX = 10; // 5 back + 5 forward typical
+function pushHistory(){
+  pushHistory();
+  if(undoStack.length > HISTORY_MAX) undoStack.shift();
+  redoStack = []; // any new edit invalidates redo stack
+}
 let selId=null, drawing=false, startPos={x:0,y:0}, cur=null;
 let isPanning=false, panStart={x:0,y:0,ox:0,oy:0}, panOff={x:0,y:0};
 let isDragging=false, dragStart=null;
@@ -333,7 +341,7 @@ function commitCurrent(){
   if(!cur) return;
   const valid=cur.type==='freehand'?(cur.pts?.length||0)>2:Math.abs(cur.w)>0.5||Math.abs(cur.h)>0.5;
   if(valid){
-    undoStack.push(JSON.parse(JSON.stringify(annotations)));
+    pushHistory();
     annotations.push(cur);
     cur=null;
     clearPrev();
@@ -443,7 +451,7 @@ function clearPrev(){prevDiv.innerHTML='';prevSvg.innerHTML='';}
 
 function showTextInp(pos){const inp=document.getElementById('textInp');inp.style.cssText=`display:block;left:${pos.x}%;top:${pos.y}%;width:120px`;inp.value='';setTimeout(()=>inp.focus(),10);}
 function onTextKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commitText();}if(e.key==='Escape'){textPos=null;document.getElementById('textInp').style.display='none';}e.stopPropagation();}
-function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){undoStack.push(JSON.parse(JSON.stringify(annotations)));annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});renderAll();updateList();updateCount();}textPos=null;inp.style.display='none';inp.value='';}
+function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){pushHistory();annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});renderAll();updateList();updateCount();}textPos=null;inp.style.display='none';inp.value='';}
 
 function showCmtPopUI(e){
   const pop=document.getElementById('cmtPop'),inp=document.getElementById('cmtInp');
@@ -515,10 +523,23 @@ function selComment(id){
   }
 }
 function selAnn(id){selId=id;renderAll();updateList();}
-function delAnn(id){if(String(id).startsWith('c')){delCmt(+id.slice(1));return;}undoStack.push(JSON.parse(JSON.stringify(annotations)));annotations=annotations.filter(a=>String(a.id)!==String(id));selId=null;renderAll();updateList();updateCount();}
+function delAnn(id){if(String(id).startsWith('c')){delCmt(+id.slice(1));return;}pushHistory();annotations=annotations.filter(a=>String(a.id)!==String(id));selId=null;renderAll();updateList();updateCount();}
 function updateCount(){const n=annotations.length+comments.length;document.getElementById('sbCount').textContent=`${n} annotation${n!==1?'s':''}`;}
-function undoLast(){if(!undoStack.length){notify('Nothing to undo');return;}annotations=undoStack.pop();selId=null;renderAll();updateList();updateCount();notify('Undo');}
-function clearAll(){if(!annotations.length&&!comments.length) return;undoStack.push(JSON.parse(JSON.stringify(annotations)));annotations=[];comments=[];selId=null;renderAll();updateList();updateCount();}
+function undoLast(){
+  if(!undoStack.length){notify('Nothing to undo');return;}
+  redoStack.push(JSON.parse(JSON.stringify(annotations)));
+  if(redoStack.length > HISTORY_MAX) redoStack.shift();
+  annotations = undoStack.pop();
+  selId = null; renderAll(); updateList(); updateCount(); notify('Undo');
+}
+function redoNext(){
+  if(!redoStack.length){notify('Nothing to redo');return;}
+  undoStack.push(JSON.parse(JSON.stringify(annotations)));
+  if(undoStack.length > HISTORY_MAX) undoStack.shift();
+  annotations = redoStack.pop();
+  selId = null; renderAll(); updateList(); updateCount(); notify('Redo');
+}
+function clearAll(){if(!annotations.length&&!comments.length) return;pushHistory();annotations=[];comments=[];selId=null;renderAll();updateList();updateCount();}
 
 async function saveTask(){
   notify('Saving...');
@@ -554,6 +575,7 @@ async function saveTask(){
 
 async function discard(){
   if(!annotations.length&&!comments.length||confirm('Discard?')){
+    _autosaveSkip = true; // tell beforeunload not to autosave
     if(window.__TAURI__){
       try{await window.__TAURI__.core.invoke('close_editor');}
       catch(e){
@@ -569,9 +591,24 @@ document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();
   if(KMAP[k]){e.preventDefault();setTool(KMAP[k]);return;}
+  if((e.metaKey||e.ctrlKey)&&e.shiftKey&&k==='z'){e.preventDefault();redoNext();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undoLast();return;}
+  if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redoNext();return;}
   if(k==='delete'||k==='backspace'){if(selId) delAnn(selId);}
   if(k==='escape'){selId=null;closeCmtPop();commitText();renderAll();updateList();}
+});
+
+// v0.1.55: autosave-on-close — Roman asked to drop the explicit Save button
+// flow. When the editor window is about to unload (close button, ⌘W, OS-quit),
+// flatten current annotations into the task automatically. discard() bypasses
+// this by setting a flag.
+let _autosaveSkip = false;
+window.addEventListener('beforeunload', () => {
+  if(_autosaveSkip) return;
+  if(!annotations.length && !comments.length) return;
+  // Best-effort sync flush — `beforeunload` doesn't await async, but we kick
+  // off the save flow so the screenshot-ready event is dispatched before close.
+  try { saveTask(); } catch(e) { console.error('autosave failed', e); }
 });
 
 function notify(m){const el=document.getElementById('notif');el.textContent=m;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),1600);}

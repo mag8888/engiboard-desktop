@@ -488,8 +488,9 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* Row */
 .row{
-  /* v0.1.46: grid order: drag · CHAT (was 3rd) · title-id-status · before · after */
-  display:grid;grid-template-columns:24px 260px 240px 1fr 1fr;
+  /* v0.1.55: title-col removed (title + id no longer shown), status moved into
+     chat-col actions row. Grid: drag · CHAT(+actions+status) · BEFORE · AFTER */
+  display:grid;grid-template-columns:24px 320px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px
@@ -1497,7 +1498,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.54</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.55</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1637,21 +1638,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) -->
-<div class="oos-overlay" id="oosOverlay" onclick="if(event.target===this) closeOOS()">
-  <div class="oos-card" role="dialog" aria-modal="true">
-    <div class="oos-icon">🛠</div>
-    <div class="oos-tag" id="oosTag">Stage 2 · after Stage 1 release</div>
-    <div class="oos-title">Feature «<span class="oos-feature" id="oosFeature">…</span>» — coming soon</div>
-    <div class="oos-body" id="oosBody">
-      Текущая сборка соответствует Этапу 1 of the contract (initiation, design and kickoff phase). Эта функция запланирована на следующий этап.
-    </div>
-    <div class="oos-when">📅 Release: <b id="oosWhen">Stage 2</b></div>
-    <div class="oos-actions">
-      <button onclick="closeOOS()">Close</button>
-    </div>
-  </div>
-</div>
+<!-- v0.1.55: stage-1 out-of-scope modal removed. Full feature set is in scope now. -->
 
 <!-- PASTE OVERLAY -->
 <div id="pasteOverlay">
@@ -2551,18 +2538,12 @@ function renderRow(t){
         <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
       </div>
       <div class="chat-row-actions">
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking — Sprint 2.5">${timerLabel}</span>
-        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
-      </div>
-    </div>
-    <div class="tit-col">
-      <div class="tc-title" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
-      <div class="tc-id">#${t.uid || '?'}</div>
-      <div class="tc-status">
-        <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
+        <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip"></span>${st.l}
         </span>
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
+        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -4100,11 +4081,7 @@ function saveTaskNotes(taskId, notes){
 // v0.1.31: Compare modal — BEFORE vs AFTER with wipe slider
 let _cmpDrag = false;
 function openCompare(taskId){
-  // v0.1.41 stage-1-strict: compare wipe в стабилизации.
-  if(typeof outOfScope === 'function'){
-    outOfScope('BEFORE/AFTER compare с wipe-слайдером','v0.1.42 — финальная отладка');
-    return;
-  }
+  // v0.1.55: gate removed — compare is part of the full feature set now.
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !t.shot1 || !t.shot2){
     toast('Need both BEFORE and AFTER screenshots to compare');
@@ -4867,38 +4844,17 @@ function toast(msg, ms=1800){
   t._t = setTimeout(() => t.classList.remove('show'), ms);
 }
 
-// ━━━ STAGE-1 OUT-OF-SCOPE GUARD (v0.1.40) ━━━
-// Surfaces a modal explaining that a feature ships in a later contract stage.
-// UI controls remain visible — only the action is gated. This is the
-// stage-1-strict build the client requested.
-function outOfScope(feature, sprint){
-  feature = feature || 'Эта функция';
-  sprint = sprint || 'Этап 2';
-  const ov = document.getElementById('oosOverlay');
-  if(!ov) return;
-  const tag = document.getElementById('oosTag');
-  const ft = document.getElementById('oosFeature');
-  const body = document.getElementById('oosBody');
-  const when = document.getElementById('oosWhen');
-  if(ft) ft.textContent = feature;
-  if(when) when.textContent = sprint;
-  if(tag) tag.textContent = sprint + ' · после релиза 1';
-  if(body){
-    body.innerHTML = `Current build matches <b>Stage 1</b> of the contract (initiation, design and kickoff phase). Feature planned for <b>${sprint}</b> — UI kept in place so design can be reviewed now.`;
+// v0.1.55: outOfScope downgraded to a soft toast — Roman asked to drop
+// stage/sprint gating and ship the full app. Call sites without a real
+// implementation just notify and continue silently.
+function outOfScope(feature){
+  if(typeof toast === 'function'){
+    toast((feature || 'This feature') + ' — coming next');
+  } else {
+    console.log('[outOfScope]', feature);
   }
-  ov.classList.add('on');
 }
-function closeOOS(){
-  const ov = document.getElementById('oosOverlay');
-  if(ov) ov.classList.remove('on');
-}
-// ESC closes the modal
-document.addEventListener('keydown', e => {
-  if(e.key === 'Escape'){
-    const ov = document.getElementById('oosOverlay');
-    if(ov && ov.classList.contains('on')) closeOOS();
-  }
-});
+function closeOOS(){ /* no-op, modal removed */ }
 </script>
 
 </body>

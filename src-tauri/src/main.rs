@@ -92,24 +92,37 @@ fn open_sniper(app: tauri::AppHandle) {
     // main app instead of the dim overlay. Now: just hide main + close any stale
     // sniper, then create a fresh sniper window.
 
-    // Capture monitor info BEFORE hiding main (hidden window may not report monitor).
+    // v0.1.55: multi-monitor — use the monitor the main window is currently on
+    // (current_monitor), not always primary. Without this, sniper opened on the
+    // primary screen even when EngiBoard was on a secondary display.
     let monitor = app
         .get_webview_window("main")
-        .and_then(|w| w.primary_monitor().ok().flatten())
+        .and_then(|w| w.current_monitor().ok().flatten())
+        .or_else(|| {
+            app.get_webview_window("main")
+                .and_then(|w| w.primary_monitor().ok().flatten())
+        })
         .or_else(|| {
             tauri::Manager::webview_windows(&app)
                 .values()
                 .next()
-                .and_then(|w| w.primary_monitor().ok().flatten())
+                .and_then(|w| w.current_monitor().ok().flatten())
         });
 
-    let (w, h) = if let Some(ref m) = monitor {
+    let (w, h, mx, my) = if let Some(ref m) = monitor {
         let size = m.size();
+        let pos = m.position();
         let scale = m.scale_factor();
-        ((size.width as f64 / scale), (size.height as f64 / scale))
+        (
+            size.width as f64 / scale,
+            size.height as f64 / scale,
+            pos.x as f64 / scale,
+            pos.y as f64 / scale,
+        )
     } else {
-        (1920.0, 1080.0)
+        (1920.0, 1080.0, 0.0, 0.0)
     };
+    eprintln!("sniper target monitor: {}x{} at ({},{})", w, h, mx, my);
 
     // Hide main + close any stale editor (we don't open editor anymore in stage 1,
     // but kill it just in case it's hanging from a previous flow).
@@ -135,7 +148,7 @@ fn open_sniper(app: tauri::AppHandle) {
             &app_clone, "sniper", WebviewUrl::App("sniper.html".into()))
             .title("EngiBoard Sniper")
             .inner_size(w, h)
-            .position(0.0, 0.0)
+            .position(mx, my)
             .decorations(false)
             .transparent(true)
             .always_on_top(true)

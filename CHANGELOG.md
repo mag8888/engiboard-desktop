@@ -1,3 +1,51 @@
+## [v0.1.55] — 2026-05-10 — Roman's call notes: 8-point shipping pass
+
+Roman's screen-share feedback turned into eight required changes. This
+release lands six of them (4 — Windows polish — needs a Windows machine,
+3 — annotation-vector persistence — is a separate Phase B/C piece).
+
+### Task row simplification (#5, #6)
+- Removed the entire `.tit-col` (task title + `#ID`) from every row. Grid
+  collapsed from 5 columns to 4: `drag · chat-col · BEFORE · AFTER`.
+  Rationale: the screenshots speak for themselves; the title was visual
+  noise. `t.title` is still kept in storage for search and is still set
+  on `+ Type new task` flow — just not displayed in-row.
+- Status pill moved into `.chat-row-actions` next to start/Presentation/
+  Compare. One unified action strip per row.
+
+### Out-of-scope guard removed (#7)
+- Stage-1-strict OOS modal and overlay are gone. Full feature set is now
+  in scope. `outOfScope()` downgraded to a soft toast for any remaining
+  call site whose backend isn't wired yet (Slack webhook persist, email
+  invites — both wait on Phase B Supabase).
+- `openCompare()` no longer guarded — wipe slider works directly.
+
+### Annotator: autosave + redo (#1, #2)
+- `editor.html`: `Save to task ↗` button renamed to `Done ✓` and is
+  optional — closing the window (✕, ⌘W, OS quit) **autosaves** the
+  flattened image into the originating task slot. Discard button still
+  bypasses save (asks confirmation if there's work).
+- Redo stack added (10-step ring buffer, default ~5 forward / 5 back).
+  Bound to ⌘⇧Z and ⌘Y. Toolbar gained ↶/↷ icon buttons. All
+  `undoStack.push(...)` callsites consolidated into a single
+  `pushHistory()` helper that also clears the redo stack on new edits.
+
+### Multi-monitor sniper (#8)
+- `open_sniper` (Rust): switched from `primary_monitor()` to
+  `current_monitor()` so the dim sniper overlay opens on the same display
+  EngiBoard is on. Window position now uses that monitor's origin
+  (`m.position()`) instead of hard-coded `(0, 0)`. Existing macOS
+  `screencapture -R x,y,w,h` already understands global desktop
+  coordinates so capture works across displays.
+
+### Deferred
+- (#3) Persist annotation history across sessions — needs vector
+  annotations to live in `task.annotations` instead of being flattened
+  into PNG. Belongs with the screenshots-to-Storage migration in Phase C.
+- (#4) Windows .exe popup audit — needs a Windows test machine.
+
+---
+
 ## [v0.1.54] — 2026-05-10 — THE actual root cause: broken CSS parser
 
 ### What it really was
