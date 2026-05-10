@@ -1498,7 +1498,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.55</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.56</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2509,7 +2509,6 @@ function renderRow(t){
         return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
           <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
-          <span class="ts">${m.ts||''}</span>
         </div>`;
       }).join('');
   // P2-6 timer state
@@ -2534,8 +2533,7 @@ function renderRow(t){
     <div class="chat-col" onclick="event.stopPropagation()">
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
-        <input type="text" placeholder="Quick reply…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
-        <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
+        <input type="text" placeholder="Type a message and press Enter…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
       </div>
       <div class="chat-row-actions">
         <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
@@ -2892,7 +2890,7 @@ function renderPresent(){
         return `<div class="cp-msg ${isMine?'mine':''}">
           <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
           <div class="cp-msg-bd">
-            <div class="cp-msg-meta"><span class="ts">${m.ts}</span></div>
+            
             <div class="cp-msg-bub">${m.text}</div>
           </div>
         </div>`;
@@ -2963,9 +2961,7 @@ function syncTaskRowChat(taskId){
     const initials = (m.a || '?').slice(0, 2).toUpperCase();
     return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
       <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
-      <span class="ts">${m.ts||''}</span>
-    </div>`;
+      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>    </div>`;
   }).join('');
   panel.scrollTop = panel.scrollHeight;
 }
@@ -3188,7 +3184,7 @@ function renderChatMsgs(t){
     return `<div class="cp-msg ${isMine?'mine':''}">
       <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
       <div class="cp-msg-bd">
-        <div class="cp-msg-meta"><span class="ts">${m.ts}</span></div>
+        
         <div class="cp-msg-bub">${m.text}</div>
       </div>
     </div>`;
@@ -4163,9 +4159,7 @@ function sendInlineChat(inp){
       const initials = (m.a || '?').slice(0, 2).toUpperCase();
       return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
         <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
-        <span class="ts">${m.ts||''}</span>
-      </div>`;
+        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>      </div>`;
     }).join('');
     panel.scrollTop = panel.scrollHeight;
   }
