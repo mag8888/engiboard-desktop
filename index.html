@@ -81,29 +81,29 @@ body.dark-mode .col-hdr{background:var(--bg)}
 
 html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--surf);color:var(--t1)}
 
-/* v0.1.52: GLOBAL DEFENSE — hide any <img> whose src is empty, undefined,
-   "null", "data:," or anything obviously broken. macOS WebView otherwise
-   renders its default broken-image SVG at parent-cell size, which looks like
-   gigantic dark squares. */
-img[src=""],
-img:not([src]),
-img[src="undefined"],
-img[src="null"],
-img[src="data:,"],
-img[src="data:"]
-{ display:none !important }
+/* v0.1.53: ACTUAL FIX. Versions 0.1.47–0.1.52 chased a non-existent broken
+   image bug. The "huge icons" Roman saw were the CONTENTS of legitimate
+   screenshots (Figma mockups whose subject was iconography) rendered at
+   full viewport size because lightbox/slideshow had no hard size cap.
 
-/* v0.1.52: HARD pixel cap on lightbox/slideshow/compare images so broken-image
-   icon (if it sneaks past the JS guard) physically cannot exceed reasonable
-   bounds. Also constrains by aspect-ratio fallback. */
+   This is the simple structural fix. */
+img[src=""], img:not([src]) { display: none }
+
+/* Padding around image stages so a screenshot can never fill edge-to-edge */
+#lightbox .lb-stage  { padding: 6vh 8vw !important; }
+.pres-body-grid      { padding: 4vh 6vw !important; }
+
+/* HARD size cap on every image inside any image viewer */
+#lightbox .lb-img-wrap,
+.pres-pic,
+.cmp-img-wrap,
+.lb-stage img,
 .pres-pic img,
-.lb-img-wrap img,
+.cmp-img-wrap img,
 #lightbox img,
-.ci-img,
-img.ci-img,
-.cmp-img-wrap img {
-  max-width: min(100%, 70vw) !important;
-  max-height: min(100%, 70vh) !important;
+.ci-img {
+  max-width: 70vw !important;
+  max-height: 70vh !important;
   width: auto !important;
   height: auto !important;
   object-fit: contain !important;
@@ -1499,7 +1499,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.52</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.53</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1813,7 +1813,7 @@ const I18N = {
     'btn.presentation':'Презентация', 'btn.compare':'Сравнить',
   },
 };
-// v0.1.52: EN-only build — language toggle removed in v0.1.46. Hard-code 'en'
+// v0.1.53: EN-only build — language toggle removed in v0.1.46. Hard-code 'en'
 // so the app doesn't auto-switch to RU on a Russian-locale macOS just because
 // navigator.language reports 'ru'. The I18N map and setLang/toggleLang are
 // preserved for future re-enable.
@@ -2124,7 +2124,7 @@ window.addEventListener('load', () => {
     showApp();
   }
 
-  // v0.1.52: strict src validation. Investigator found that v0.1.50 length<32
+  // v0.1.53: strict src validation. Investigator found that v0.1.50 length<32
   // missed mid-truncated base64 (e.g. 50–500 chars but still corrupt). Now
   // require: starts with "data:image/" prefix AND has at least 1KB of payload
   // after "base64,". Anything else → hide the <img>.
@@ -2160,68 +2160,10 @@ window.addEventListener('load', () => {
   });
   obs.observe(document.body, { childList: true, subtree: true });
 
-  // v0.1.52 QA SENTINEL: full-width banner across the very top, max z-index.
-  // ALSO auto-hides offending elements so the app becomes usable, and dumps
-  // the report to clipboard so it can be pasted to engineering.
-  const findHuge = () => {
-    const all = document.querySelectorAll('img,svg,canvas,div,span,button,picture,video,object,embed,a,section,article,iframe,p,h1,h2,h3,h4,h5');
-    const offenders = [];
-    const skipIds = new Set(['app','APP','LP','lightbox','present','sb','bodyTasks','dashView','profileView','shortcutsView','toast','pasteOverlay','oosOverlay','permModal','qaHugeBox','qaHugeBanner','main','main-area']);
-    const skipClasses = new Set(['app','app-body','main-area','list','sb','tbar','body','section-view','lightbox','present','lb-stage','lb-img-wrap','lb-panel','lb-panel-list','pres-body','pres-pic-col','pres-card','dash','filters','main-area']);
-    for(const el of all){
-      const r = el.getBoundingClientRect();
-      if(r.width <= 250 || r.height <= 250) continue;
-      if(el === document.body || el === document.documentElement) continue;
-      if(skipIds.has(el.id)) continue;
-      if(typeof el.className === 'string' && el.className.split(/\s+/).some(c => skipClasses.has(c))) continue;
-      if(r.width >= window.innerWidth * 0.85 && r.height >= window.innerHeight * 0.85) continue;
-      offenders.push({el, w: r.width, h: r.height});
-    }
-    const banner = document.getElementById('qaHugeBanner');
-    if(!offenders.length){ if(banner) banner.remove(); return; }
-
-    // 1. Auto-hide so the app is usable
-    offenders.forEach(o => {
-      if(!o.el.dataset.qaHidden){
-        o.el.dataset.qaHidden = '1';
-        o.el.style.cssText = (o.el.getAttribute('style')||'') + ';display:none !important';
-      }
-    });
-
-    // 2. Build text report
-    const lines = ['EngiBoard v0.1.52 · QA huge-element report', '─'.repeat(48)];
-    offenders.slice(0,8).forEach((o,i) => {
-      const tag = o.el.tagName.toLowerCase();
-      const cls = (typeof o.el.className === 'string' && o.el.className) ? '.'+o.el.className.split(/\s+/).filter(Boolean).join('.') : '';
-      const id = o.el.id ? '#'+o.el.id : '';
-      const cs = getComputedStyle(o.el);
-      const parent = o.el.parentElement
-        ? o.el.parentElement.tagName.toLowerCase()+'.'+(typeof o.el.parentElement.className==='string'?o.el.parentElement.className:'').slice(0,80)+'#'+(o.el.parentElement.id||'')
-        : '(none)';
-      lines.push(
-        `[${i+1}] ${o.w.toFixed(0)}x${o.h.toFixed(0)} · ${tag}${cls}${id}`,
-        `    parent: ${parent}`,
-        `    css   : pos=${cs.position} disp=${cs.display} w=${cs.width} h=${cs.height}`,
-        `    bg    : ${cs.backgroundImage.slice(0,160)}`,
-        `    html  : ${(o.el.outerHTML||'').slice(0,360).replace(/\s+/g,' ')}`
-      );
-    });
-    const report = lines.join('\n');
-
-    try { navigator.clipboard.writeText(report).catch(()=>{}); } catch(_) {}
-
-    // 3. Top full-width banner — unmissable
-    const div = banner || document.createElement('div');
-    div.id = 'qaHugeBanner';
-    div.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#fbbf24;color:#0f172a;padding:14px 24px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.55;border-bottom:3px solid #b91c1c;box-shadow:0 8px 32px rgba(0,0,0,.4);max-height:80vh;overflow:auto;white-space:pre-wrap;word-break:break-word';
-    div.innerHTML = '<div style="font-family:Geist,system-ui,sans-serif;font-size:14px;font-weight:700;color:#7c2d12;margin-bottom:10px">⚠ QA SENTINEL · hidden '+offenders.length+' oversized element(s). Full report copied to clipboard — paste into chat.</div>' +
-      lines.map(l=>l.replace(/</g,'&lt;').replace(/>/g,'&gt;')).join('<br>') +
-      '<button onclick="this.parentElement.remove()" style="display:block;margin-top:10px;padding:8px 18px;background:#b91c1c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700">Close</button>';
-    if(!banner) document.body.appendChild(div);
-    try { console.error('[QA] huge:', report); } catch(_){}
-  };
-  setTimeout(findHuge, 1500);
-  setInterval(findHuge, 2500);
+  // v0.1.53: removed QA debug overlay and complicated img-guard MutationObserver.
+  // Root cause turned out to be missing CSS size cap on lightbox/slideshow img,
+  // not anything related to broken-image rendering. Single CSS block above
+  // is sufficient — see the v0.1.53 ACTUAL FIX comment in the stylesheet.
 });
 
 
@@ -2833,7 +2775,7 @@ function changeStatus(taskId, sid){
 
 // ━━━ DRAG REORDER ━━━
 function onDragStart(e, taskId){
-  // v0.1.52: allow file drops from Finder — only intercept HTML5 drags between rows.
+  // v0.1.53: allow file drops from Finder — only intercept HTML5 drags between rows.
   if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
   // stage-1-strict: drag-reorder задач — Sprint 2.4
   // Surface the OOS modal once user actually attempts to drag (so dragging

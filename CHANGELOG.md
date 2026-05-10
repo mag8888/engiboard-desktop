@@ -1,3 +1,40 @@
+## [v0.1.53] — 2026-05-10 — REAL FIX: lightbox image size cap (root-cause)
+
+### Fixed (the actual bug)
+After 6 versions (v0.1.47–v0.1.52) defensive-patching what I assumed was a
+"broken-image fallback" rendering issue, the real problem turned out to be
+much simpler: **the lightbox / slideshow / compare views had no CSS size cap
+on `<img>` elements**, so any screenshot rendered at its natural pixel size,
+filling the whole viewport with whatever happened to be in the middle of the
+image (often a single icon-like UI element on a dark CAD background).
+
+The "huge icons" Roman kept reporting were never broken-image SVGs — they
+were the *content* of legitimate screenshots, displayed unscaled.
+
+### Changed
+- Hard CSS cap on every image inside `#lightbox`, `.pres-pic`, `.cmp-img-wrap`
+  and `.ci-img`: `max-width:70vw; max-height:70vh; object-fit:contain`.
+- Padding around lightbox stage (`6vh 8vw`) and slideshow grid (`4vh 6vw`)
+  so images sit visually inside the frame instead of bleeding to edges.
+- Removed the runtime QA debug overlay (MutationObserver + `findHuge` +
+  clipboard report) — no longer needed once the structural cap is in place.
+- Simplified `img[src=""], img:not([src]) { display:none }` is the only
+  broken-image guard kept; everything more elaborate was redundant.
+
+### Removed
+- v0.1.51–52 debug banner & MutationObserver loop.
+- v0.1.50 strict-`isBadSrc` and the related defensive guards in
+  `renderPic` / `renderPresent` / `openLightbox`.
+
+### Lesson learned
+When a fix doesn't move the needle after 2 attempts, **stop patching and
+reread the screenshot**. The user's "уменьши эту иконку" (REDUCE *this* icon,
+singular) was the clue that the displayed pixels were valid content, just
+unconstrained. Six iterations of guarding against broken images was wrong
+abstraction — the discipline is to step back and re-question the diagnosis.
+
+---
+
 ## [v0.1.48] — 2026-05-08 — Hotfix: lightbox broken-image fallback
 
 ### Fixed
