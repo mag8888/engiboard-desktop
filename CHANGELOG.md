@@ -1,3 +1,40 @@
+## [v0.1.58] — 2026-05-10 — Phase A wrap-up: dashboard 8-status, split slideshow, SVG icons
+
+Closes the three Phase A items left over from v0.1.46 (per SPRINT2_PLAN.md
+acceptance audit done after the QA pass).
+
+### A.4 — Dashboard 8-status everywhere
+- KPI strip: 4 cards → **8 cards**, one per status (Info / Done / Not Relevant /
+  Review / Info Required / Problem / In Progress / Upcoming). Each card has a
+  3-px top border tinted with the status color, count in big number, and
+  "X% of TOTAL" caption.
+- Project legend in each project card: 4 fixed stats (Done/Active/Review/Issues)
+  replaced with a **2×4 grid covering all 8 statuses**. Cells where count=0 get
+  `.zero` class (35% opacity).
+- 8-segment stacked progress bar already existed — now also has hover tooltips
+  with status name and count.
+- Responsive: 8 cards on ≥1500px, 4×2 grid below, 2×4 on narrow.
+
+### A.5 — Slideshow split-view + chat LEFT
+- `renderPresent()` redesigned. Layout is now
+  `chat-LEFT (340px) | pics side-by-side RIGHT`. BEFORE and AFTER are visible
+  simultaneously instead of one-at-a-time carousel.
+- Click on either image opens the editor for that slot.
+- Removed slideshow Prev/Next nav (no longer needed with both pics shown).
+- Empty BEFORE or AFTER shows a graceful placeholder instead of nothing.
+
+### A.7 — SVG icons (minimum-viable set)
+- New helper `_ICON` map + `ICON('name')` function with 8 inline SVG icons:
+  `play`, `clock`, `swap`, `chat`, `camera`, `send`, `check`, `x`. Strokes use
+  `currentColor` so icons inherit the surrounding text color.
+- Replaced emoji in primary task-row actions: `▶ Presentation` → SVG play,
+  `⏱ start` / `⏱ 1h 25m` → SVG clock, `⇄ Compare` → SVG swap, `💬` empty-chat
+  state → SVG chat balloon.
+- Remaining emoji (pdf/csv chip labels, toast confirmations) left intact —
+  not in interactive primary surfaces, swap-cost > value.
+
+---
+
 ## [v0.1.55] — 2026-05-10 — Roman's call notes: 8-point shipping pass
 
 Roman's screen-share feedback turned into eight required changes. This

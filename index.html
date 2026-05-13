@@ -1138,12 +1138,16 @@ body.sb-collapsed #chatPop{left:54px}
 .pres-nav button:disabled{opacity:.4;cursor:not-allowed}
 .pres-counter{font-size:12px;color:var(--t4);font-family:var(--mono)}
 
-/* Chat panel inside preview (DM-6) */
-.pres-card.with-chat{max-width:1480px}
-.pres-body-grid{flex:1;display:grid;grid-template-columns:1fr 320px;gap:0;overflow:hidden}
+/* v0.1.58 (A.5): Chat LEFT, pics side-by-side RIGHT */
+.pres-card.with-chat{max-width:1600px}
+.pres-body-grid{flex:1;display:grid;grid-template-columns:340px 1fr;gap:0;overflow:hidden}
+.pres-pics-pair{
+  padding:20px 24px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  align-items:stretch;background:var(--bg)
+}
 .pres-pic-col{padding:20px 24px;overflow:auto;display:flex;flex-direction:column}
 .pres-chat-col{
-  border-left:1px solid var(--line);background:var(--bg);
+  border-right:1px solid var(--line);background:var(--bg);
   display:flex;flex-direction:column;min-height:0;overflow:hidden
 }
 .pres-chat-h{
@@ -1187,10 +1191,17 @@ body.sb-collapsed #chatPop{left:54px}
 .dash-back:hover{border-color:var(--acc);color:var(--acc)}
 
 .dash-summary{padding:24px 32px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+/* v0.1.58 (A.4): 8-card KPI strip — 4×2 on wide screens, falls back to 2 cols */
+.dash-summary-8{grid-template-columns:repeat(8,1fr);gap:10px}
+@media (max-width:1500px){.dash-summary-8{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:900px){.dash-summary-8{grid-template-columns:repeat(2,1fr)}}
 .ds-card{
-  background:var(--surf);border:1px solid var(--line-2);border-radius:12px;padding:18px 20px;
-  display:flex;flex-direction:column;gap:6px;position:relative
+  background:var(--surf);border:1px solid var(--line-2);border-radius:12px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:4px;position:relative
 }
+.ds-card.kpi-status{border-top:3px solid var(--line-2);padding-top:12px}
+.ds-card.kpi-status .num{font-size:24px}
+.ds-card.kpi-status .lbl{font-size:10px}
 .ds-card .lbl{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em}
 .ds-card .num{font-size:30px;font-weight:700;color:var(--t1);letter-spacing:-.02em;line-height:1.1}
 .ds-card .delta{font-size:11px;color:var(--t4);font-family:var(--mono)}
@@ -1230,16 +1241,15 @@ body.sb-collapsed #chatPop{left:54px}
 .dproj-bar-seg{height:100%}
 .dproj-progress-info .lbl{font-size:11px;color:var(--t4);font-family:var(--mono)}
 
-.dproj-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+/* v0.1.58 (A.4): 2×4 legend grid — one cell per status, .zero dims unused */
+.dproj-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,auto);gap:6px;margin-top:12px}
 .dproj-stat{
-  text-align:center;padding:10px 4px;background:var(--bg);border-radius:8px
+  text-align:center;padding:8px 4px;background:var(--bg);border-radius:8px;
+  border-top:2px solid var(--st-color,var(--line-2));transition:opacity .12s
 }
-.dproj-stat-num{font-size:18px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--t1)}
-.dproj-stat-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:3px;font-weight:600}
-.dproj-stat.danger{background:#FEF2F2}
-.dproj-stat.danger .dproj-stat-num{color:#B91C1C}
-.dproj-stat.success{background:#ECFDF5}
-.dproj-stat.success .dproj-stat-num{color:#15803D}
+.dproj-stat.zero{opacity:.35}
+.dproj-stat-num{font-size:16px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--t1)}
+.dproj-stat-lbl{font-size:9px;color:var(--t3);text-transform:none;letter-spacing:.02em;margin-top:3px;font-weight:600}
 
 .dproj.add-new{
   border:2px dashed var(--line-2);background:transparent;display:flex;align-items:center;
@@ -1502,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.57</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.59</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1830,6 +1840,20 @@ function applyLang(){
   // Set html lang attribute
   document.documentElement.lang = currentLang;
 }
+
+// v0.1.58 (A.7): inline SVG icon set. Use ICON('name') in template literals
+// to replace emoji. Stroke uses currentColor so it inherits text color.
+const _ICON = {
+  play:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  clock:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
+  swap:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="7 17 4 14 7 11"/><line x1="4" y1="14" x2="20" y2="14"/><polyline points="17 7 20 10 17 13"/><line x1="4" y1="10" x2="20" y2="10"/></svg>',
+  chat:    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  camera:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  send:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+  check:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  x:       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+};
+function ICON(name){ return _ICON[name] || ''; }
 
 const STATUSES = [
   {id:0, l:'Info', c:'#94A3B8', cls:'bg-info'},
@@ -2500,7 +2524,7 @@ function renderRow(t){
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
   const presLabel = (typeof T==='function' ? T('btn.presentation') : 'Presentation');
-  const slideshowLabel = totalShots > 2 ? `▶ ${presLabel} · ${totalShots}` : `▶ ${presLabel}`;
+  const slideshowLabel = totalShots > 2 ? `${ICON('play')} ${presLabel} · ${totalShots}` : `${ICON('play')} ${presLabel}`;
   const compareLabel = (typeof T==='function' ? T('btn.compare') : 'Compare');
   const hasBoth = !!(t.shot1 && t.shot2);
   // v0.1.33: inline chat preview — last 8 msgs in DOM, ~3 visible at once via max-height,
@@ -2520,7 +2544,7 @@ function renderRow(t){
   const totalMin = (t.timeMin || 0) + (isTimerRunning ? Math.floor((Date.now() - t.timerStart) / 60000) : 0);
   const timerLabel = isTimerRunning
     ? `${formatTime(totalMin)} · stop`
-    : (totalMin > 0 ? `⏱ ${formatTime(totalMin)}` : '⏱ start');
+    : (totalMin > 0 ? `${ICON('clock')} ${formatTime(totalMin)}` : `${ICON('clock')} start`);
   // Bulk select cell — replaces drag-handle
   const firstCell = selectMode
     ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
@@ -2545,7 +2569,7 @@ function renderRow(t){
         </span>
         <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
         <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">${ICON('swap')} ${compareLabel}</span>` : ''}
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -2858,33 +2882,42 @@ function presentNext(){if(presentIdx < presentSlides.length-1){presentIdx++;rend
 function presentPrev(){if(presentIdx > 0){presentIdx--;renderPresent();}}
 
 function renderPresent(){
+  // v0.1.58 (A.5): split-view — chat LEFT (340px), pics side-by-side RIGHT.
+  // Both BEFORE and AFTER are shown together; click either to open editor.
   const t = presentTask;
   if(!t) return;
-  const slide = presentSlides[presentIdx];
-  if(!slide) return;
-  // v0.1.47: guard against broken/empty src — webview shows huge "broken-image"
-  // sidebar-like icon if src is empty or invalid. Skip those slides.
-  if(!slide.src || typeof slide.src !== 'string' || slide.src.length < 32){
-    console.warn('[renderPresent] slide src missing/short — skipping render', slide);
-    // Try to skip to next valid slide if exists
-    const nextValid = presentSlides.findIndex((s,i) => i !== presentIdx && s.src && s.src.length >= 32);
-    if(nextValid >= 0){ presentIdx = nextValid; return renderPresent(); }
-    closePresent();
-    toast('Screenshot data missing for this task — close and re-capture.');
-    return;
-  }
+
+  // Build a side-by-side pair from t.shot1 / t.shot2 if both exist.
+  // For extras (t.shots[]) the pair is (slide[i], slide[i+1] || slide[i]).
+  const pic = (src, label, slotIdx) => {
+    if(!src || typeof src !== 'string' || src.length < 32){
+      return `<div class="pres-pic" style="min-height:440px"><div class="lbl">${label}</div>
+        <div class="pres-pic-empty" style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px">
+          <div style="font-size:32px;opacity:.4">—</div>
+          <div>No ${label.toLowerCase()} yet</div>
+        </div>
+      </div>`;
+    }
+    return `<div class="pres-pic" style="min-height:440px"><div class="lbl">${label}</div>
+      <img src="${src}" alt="" style="cursor:zoom-in" title="Click to open editor"
+           onerror="this.style.display='none'"
+           onclick="openExistingShotEditor('${t.id}',${slotIdx})">
+    </div>`;
+  };
+  const beforeHTML = pic(t.shot1, 'BEFORE', 0);
+  const afterHTML  = pic(t.shot2, 'AFTER', 1);
+
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
   card.classList.add('with-chat');
   const chatMsgs = (t.chat || []);
   const chatBody = chatMsgs.length === 0
-    ? '<div class="cp-empty"><div class="ico">💬</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment on this slide</div></div>'
+    ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
     : chatMsgs.map(m => {
         const isMine = m.a === 'AS';
         return `<div class="cp-msg ${isMine?'mine':''}">
           <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
           <div class="cp-msg-bd">
-            
             <div class="cp-msg-bub">${m.text}</div>
           </div>
         </div>`;
@@ -2893,31 +2926,24 @@ function renderPresent(){
     <div class="pres-head">
       <div class="pres-status ${st.cls}"><span class="pip" style="width:6px;height:6px;border-radius:50%;background:${st.c}"></span>${st.l}</div>
       <div class="pres-title">${t.n}</div>
-      <div style="font-size:12px;color:var(--t4);font-family:var(--mono)">${t.w}</div>
       <button class="pres-close" onclick="closePresent()">×</button>
     </div>
     <div class="pres-body-grid">
-      <div class="pres-pic-col">
-        <div class="pres-pic" style="min-height:440px;flex:1"><div class="lbl">${slide.label}</div>
-          <img src="${slide.src}" alt="" style="cursor:zoom-in" title="Click to open editor"
-               onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div class=\\'pres-pic-empty\\' style=\\'display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px\\'><div style=\\'font-size:32px;opacity:.4\\'>—</div><div>Screenshot data missing</div></div>')"
-               onclick="openExistingShotEditor('${t.id}',${presentIdx})">
-        </div>
-      </div>
       <aside class="pres-chat-col">
-        <div class="pres-chat-h">💬 Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
+        <div class="pres-chat-h">Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
         <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
         <div class="pres-chat-foot">
-          <input id="presChatInput" placeholder="Write a comment…" onkeydown="if(event.key==='Enter') sendPresChat()">
-          <button onclick="sendPresChat()">Send</button>
+          <input id="presChatInput" placeholder="Type a message and press Enter…" onkeydown="if(event.key==='Enter') sendPresChat()">
         </div>
       </aside>
+      <div class="pres-pics-pair">
+        ${beforeHTML}
+        ${afterHTML}
+      </div>
     </div>
     <div class="pres-nav">
-      <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
-      <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
-      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
-      <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
+      <div class="pres-counter">BEFORE / AFTER pair</div>
+      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ Add screenshot</button>
     </div>`;
   // Auto-scroll chat to bottom
   const msgsEl = document.getElementById('presChatMsgs');
@@ -3203,25 +3229,41 @@ function sendChat(){
 
 // ━━━ DASHBOARD ━━━
 function renderDashboard(){
+  // v0.1.58 (Phase A.4): KPI strip = 8 cards (one per status); each project
+  // card has a 2×4 status legend grid and an 8-segment progress bar.
   const dash = document.getElementById('dash');
   const totalTasks = TASKS.length;
-  const totalDone = TASKS.filter(t => t.s === 1).length;
-  const totalProb = TASKS.filter(t => t.s === 5).length;
-  const totalProg = TASKS.filter(t => t.s === 6).length;
-  const totalRev = TASKS.filter(t => t.s === 3).length;
-  const overallPct = totalTasks ? Math.round(totalDone/totalTasks*100) : 0;
+
+  // 8 status totals across ALL tasks
+  const statusTotals = STATUSES.map(s => TASKS.filter(t => t.s === s.id).length);
+
+  const kpiCards = STATUSES.map((s, i) => {
+    const cnt = statusTotals[i];
+    const pct = totalTasks ? Math.round(cnt / totalTasks * 100) : 0;
+    return `<div class="ds-card kpi-status" style="border-top-color:${s.c}">
+      <span class="lbl">${s.l}</span>
+      <span class="num" style="color:${s.c}">${cnt}</span>
+      <span class="delta">${pct}% of ${totalTasks}</span>
+    </div>`;
+  }).join('');
 
   const projCards = PROJECTS.map(p => {
     const pt = TASKS.filter(t => t.proj === p.id);
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
-    const inProg = pt.filter(t => t.s === 6).length;
-    const probs = pt.filter(t => t.s === 5).length;
-    const review = pt.filter(t => t.s === 3).length;
     const pct = total ? Math.round(done/total*100) : 0;
+    // 8-segment stacked progress bar (one segment per status)
     const segs = STATUSES.map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
-      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
+      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%" title="${s.l}: ${cnt}"></div>` : '';
+    }).join('');
+    // 2×4 grid: one cell per status, .zero opacity when count = 0
+    const legend = STATUSES.map(s => {
+      const cnt = pt.filter(t => t.s === s.id).length;
+      return `<div class="dproj-stat ${cnt === 0 ? 'zero' : ''}" style="--st-color:${s.c}">
+        <div class="dproj-stat-num">${cnt}</div>
+        <div class="dproj-stat-lbl">${s.l}</div>
+      </div>`;
     }).join('');
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setView('tasks')">
       <div class="dproj-head">
@@ -3235,12 +3277,7 @@ function renderDashboard(){
           <span class="lbl">${done}/${total} complete</span>
         </div>
       </div>
-      <div class="dproj-stats-grid">
-        <div class="dproj-stat success"><div class="dproj-stat-num">${done}</div><div class="dproj-stat-lbl">Done</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${inProg}</div><div class="dproj-stat-lbl">Active</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${review}</div><div class="dproj-stat-lbl">Review</div></div>
-        <div class="dproj-stat ${probs>0?'danger':''}"><div class="dproj-stat-num">${probs}</div><div class="dproj-stat-lbl">Issues</div></div>
-      </div>
+      <div class="dproj-stats-grid">${legend}</div>
     </div>`;
   }).join('');
 
@@ -3251,12 +3288,7 @@ function renderDashboard(){
       <button class="dash-back" onclick="setView('tasks')">← Back to project</button>
       <h2>Projects <span class="accent">overview</span></h2>
     </div>
-    <div class="dash-summary">
-      <div class="ds-card"><span class="lbl">Total projects</span><span class="num">${PROJECTS.length}</span><span class="delta">${PROJECTS.filter(p=>p.status==='active').length} active</span></div>
-      <div class="ds-card"><span class="lbl">Total tasks</span><span class="num">${totalTasks}</span><span class="delta">${overallPct}% complete</span></div>
-      <div class="ds-card progress"><span class="lbl">In progress</span><span class="num">${totalProg}</span><span class="delta">${totalRev} in review</span></div>
-      <div class="ds-card problems"><span class="lbl">Open issues</span><span class="num">${totalProb}</span><span class="delta">${totalProb===0?'all clear':'needs attention'}</span></div>
-    </div>
+    <div class="dash-summary dash-summary-8">${kpiCards}</div>
     <div class="dash-section-title">All projects</div>
     <div class="dash-grid">${projCards}${addCard}</div>
   `;
@@ -3536,13 +3568,22 @@ function openChatForTask(taskId){
 }
 
 function renderDashboardSection(){
+  // v0.1.58 (Phase A.4): 8 KPI cards + 2×4 status legend grid per project.
   const view = document.getElementById('dashView');
   const totalTasks = TASKS.length;
-  const totalDone = TASKS.filter(t => t.s === 1).length;
-  const totalProb = TASKS.filter(t => t.s === 5).length;
-  const totalProg = TASKS.filter(t => t.s === 6).length;
-  const totalRev = TASKS.filter(t => t.s === 3).length;
-  const overallPct = totalTasks ? Math.round(totalDone/totalTasks*100) : 0;
+
+  // 8 status totals (KPI strip)
+  const statusTotals = STATUSES.map(s => TASKS.filter(t => t.s === s.id).length);
+
+  const kpiHTML = STATUSES.map((s, i) => {
+    const cnt = statusTotals[i];
+    const pct = totalTasks ? Math.round(cnt / totalTasks * 100) : 0;
+    return `<div class="ds-card kpi-status" style="border-top-color:${s.c}">
+      <span class="lbl">${s.l}</span>
+      <span class="num" style="color:${s.c}">${cnt}</span>
+      <span class="delta">${pct}% of ${totalTasks}</span>
+    </div>`;
+  }).join('');
 
   // v0.1.28: rank projects by user's open count + task volume → top-6 cards
   const opens = getProjectOpens();
@@ -3559,13 +3600,18 @@ function renderDashboardSection(){
     const pt = TASKS.filter(t => t.proj === p.id);
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
-    const inProg = pt.filter(t => t.s === 6).length;
-    const probs = pt.filter(t => t.s === 5).length;
-    const review = pt.filter(t => t.s === 3).length;
     const pct = total ? Math.round(done/total*100) : 0;
     const segs = STATUSES.map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
-      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
+      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%" title="${s.l}: ${cnt}"></div>` : '';
+    }).join('');
+    // 2×4 legend grid covering all 8 statuses
+    const legend = STATUSES.map(s => {
+      const cnt = pt.filter(t => t.s === s.id).length;
+      return `<div class="dproj-stat ${cnt === 0 ? 'zero' : ''}" style="--st-color:${s.c}">
+        <div class="dproj-stat-num">${cnt}</div>
+        <div class="dproj-stat-lbl">${s.l}</div>
+      </div>`;
     }).join('');
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setSection('projects')">
       <div class="dproj-head">
@@ -3579,12 +3625,7 @@ function renderDashboardSection(){
           <span class="lbl">${done}/${total} complete</span>
         </div>
       </div>
-      <div class="dproj-stats-grid">
-        <div class="dproj-stat success"><div class="dproj-stat-num">${done}</div><div class="dproj-stat-lbl">Done</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${inProg}</div><div class="dproj-stat-lbl">Active</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${review}</div><div class="dproj-stat-lbl">Review</div></div>
-        <div class="dproj-stat ${probs>0?'danger':''}"><div class="dproj-stat-num">${probs}</div><div class="dproj-stat-lbl">Issues</div></div>
-      </div>
+      <div class="dproj-stats-grid">${legend}</div>
     </div>`;
   };
 
@@ -3622,12 +3663,7 @@ function renderDashboardSection(){
     <div class="dash-h">
       <h2 style="margin:0">Projects <span class="accent">overview</span></h2>
     </div>
-    <div class="dash-summary">
-      <div class="ds-card"><span class="lbl">Total projects</span><span class="num">${PROJECTS.length}</span><span class="delta">${PROJECTS.filter(p=>p.status==='active'||!p.status).length} active</span></div>
-      <div class="ds-card"><span class="lbl">Total tasks</span><span class="num">${totalTasks}</span><span class="delta">${overallPct}% complete</span></div>
-      <div class="ds-card progress"><span class="lbl">In progress</span><span class="num">${totalProg}</span><span class="delta">${totalRev} in review</span></div>
-      <div class="ds-card problems"><span class="lbl">Open issues</span><span class="num">${totalProb}</span><span class="delta">${totalProb===0?'all clear':'needs attention'}</span></div>
-    </div>
+    <div class="dash-summary dash-summary-8">${kpiHTML}</div>
     <div class="dash-section-title">${rest.length > 0 ? 'Most active' : 'All projects'} ${rest.length>0?'<span style="font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:400;margin-left:6px">'+top.length+' / '+PROJECTS.length+'</span>':''}</div>
     <div class="dash-grid">${topCardsHTML}</div>
     ${restListHTML}
