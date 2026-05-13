@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.61</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.62</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1528,8 +1528,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <div class="proj-members-h"><span>Members</span><span class="ct" id="ppMembersCt">0</span></div>
           <div class="proj-members-list" id="ppMembersList"></div>
           <div class="proj-invite-row">
-            <input type="email" id="ppInviteEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter') outOfScope('Invite project members by email','Sprint 2.4')">
-            <button id="ppInviteBtn" onclick="outOfScope('Invite project members by email','Sprint 2.4')">Invite</button>
+            <input type="email" id="ppInviteEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter') inviteToCurrentProject()">
+            <button id="ppInviteBtn" onclick="inviteToCurrentProject()">Invite</button>
           </div>
         </div>
       </div>
@@ -2194,6 +2194,51 @@ function initialsFromProfile(p){
   if(!p) return '??';
   const src = p.full_name || p.email || '?';
   return src.split(/[ .@]/).filter(Boolean).slice(0,2).map(s => s[0].toUpperCase()).join('') || '??';
+}
+
+// v0.1.62: invite teammate by email — writes a project_invites row.
+// Triggers RLS check via invites_insert policy (only admin/owner can invite).
+async function inviteToCurrentProject(){
+  if(!db || !db.ready) return toast('Sign in to invite team members');
+  const inp = document.getElementById('ppInviteEmail');
+  const email = (inp?.value || '').trim().toLowerCase();
+  if(!email || !email.includes('@')) return toast('Enter a valid email');
+  if(currentProject === 'all') return toast('Pick a specific project first');
+  try {
+    const u = await db.auth.user();
+    if(!u) return toast('Not signed in');
+    const { data, error } = await sb.from('project_invites')
+      .insert({ project_id: currentProject, email, role: 'engineer', invited_by: u.id })
+      .select().single();
+    if(error){
+      if(error.code === '23505') return toast(email + ' already invited');
+      return toast('Invite failed: ' + error.message);
+    }
+    if(inp) inp.value = '';
+    // Provide a copy-paste link the inviter can send to the invitee.
+    const link = `engiboard://invite/${data.token}`;
+    if(navigator.clipboard){
+      try { await navigator.clipboard.writeText(link); } catch(_){}
+    }
+    toast('✓ Invite created — link copied to clipboard');
+  } catch(e){ toast('Invite error: ' + e.message); }
+}
+
+// v0.1.62 (Phase G minimal): audit log helper. Writes one row per change.
+// Fire-and-forget — never blocks the UI, errors swallowed.
+async function auditLog(action, entity, entityId, before, after, projectId){
+  if(!db || !db.ready) return;
+  try {
+    const u = await db.auth.user();
+    if(!u) return;
+    await sb.from('audit_events').insert({
+      actor_id: u.id,
+      project_id: projectId || null,
+      entity, entity_id: entityId, action,
+      before_data: before || null,
+      after_data:  after  || null
+    });
+  } catch(e){ console.warn('[audit]', e.message); }
 }
 
 // v0.1.61 (Phase D minimal): realtime subscription. Listens for INSERT /
@@ -2861,8 +2906,15 @@ function openExistingShotEditor(taskId, slotIdx){
   // Set context so editor's save flow puts the annotated image back into this slot
   pendingAnnotateContext = { taskId, slotIdx };
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  // v0.1.62 (Phase C #3): pass previously-saved vector annotations / comments
+  // so the editor reopens in the same state instead of starting from scratch.
+  const payload = {
+    dataUrl,
+    annotations: Array.isArray(t.annotations) ? t.annotations : [],
+    comments:    Array.isArray(t.comments)    ? t.comments    : []
+  };
   if(invoke){
-    invoke('open_editor_with_image', { dataUrl }).catch(err => {
+    invoke('open_editor_with_image', payload).catch(err => {
       console.error('open_editor_with_image failed:', err);
       toast('Failed to open editor: ' + err);
       pendingAnnotateContext = null;
@@ -3036,6 +3088,8 @@ function changeStatus(taskId, sid){
       db.tasks.update(t.id, { desktop_status: sid }).then(({error}) => {
         if(error) console.warn('[cloud] changeStatus failed:', error.message);
       });
+      auditLog('status_change', 'task', t.id,
+        { desktop_status: prevStatus }, { desktop_status: sid }, t.proj);
     }
   }
 }
@@ -3642,6 +3696,10 @@ document.addEventListener('paste', e => {
 if(window.__TAURI__){
   window.__TAURI__.event.listen('screenshot-ready', e => {
     const newUrl = e.payload.dataUrl;
+    // v0.1.62: editor now also returns vector annotations + comments so we
+    // can re-open in editable state next time (Phase C #3).
+    const annPayload = Array.isArray(e.payload.annotations) ? e.payload.annotations : [];
+    const cmtPayload = Array.isArray(e.payload.comments) ? e.payload.comments : [];
     // v0.1.31: if user came from lightbox 'Annotate', re-inject into same task slot
     if(pendingAnnotateContext){
       const { taskId, slotIdx } = pendingAnnotateContext;
@@ -3653,6 +3711,14 @@ if(window.__TAURI__){
         } else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined){
           t.shots[slotIdx - 2] = newUrl;
           render();
+        }
+        // Persist vector annotations on the task for next-session edit
+        t.annotations = annPayload;
+        t.comments = cmtPayload;
+        if(t._cloud && db && db.ready){
+          db.tasks.update(t.id, { annotations: annPayload }).then(({error}) => {
+            if(error) console.warn('[cloud] annotations save failed:', error.message);
+          });
         }
         toast('✓ Annotations saved to task');
         return;

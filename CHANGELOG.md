@@ -1,3 +1,47 @@
+## [v0.1.62] — 2026-05-13 — Phase E/G minimal: annotations persist, invites, audit
+
+Builds on v0.1.61's cloud wiring. Three more capabilities, each tied to a
+specific item Roman raised on the call or in the SPRINT2_PLAN audit.
+
+### Annotation persistence across sessions (Phase C #3 — call request)
+- `editor.html` now emits `screenshot-ready` with `{dataUrl, annotations,
+  comments}` instead of just the flat PNG. main listens, persists
+  `annotations` JSONB on the task, and on next open re-loads them so the
+  user resumes an editable session — exactly what Roman asked for
+  ("открыл заново, история на 5 шагов назад").
+- `open_editor_with_image` (Rust) accepts optional `annotations` /
+  `comments` payload and re-emits both to the editor as `load-image` +
+  `load-annotations`. Editor merges them into `annotations` + `comments`
+  state, resets undo/redo stacks for a clean session, and notifies the
+  user.
+
+### Profile auto-create (Phase E)
+- `0013_profile_invites_audit.sql` adds a trigger `on_auth_user_created`
+  on `auth.users`. New OAuth signups get a matching row in
+  `public.profiles` automatically (with email / full_name / avatar_url
+  from raw_user_meta_data, default role 'engineer').
+- Backfill query covers any existing auth users without profiles.
+
+### Project invites (Phase E)
+- `project_invites` table created (token, role, expires_at = +14d).
+- RLS: admin/owner can insert/select/delete; invitee can see their own
+  pending invite.
+- `accept_project_invite(token)` Postgres function adds the current user
+  to `project_members` and marks the invite accepted.
+- `inviteToCurrentProject()` UI replaces the OOS placeholder. Generates
+  `engiboard://invite/{token}` link and copies to clipboard so the
+  inviter can paste it anywhere (Slack, email).
+
+### Audit log (Phase G minimal)
+- `audit_events` table — actor_id, project_id, entity, entity_id, action,
+  before_data + after_data JSONB. Indexed on (project_id, created_at) and
+  (entity, entity_id).
+- `auditLog(action, entity, id, before, after, projectId)` helper, fire-
+  and-forget. Wired into `changeStatus` for now (status_change events).
+  Activity feed UI to follow.
+
+---
+
 ## [v0.1.58] — 2026-05-10 — Phase A wrap-up: dashboard 8-status, split slideshow, SVG icons
 
 Closes the three Phase A items left over from v0.1.46 (per SPRINT2_PLAN.md

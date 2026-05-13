@@ -20,9 +20,23 @@ fn show_main(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
-    eprintln!("open_editor_with_image: data len={}", data_url.len());
+fn open_editor_with_image(
+    app: tauri::AppHandle,
+    data_url: String,
+    annotations: Option<serde_json::Value>,
+    comments: Option<serde_json::Value>,
+) {
+    eprintln!(
+        "open_editor_with_image: data len={} ann={} cmt={}",
+        data_url.len(),
+        annotations.is_some(),
+        comments.is_some()
+    );
     let d = data_url.clone();
+    let ann_payload = serde_json::json!({
+        "annotations": annotations.unwrap_or(serde_json::json!([])),
+        "comments":    comments.unwrap_or(serde_json::json!([])),
+    });
 
     // v0.1.39 fix: client reported "пустое окно EngiBoard Annotate" — happens when
     // a stale editor window is reused but its webview is in broken/half-loaded state.
@@ -62,11 +76,15 @@ fn open_editor_with_image(app: tauri::AppHandle, data_url: String) {
             // v0.1.39: emit load-image with retry. Single emit too early was
             // resulting in editor showing blank ('пустое окно'). Three retries
             // at 800/1500/2400ms — editor.html dedupes by checking its 'loaded' flag.
+            // v0.1.62: also emit load-annotations so the editor can resume an
+            // earlier edit session (Phase C #3).
+            let ann_clone = ann_payload.clone();
             std::thread::spawn(move || {
                 for delay in [800u64, 700, 900] {
                     std::thread::sleep(std::time::Duration::from_millis(delay));
                     let r = win.emit("load-image", d.clone());
-                    eprintln!("emit load-image (after {}ms more): {:?}", delay, r);
+                    let r2 = win.emit("load-annotations", ann_clone.clone());
+                    eprintln!("emit load-image (after {}ms more): {:?} / {:?}", delay, r, r2);
                     if r.is_err() { break; }
                 }
             });
@@ -256,7 +274,7 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
         // v0.1.43: editor с инструментами (стрелки, маркеры, текст) — это
         // спринт 1.4 ТЗ ("Базовые визуальные аннотации поверх скриншотов").
         // Capture → editor → save → screenshot-ready → paste-mode → click slot.
-        open_editor_with_image(app, url);
+        open_editor_with_image(app, url, None, None);
     });
 }
 
@@ -433,7 +451,7 @@ fn watch_screenshots(app: tauri::AppHandle) {
                         eprintln!("File: {}", ps);
                         std::thread::sleep(std::time::Duration::from_millis(400));
                         if let Some(url) = file_to_data_url(&ps) {
-                            open_editor_with_image(app.clone(), url);
+                            open_editor_with_image(app.clone(), url, None, None);
                         }
                     }
                 }

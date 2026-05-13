@@ -552,8 +552,14 @@ async function saveTask(){
     const dataUrl=canvas.toDataURL('image/png');
 
     if(window.__TAURI__){
-      // 1) Сначала emit событие в main
-      await window.__TAURI__.event.emit('screenshot-ready',{dataUrl});
+      // 1) Сначала emit событие в main — payload now also carries vector
+      //    annotations so the next open can resume editing instead of just
+      //    showing the flat PNG (Phase C #3 from Roman's call).
+      await window.__TAURI__.event.emit('screenshot-ready',{
+        dataUrl,
+        annotations: JSON.parse(JSON.stringify(annotations)),
+        comments: JSON.parse(JSON.stringify(comments))
+      });
       // 2) Показать main окно
       try{await window.__TAURI__.core.invoke('show_main');}catch(e){}
       // 3) НЕМЕДЛЕННО закрыть — без setTimeout
@@ -655,6 +661,28 @@ function loadScreenshotAsBg(dataUrl){
     if(h === _loadedHash) return; // already loaded same image — ignore
     _loadedHash = h;
     loadScreenshotAsBg(e.payload);
+  });
+  // v0.1.62 (Phase C #3): restore previously-saved annotations + comments
+  // so re-opening a screenshot resumes the edit session instead of starting
+  // from scratch.
+  await window.__TAURI__.event.listen('load-annotations', e => {
+    try {
+      const p = e.payload || {};
+      if(Array.isArray(p.annotations)){
+        annotations = p.annotations;
+        undoStack = [];     // fresh session, no parent history to undo into
+        redoStack = [];
+        renderAll(); updateList(); updateCount();
+      }
+      if(Array.isArray(p.comments)){
+        comments = p.comments;
+        commentCount = comments.length;
+        renderAll(); updateList(); updateCount();
+      }
+      if(annotations.length || comments.length){
+        notify(`Restored ${annotations.length+comments.length} annotations`);
+      }
+    } catch(err){ console.warn('load-annotations failed:', err); }
   });
 })();
 </script>
