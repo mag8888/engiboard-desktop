@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.62</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.63</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2054,13 +2054,33 @@ async function loginGoogle(){
 }
 
 
-// Listen for OAuth callback from deep link (engiboard://oauth/callback?access_token=...)
+// Listen for deep links — both OAuth callback (engiboard://oauth/callback?...)
+// and invite acceptance (engiboard://invite/{token}).
 if (window.__TAURI__) {
-  window.__TAURI__.event.listen('oauth-callback', (event) => {
+  window.__TAURI__.event.listen('oauth-callback', async (event) => {
     const urls = event.payload || [];
-    console.log('OAuth callback received:', urls);
+    console.log('Deep link received:', urls);
     if (urls.length === 0) return;
     const url = urls[0];
+    // v0.1.63: handle invite deep link
+    const inviteMatch = url.match(/engiboard:\/\/invite\/([A-Za-z0-9+/=_-]+)/);
+    if(inviteMatch){
+      const token = inviteMatch[1];
+      const u = await db.auth.user().catch(() => null);
+      if(!u){
+        toast('Please sign in first, then click the invite link again');
+        localStorage.setItem('eb_pending_invite', token);
+        return;
+      }
+      try {
+        const { data, error } = await sb.rpc('accept_project_invite', { p_token: token });
+        if(error){ toast('Invite failed: ' + error.message); return; }
+        toast('✓ Joined the project');
+        localStorage.removeItem('eb_pending_invite');
+        if(typeof cloudSyncNow === 'function') cloudSyncNow();
+      } catch(e){ toast('Invite error: ' + e.message); }
+      return;
+    }
     try {
       // Supabase passes tokens in URL fragment: #access_token=...&refresh_token=...
       const u = new URL(url);
@@ -2342,6 +2362,35 @@ async function cloudHealthCheck(){
     toast('Supabase: ' + (h.reason || 'unreachable'), 3000);
   }
 }
+async function loadActivityFeed(){
+  const el = document.getElementById('activityFeed');
+  if(!el || !db || !db.ready) return;
+  try {
+    const { data, error } = await sb.from('audit_events')
+      .select('*, actor:profiles(email, full_name)')
+      .order('created_at', { ascending: false }).limit(20);
+    if(error){ el.innerHTML = `<div style="color:var(--t4);padding:8px 0">Activity unavailable: ${error.message}</div>`; return; }
+    if(!data || data.length === 0){ el.innerHTML = `<div style="color:var(--t4);padding:8px 0;font-style:italic">No activity yet — make a change and it will appear here.</div>`; return; }
+    el.innerHTML = data.map(ev => {
+      const who = ev.actor?.full_name || ev.actor?.email || 'Someone';
+      const ago = new Date(ev.created_at).toLocaleString();
+      let summary = `${ev.action} ${ev.entity}`;
+      if(ev.action === 'status_change' && ev.after_data?.desktop_status !== undefined){
+        const s = STATUSES[ev.after_data.desktop_status];
+        summary = `changed status to <b style="color:${s?.c}">${s?.l}</b>`;
+      } else if(ev.action === 'create'){
+        summary = `created ${ev.entity}`;
+      } else if(ev.action === 'delete'){
+        summary = `deleted ${ev.entity} (<span style="opacity:.6">${ev.before_data?.title || ev.entity_id.slice(0,6)}</span>)`;
+      }
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="color:var(--t2)">${who} ${summary}</div>
+        <div style="color:var(--t4);font-size:10px;font-family:var(--mono);margin-top:2px">${ago}</div>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = `<div style="color:var(--t4);padding:8px 0">${e.message}</div>`; }
+}
+
 async function cloudSyncNow(){
   if(!db || !db.ready) return toast('Supabase client not loaded');
   toast('Syncing…');
@@ -2380,6 +2429,20 @@ async function showApp(){
   // schema is reachable, replace seed/localStorage with cloud data. Otherwise
   // keep the local state — no data loss either way.
   if(db && db.ready && localStorage.getItem('eb_account') && localStorage.getItem('eb_account') !== 'demo'){
+    // v0.1.63: if there's a pending invite token, accept it before listing
+    // projects — otherwise the invited project won't appear in the result.
+    const pendingInvite = localStorage.getItem('eb_pending_invite');
+    if(pendingInvite){
+      try {
+        const { error } = await sb.rpc('accept_project_invite', { p_token: pendingInvite });
+        if(!error){
+          toast('✓ Joined invited project');
+          localStorage.removeItem('eb_pending_invite');
+        } else {
+          console.warn('[invite] accept failed:', error.message);
+        }
+      } catch(e){ console.warn('[invite] accept threw:', e.message); }
+    }
     const res = await loadFromSupabase();
     if(res.ok && (res.projects.length || res.tasks.length)){
       PROJECTS = res.projects;
@@ -3009,6 +3072,7 @@ async function createTaskFor(projectId, title, cloudParent){
             w: '', chat: [], shot1: null, shot2: null, shots: [],
             _cloud: true
           });
+          auditLog('create', 'task', data.id, null, { title: data.title }, projectId);
           render(); updateHeader();
           return;
         }
@@ -3655,6 +3719,7 @@ async function createNewProject(){
             id: data.id, name: data.title, code: data.project_code,
             client: data.client || 'Internal', status: data.status, _cloud: true
           });
+          auditLog('create', 'project', data.id, null, { title: data.title }, data.id);
           closeNewProjModal();
           switchProject(data.id);
           toast('✓ Project created (cloud)');
@@ -3813,6 +3878,7 @@ async function assignShotToSlot(t, slot, dataUrl){
       const colKey  = slot === 0 ? 'shot1_url' : 'shot2_url';
       t[slotKey] = url;
       await db.tasks.update(t.id, { [colKey]: url });
+      auditLog('shot_upload', 'task', t.id, null, { slot: slot === 0 ? 'before' : 'after', url }, t.proj);
       render();
       toast('✓ Screenshot uploaded');
     } catch(e){
@@ -4233,6 +4299,13 @@ function renderProfileSection(){
     </div>
 
     <div class="profile-card">
+      <div class="profile-card-h">Activity log</div>
+      <div id="activityFeed" style="max-height:280px;overflow:auto;font-size:12px">
+        <div style="color:var(--t4);padding:8px 0;font-style:italic">Loading activity…</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
       <div class="profile-card-h">Statistics</div>
       <div class="profile-row"><span class="lbl">Projects</span><span class="val">${PROJECTS.length}</span></div>
       <div class="profile-row"><span class="lbl">Tasks total</span><span class="val">${TASKS.length}</span></div>
@@ -4265,6 +4338,9 @@ function renderProfileSection(){
       <div class="profile-row"><span class="lbl">Sign out</span><button class="profile-action danger" onclick="logout()">Logout</button></div>
     </div>
   </div>`;
+  // v0.1.63: kick off activity feed + connection check on every Profile open
+  if(typeof loadActivityFeed === 'function') loadActivityFeed();
+  if(typeof cloudHealthCheck === 'function') cloudHealthCheck();
 }
 
 function updateSidebarCounts(){
@@ -4697,6 +4773,16 @@ function bulkDelete(){
   if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
   if(!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? This cannot be undone.`)) return;
   const before = TASKS.length;
+  // v0.1.63: also delete in cloud for tasks marked _cloud
+  if(db && db.ready){
+    const toDelete = TASKS.filter(t => selectedTaskIds.has(t.id) && t._cloud);
+    toDelete.forEach(t => {
+      db.tasks.delete(t.id).then(({error}) => {
+        if(error) console.warn('[cloud] delete failed:', t.id, error.message);
+        else auditLog('delete', 'task', t.id, { title: t.title }, null, t.proj);
+      });
+    });
+  }
   TASKS = TASKS.filter(t => !selectedTaskIds.has(t.id));
   const n = before - TASKS.length;
   toast(`✓ ${n} task${n===1?'':'s'} deleted`);
