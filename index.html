@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.60</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.61</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1893,28 +1893,34 @@ const db = {
       return { ok:true, count: (data||[]).length };
     } catch(e){ return { ok:false, reason: e.message }; }
   },
+  // v0.1.61: real schema match — projects has `title` (not name), `archived`
+  // column added by migration 0010, sort_order new.
   projects: {
     list:   () => sb.from('projects').select('*').eq('archived', false).order('sort_order'),
     create: (data) => sb.from('projects').insert(data).select().single(),
     update: (id, data) => sb.from('projects').update(data).eq('id', id),
     delete: (id) => sb.from('projects').delete().eq('id', id),
   },
+  // v0.1.61: real schema — `desktop_status` (int) is the desktop's primary
+  // status column; trigger sync_task_status keeps web `status` (text) in sync.
   tasks: {
-    list:   (projectId) => sb.from('tasks').select('*').eq('project_id', projectId).order('sort_order'),
-    listAll:() => sb.from('tasks').select('*, project:projects(name, code, color)').order('sort_order'),
-    create: (data) => sb.from('tasks').insert(data).select().single(),
-    update: (id, data) => sb.from('tasks').update(data).eq('id', id),
-    delete: (id) => sb.from('tasks').delete().eq('id', id),
+    list:    (projectId) => sb.from('tasks').select('*').eq('project_id', projectId).order('sort_order'),
+    listAll: ()          => sb.from('tasks').select('*, project:projects(title, project_code)').order('sort_order'),
+    create:  (data)      => sb.from('tasks').insert(data).select().single(),
+    update:  (id, data)  => sb.from('tasks').update(data).eq('id', id),
+    delete:  (id)        => sb.from('tasks').delete().eq('id', id),
   },
-  comments: {
-    listForTask: (taskId) => sb.from('comments').select('*, author:profiles(initials, display_name, avatar_color)').eq('task_id', taskId).order('created_at'),
-    create:      (data) => sb.from('comments').insert(data).select().single(),
-    delete:      (id) => sb.from('comments').delete().eq('id', id),
+  // v0.1.61: schema 0010 created `task_comments` (per-task chat) — separate
+  // from web's project-level `messages` table.
+  taskComments: {
+    listForTask: (taskId) => sb.from('task_comments').select('*, author:profiles(email, full_name, avatar_url)').eq('task_id', taskId).order('created_at'),
+    create:      (data)   => sb.from('task_comments').insert(data).select('*, author:profiles(email, full_name, avatar_url)').single(),
+    delete:      (id)     => sb.from('task_comments').delete().eq('id', id),
   },
   imageComments: {
-    listForTask: (taskId) => sb.from('image_comments').select('*, author:profiles(initials, display_name, avatar_color)').eq('task_id', taskId).order('created_at'),
-    create:      (data) => sb.from('image_comments').insert(data).select().single(),
-    delete:      (id) => sb.from('image_comments').delete().eq('id', id),
+    listForTask: (taskId) => sb.from('image_comments').select('*, author:profiles(email, full_name, avatar_url)').eq('task_id', taskId).order('created_at'),
+    create:      (data)   => sb.from('image_comments').insert(data).select().single(),
+    delete:      (id)     => sb.from('image_comments').delete().eq('id', id),
   },
   storage: {
     async uploadShot(taskId, dataUrl){
@@ -2138,26 +2144,144 @@ async function loadFromSupabase(){
     if(taskRes.error) return { ok:false, reason: 'tasks: ' + taskRes.error.message };
     const projects = (projRes.data || []).map(p => ({
       id: p.id,
-      name: p.title || p.name || 'Untitled project',
-      code: p.project_code || p.code || (p.title || 'P').substring(0,4).toUpperCase(),
+      name: p.title || 'Untitled project',
+      code: p.project_code || (p.title || 'P').substring(0,4).toUpperCase(),
       client: p.client || p.description || 'Internal',
-      status: p.status || 'active'
+      status: p.status || 'active',
+      _cloud: true
     }));
     const tasks = (taskRes.data || []).map(t => ({
       id: t.id,
-      proj: t.project_id || t.proj,
-      uid: t.position || t.uid || 0,
-      n: t.title || t.n || '',
-      title: t.title || t.n || '',
-      s: webStatusToDesktop(t.status),
-      w: t.due_date ? formatWeek(t.due_date) : '',
-      chat: [],          // comments fetched lazily per task
+      proj: t.project_id,
+      uid: t.position || 0,
+      n: t.title || '',
+      title: t.title || '',
+      s: (typeof t.desktop_status === 'number') ? t.desktop_status : webStatusToDesktop(t.status),
+      w: t.week_tag || (t.due_date ? formatWeek(t.due_date) : ''),
+      chat: [],          // task_comments fetched lazily per task
       shot1: t.shot1_url || null,
       shot2: t.shot2_url || null,
-      shots: []
+      shots: Array.isArray(t.shots_extra) ? t.shots_extra : [],
+      timeMin: t.time_min || 0,
+      timerStart: t.timer_start ? new Date(t.timer_start).getTime() : null,
+      annotations: Array.isArray(t.annotations) ? t.annotations : [],
+      _cloud: true
     }));
+    // Fetch task_comments for all tasks in one query
+    if(tasks.length){
+      const ids = tasks.map(t => t.id);
+      const { data: cmts } = await sb.from('task_comments')
+        .select('*, author:profiles(email, full_name)')
+        .in('task_id', ids)
+        .order('created_at');
+      if(cmts){
+        const byTask = {};
+        cmts.forEach(c => {
+          (byTask[c.task_id] = byTask[c.task_id] || []).push({
+            a: initialsFromProfile(c.author),
+            text: c.body,
+            ts: new Date(c.created_at).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+            id: c.id
+          });
+        });
+        tasks.forEach(t => { t.chat = byTask[t.id] || []; });
+      }
+    }
     return { ok:true, projects, tasks, user: u };
   } catch(e){ return { ok:false, reason: e.message }; }
+}
+function initialsFromProfile(p){
+  if(!p) return '??';
+  const src = p.full_name || p.email || '?';
+  return src.split(/[ .@]/).filter(Boolean).slice(0,2).map(s => s[0].toUpperCase()).join('') || '??';
+}
+
+// v0.1.61 (Phase D minimal): realtime subscription. Listens for INSERT /
+// UPDATE / DELETE on tasks + task_comments and merges into the local state.
+let _realtimeChannel = null;
+function subscribeRealtime(){
+  if(!sb || _realtimeChannel) return;
+  try {
+    _realtimeChannel = sb.channel('eb_main')
+      .on('postgres_changes', { event:'*', schema:'public', table:'tasks' },
+        (payload) => applyRealtimeTaskChange(payload))
+      .on('postgres_changes', { event:'*', schema:'public', table:'task_comments' },
+        (payload) => applyRealtimeCommentChange(payload))
+      .on('postgres_changes', { event:'*', schema:'public', table:'projects' },
+        (payload) => applyRealtimeProjectChange(payload))
+      .subscribe(status => console.log('[Realtime] channel status:', status));
+  } catch(e){ console.warn('[Realtime] subscribe failed:', e.message); }
+}
+function applyRealtimeTaskChange(p){
+  const { eventType, new: row, old: prev } = p;
+  if(eventType === 'DELETE'){
+    const idx = TASKS.findIndex(t => t.id === prev.id);
+    if(idx >= 0){ TASKS.splice(idx, 1); render(); }
+    return;
+  }
+  const existing = TASKS.find(t => t.id === row.id);
+  if(!existing){
+    // New row from another client
+    TASKS.push({
+      id: row.id, proj: row.project_id, uid: row.position || 0,
+      n: row.title, title: row.title,
+      s: (typeof row.desktop_status === 'number') ? row.desktop_status : webStatusToDesktop(row.status),
+      w: row.week_tag || '', chat: [],
+      shot1: row.shot1_url || null, shot2: row.shot2_url || null,
+      shots: Array.isArray(row.shots_extra) ? row.shots_extra : [],
+      _cloud: true
+    });
+  } else {
+    existing.title = row.title; existing.n = row.title;
+    if(typeof row.desktop_status === 'number') existing.s = row.desktop_status;
+    if(row.shot1_url) existing.shot1 = row.shot1_url;
+    if(row.shot2_url) existing.shot2 = row.shot2_url;
+  }
+  render();
+}
+function applyRealtimeCommentChange(p){
+  const { eventType, new: row, old: prev } = p;
+  if(eventType === 'DELETE'){
+    const t = TASKS.find(x => x.id === prev.task_id);
+    if(t && Array.isArray(t.chat)){
+      t.chat = t.chat.filter(m => m.id !== prev.id);
+      render();
+    }
+    return;
+  }
+  if(eventType !== 'INSERT') return;
+  const t = TASKS.find(x => x.id === row.task_id);
+  if(!t) return;
+  if(!Array.isArray(t.chat)) t.chat = [];
+  // Skip if already in our chat (our own optimistic insert that got confirmed)
+  if(t.chat.some(m => m.id === row.id)) return;
+  t.chat.push({
+    a: '??', // we don't have profile join in realtime payload — show initials placeholder
+    text: row.body,
+    ts: new Date(row.created_at).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+    id: row.id
+  });
+  render();
+}
+function applyRealtimeProjectChange(p){
+  const { eventType, new: row, old: prev } = p;
+  if(eventType === 'DELETE'){
+    const idx = PROJECTS.findIndex(x => x.id === prev.id);
+    if(idx >= 0){ PROJECTS.splice(idx, 1); render(); }
+    return;
+  }
+  const existing = PROJECTS.find(x => x.id === row.id);
+  if(!existing){
+    PROJECTS.push({
+      id: row.id, name: row.title, code: row.project_code,
+      client: row.client || 'Internal', status: row.status, _cloud: true
+    });
+  } else {
+    existing.name = row.title; existing.code = row.project_code;
+    existing.client = row.client || existing.client; existing.status = row.status;
+  }
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  render();
 }
 async function cloudHealthCheck(){
   const el = document.getElementById('cloudConnStatus');
@@ -2217,6 +2341,8 @@ async function showApp(){
       TASKS = res.tasks;
       toast(`✓ Loaded ${res.tasks.length} tasks from cloud`);
       console.log('[Supabase] Loaded', res);
+      // v0.1.61: subscribe to realtime updates from other team members
+      subscribeRealtime();
     } else if(!res.ok){
       console.warn('[Supabase] load failed:', res.reason, '→ using local data');
     }
@@ -2794,23 +2920,14 @@ function renderZero(){
 function wireUpEmptyInput(){
   // Wire all per-project empty inputs
   document.querySelectorAll('.newInpProj').forEach(inp => {
-    inp.onkeydown = function(e){
+    inp.onkeydown = async function(e){
       if(e.key === 'Enter' && this.value.trim()){
         const projId = this.dataset.proj;
         const text = this.value.trim();
-        TASKS.push({
-          id: 't' + Date.now(),
-          proj: projId,
-          uid: nextTaskUid(projId),  // v0.1.26: assign sequential numeric ID
-          w: '26W17',
-          s: 0,
-          title: text,
-          n: text,  // back-compat
-        });
+        const proj = PROJECTS.find(p => p.id === projId);
         this.value = '';
-        render();
-        updateHeader();
-        toast('✓ Task added to ' + (PROJECTS.find(p=>p.id===projId)?.name || 'project'));
+        await createTaskFor(projId, text, proj && proj._cloud);
+        toast('✓ Task added to ' + (proj?.name || 'project'));
         // Re-focus the same project input after re-render
         setTimeout(() => {
           const newInp = document.querySelector('.newInpProj[data-proj="'+projId+'"]');
@@ -2821,11 +2938,51 @@ function wireUpEmptyInput(){
   });
 }
 
+// v0.1.61: shared helper — create a task, cloud-first if the parent project
+// is a cloud project (i.e. came from Supabase). Falls back to local insert.
+async function createTaskFor(projectId, title, cloudParent){
+  if(cloudParent && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        const { data, error } = await db.tasks.create({
+          title, project_id: projectId, desktop_status: 7,
+          priority: 'medium', created_by: u.id, position: nextTaskUid(projectId)
+        });
+        if(!error && data){
+          TASKS.push({
+            id: data.id, proj: projectId, uid: data.position || 0,
+            n: data.title, title: data.title,
+            s: (typeof data.desktop_status === 'number') ? data.desktop_status : 7,
+            w: '', chat: [], shot1: null, shot2: null, shots: [],
+            _cloud: true
+          });
+          render(); updateHeader();
+          return;
+        }
+        if(error) console.warn('[cloud] createTask failed:', error.message);
+      }
+    } catch(e){ console.warn('[cloud] createTask error:', e.message); }
+  }
+  // Local fallback
+  TASKS.push({
+    id: 't' + Date.now(), proj: projectId, uid: nextTaskUid(projectId),
+    w: '26W17', s: 0, title, n: title
+  });
+  render(); updateHeader();
+}
+
 function saveTaskName(taskId, name){
   const t = TASKS.find(x => x.id === taskId);
   if(t && name.trim()){
     t.title = name.trim();
     t.n = name.trim();  // back-compat
+    // v0.1.61: write through to cloud if task lives there
+    if(t._cloud && db && db.ready){
+      db.tasks.update(t.id, { title: t.title }).then(({error}) => {
+        if(error) console.warn('[cloud] saveTaskName failed:', error.message);
+      });
+    }
   }
 }
 
@@ -2872,6 +3029,13 @@ function changeStatus(taskId, sid){
     // P2-1 webhook hook — fire on transitions to Done(1) or Problem(5)
     if(sid !== prevStatus && (sid === 1 || sid === 5)){
       if(typeof notifyWebhook === 'function') notifyWebhook(t, sid);
+    }
+    // v0.1.61: write through to cloud — only update desktop_status, the
+    // sync_task_status trigger maps it to web `status` text automatically.
+    if(t._cloud && db && db.ready){
+      db.tasks.update(t.id, { desktop_status: sid }).then(({error}) => {
+        if(error) console.warn('[cloud] changeStatus failed:', error.message);
+      });
     }
   }
 }
@@ -3413,16 +3577,46 @@ function closeNewProjModal(){
   document.getElementById('npmCode').value = '';
   document.getElementById('npmClient').value = '';
 }
-function createNewProject(){
+async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
   const client = document.getElementById('npmClient').value.trim();
   if(!name){toast('Name required');return;}
+
+  // v0.1.61: try cloud-first if signed in
+  if(db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        const { data, error } = await db.projects.create({
+          title: name,
+          project_code: code || name.substring(0,4).toUpperCase(),
+          client: client || 'Internal',
+          status: 'active',
+          priority: 'medium',
+          owner_id: u.id
+        });
+        if(!error && data){
+          PROJECTS.push({
+            id: data.id, name: data.title, code: data.project_code,
+            client: data.client || 'Internal', status: data.status, _cloud: true
+          });
+          closeNewProjModal();
+          switchProject(data.id);
+          toast('✓ Project created (cloud)');
+          return;
+        }
+        if(error) console.warn('[cloud] createProject failed:', error.message);
+      }
+    } catch(e){ console.warn('[cloud] createProject error:', e.message); }
+  }
+
+  // Fallback: local-only
   const p = {id:'p'+Date.now(),name,code:code||name.substring(0,4).toUpperCase(),client:client||'Internal',status:'active'};
   PROJECTS.push(p);
   closeNewProjModal();
   switchProject(p.id);
-  toast('✓ Project created');
+  toast('✓ Project created (local)');
 }
 
 // ━━━ PASTE / DROP / TAURI ━━━
@@ -3454,10 +3648,12 @@ if(window.__TAURI__){
       pendingAnnotateContext = null;
       const t = TASKS.find(x => x.id === taskId);
       if(t){
-        if(slotIdx === 0) t.shot1 = newUrl;
-        else if(slotIdx === 1) t.shot2 = newUrl;
-        else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) t.shots[slotIdx - 2] = newUrl;
-        render();
+        if(slotIdx === 0 || slotIdx === 1){
+          assignShotToSlot(t, slotIdx, newUrl);
+        } else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined){
+          t.shots[slotIdx - 2] = newUrl;
+          render();
+        }
         toast('✓ Annotations saved to task');
         return;
       }
@@ -3525,13 +3721,40 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation();
   const t = TASKS.find(x => x.id === pi.dataset.taskId);
   if(t && pendingScreenshot){
-    if(pi.dataset.slot === 'before') t.shot1 = pendingScreenshot;
-    else t.shot2 = pendingScreenshot;
+    const slot = pi.dataset.slot === 'before' ? 0 : 1;
+    assignShotToSlot(t, slot, pendingScreenshot);
     exitPasteMode();
-    render();
     toast('✓ Screenshot inserted');
   }
 });
+
+// v0.1.61: assign a screenshot to a task slot — local immediate, cloud upload
+// in the background. Slot: 0 = before, 1 = after.
+async function assignShotToSlot(t, slot, dataUrl){
+  if(!t || !dataUrl) return;
+  // 1) Optimistic local — UI updates immediately with base64
+  if(slot === 0) t.shot1 = dataUrl;
+  else if(slot === 1) t.shot2 = dataUrl;
+  render();
+
+  // 2) Cloud upload in the background (only for cloud-tracked tasks)
+  if(t._cloud && db && db.ready){
+    try {
+      const { url } = await db.storage.uploadShot(t.id, dataUrl);
+      if(!url) return;
+      // Replace base64 with signed URL in-memory
+      const slotKey = slot === 0 ? 'shot1' : 'shot2';
+      const colKey  = slot === 0 ? 'shot1_url' : 'shot2_url';
+      t[slotKey] = url;
+      await db.tasks.update(t.id, { [colKey]: url });
+      render();
+      toast('✓ Screenshot uploaded');
+    } catch(e){
+      console.warn('[cloud] upload failed:', e.message);
+      // Keep base64 locally — fallback works
+    }
+  }
+}
 
 // P1-2: add new screenshot to currently-presented task's shots[] array
 function addShotToPresentTask(dataUrl){
@@ -3581,9 +3804,8 @@ document.addEventListener('drop', e => {
   r.onload = ev => {
     const t = TASKS.find(x => x.id === pi.dataset.taskId);
     if(!t) return;
-    if(pi.dataset.slot === 'before') t.shot1 = ev.target.result;
-    else t.shot2 = ev.target.result;
-    render();
+    const slot = pi.dataset.slot === 'before' ? 0 : 1;
+    assignShotToSlot(t, slot, ev.target.result);
     toast('✓ Image dropped');
   };
   r.readAsDataURL(file);
@@ -4286,7 +4508,7 @@ function setComparePos(pct){
 })();
 
 // v0.1.33: inline chat send from task row — keeps last 8 in DOM, scrolls to bottom
-function sendInlineChat(inp){
+async function sendInlineChat(inp){
   // v0.1.43: chat возвращён — это спринт 1.4 ТЗ (мини-чат внутри карточки задачи).
   if(!inp) return;
   const taskId = inp.dataset.taskId;
@@ -4295,12 +4517,46 @@ function sendInlineChat(inp){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   if(!Array.isArray(t.chat)) t.chat = [];
-  t.chat.push({
-    a: 'AS',
-    ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
+
+  // v0.1.61: cloud-first if this task lives in Supabase. We optimistically
+  // push a "pending" entry, then replace with the server-confirmed row.
+  let myInitials = 'AS';
+  let authorId = null;
+  if(t._cloud && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        authorId = u.id;
+        myInitials = initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name });
+      }
+    } catch(_){}
+  }
+
+  const localMsg = {
+    a: myInitials,
     text,
-  });
+    ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
+    _pending: t._cloud
+  };
+  t.chat.push(localMsg);
   inp.value = '';
+
+  if(t._cloud && db && db.ready && authorId){
+    db.taskComments.create({ task_id: t.id, body: text, author_id: authorId })
+      .then(({ data, error }) => {
+        if(error){ console.warn('[cloud] sendInlineChat failed:', error.message); return; }
+        // Replace pending with confirmed
+        const idx = t.chat.indexOf(localMsg);
+        if(idx >= 0){
+          t.chat[idx] = {
+            a: initialsFromProfile(data?.author),
+            text: data?.body || text,
+            ts: new Date(data?.created_at || Date.now()).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+            id: data?.id
+          };
+        }
+      });
+  }
   // Update only this row's chat panel without full re-render (preserve focus)
   const panel = document.getElementById('ntChat-' + taskId);
   if(panel){
