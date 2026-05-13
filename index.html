@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.65</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.66</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -3312,9 +3312,7 @@ function changeStatus(taskId, sid){
 function onDragStart(e, taskId){
   // v0.1.53: allow file drops from Finder — only intercept HTML5 drags between rows.
   if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
-  // stage-1-strict: drag-reorder задач — Sprint 2.4
-  // Surface the OOS modal once user actually attempts to drag (so dragging
-  // a screenshot file onto a row still works — that goes through .pi handler).
+  // Don't start a row-drag from interactive controls inside the row.
   if(e.target.closest(
     'input, textarea, button, [contenteditable], ' +
     '.pi, .st, .st-wrap, .tc-status, .st-menu, .nt-chat, .nt-chat-input, ' +
@@ -3323,8 +3321,10 @@ function onDragStart(e, taskId){
     e.preventDefault();
     return;
   }
-  e.preventDefault();
-  outOfScope('Drag-reorder tasks between weeks / projects','Sprint 2.4');
+  // v0.1.66: drag-reorder is fully enabled — Roman's "минимум кликов" rule.
+  dragTaskId = taskId;
+  e.target.closest('.row')?.classList.add('dragging');
+  if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; }
 }
 function onDragOver(e){
   e.preventDefault();
@@ -3351,6 +3351,18 @@ function onDropTask(e, targetId){
   const insertAt = TASKS.findIndex(t => t.id === targetId);
   TASKS.splice(isTop ? insertAt : insertAt + 1, 0, item);
   document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
+  // v0.1.66: persist new order. Update sort_order for all tasks in the same
+  // project so the next reload picks up the manual order.
+  const projTasks = TASKS.filter(t => t.proj === item.proj);
+  projTasks.forEach((t, idx) => { t.uid = idx + 1; });
+  if(db && db.ready){
+    projTasks.forEach((t, idx) => {
+      if(t._cloud){
+        db.tasks.update(t.id, { sort_order: idx, position: idx + 1 })
+          .catch(e => console.warn('[cloud] sort persist failed:', t.id, e.message));
+      }
+    });
+  }
   render();
 }
 function onDragEnd(e){
