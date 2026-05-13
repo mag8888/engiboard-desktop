@@ -259,7 +259,7 @@ let tool='select', color='#FF453A', sw=2, opVal=1;
 let annotations=[], undoStack=[], redoStack=[], comments=[], commentCount=0;
 const HISTORY_MAX = 10; // 5 back + 5 forward typical
 function pushHistory(){
-  pushHistory();
+  undoStack.push(JSON.parse(JSON.stringify(annotations)));
   if(undoStack.length > HISTORY_MAX) undoStack.shift();
   redoStack = []; // any new edit invalidates redo stack
 }
@@ -542,6 +542,9 @@ function redoNext(){
 function clearAll(){if(!annotations.length&&!comments.length) return;pushHistory();annotations=[];comments=[];selId=null;renderAll();updateList();updateCount();}
 
 async function saveTask(){
+  // v0.1.57: mark autosave skipped before doing async work so the close
+  // handler doesn't re-enter saveTask and double-emit screenshot-ready.
+  _autosaveSkip = true;
   notify('Saving...');
   try{
     const paperEl=document.getElementById('paper');
@@ -570,6 +573,7 @@ async function saveTask(){
   }catch(e){
     console.error('saveTask error:',e);
     notify('Error: '+e.message);
+    _autosaveSkip = false; // recover so user can retry
   }
 }
 
@@ -598,18 +602,27 @@ document.addEventListener('keydown',e=>{
   if(k==='escape'){selId=null;closeCmtPop();commitText();renderAll();updateList();}
 });
 
-// v0.1.55: autosave-on-close — Roman asked to drop the explicit Save button
-// flow. When the editor window is about to unload (close button, ⌘W, OS-quit),
-// flatten current annotations into the task automatically. discard() bypasses
-// this by setting a flag.
+// v0.1.57: autosave-on-close via Tauri onCloseRequested — prevents the close
+// while saveTask() finishes its async work, then closes for real. beforeunload
+// is unreliable for async flow because the window unloads before emit reaches
+// main. discard() and saveTask() both set _autosaveSkip first to opt out.
 let _autosaveSkip = false;
-window.addEventListener('beforeunload', () => {
-  if(_autosaveSkip) return;
-  if(!annotations.length && !comments.length) return;
-  // Best-effort sync flush — `beforeunload` doesn't await async, but we kick
-  // off the save flow so the screenshot-ready event is dispatched before close.
-  try { saveTask(); } catch(e) { console.error('autosave failed', e); }
-});
+(async () => {
+  if(!window.__TAURI__ || !window.__TAURI__.window) return;
+  try {
+    const { getCurrentWindow } = window.__TAURI__.window;
+    const win = getCurrentWindow();
+    await win.onCloseRequested(async (event) => {
+      if(_autosaveSkip) return;                       // already saving / discarding
+      if(!annotations.length && !comments.length) return; // nothing to save
+      event.preventDefault();                          // hold the close
+      try { await saveTask(); }
+      catch(e){ console.error('autosave failed', e); _autosaveSkip = true;
+        try{ await win.destroy(); }catch(_){ window.close(); }
+      }
+    });
+  } catch(e) { console.error('cannot install close handler', e); }
+})();
 
 function notify(m){const el=document.getElementById('notif');el.textContent=m;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),1600);}
 
