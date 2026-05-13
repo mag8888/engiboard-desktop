@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.64</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.65</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2688,11 +2688,77 @@ function renderProjMenu(){
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
     const pct = total ? Math.round(done/total*100) : 0;
-    return `<div class="pm-item ${p.id===currentProject?'on':''}" onclick="switchProject('${p.id}');document.getElementById('projMenu').classList.remove('open')">
-      <div class="pm-name">${p.name}</div>
-      <div class="pm-meta">${p.code} · ${total} tasks · ${pct}% done</div>
+    const isCurrent = p.id === currentProject;
+    // v0.1.65: per-project edit/archive/delete actions inline
+    const actions = `<div class="pm-actions" style="display:flex;gap:4px;margin-left:auto" onclick="event.stopPropagation()">
+      <button title="Rename" onclick="renameProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">✎</button>
+      <button title="Archive" onclick="archiveProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">📦</button>
+      <button title="Delete" onclick="deleteProject('${p.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">×</button>
+    </div>`;
+    return `<div class="pm-item ${isCurrent?'on':''}" onclick="switchProject('${p.id}');document.getElementById('projMenu').classList.remove('open')" style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div class="pm-name">${p.name}</div>
+        <div class="pm-meta">${p.code} · ${total} tasks · ${pct}% done</div>
+      </div>
+      ${actions}
     </div>`;
   }).join('') + `<div class="pm-add" onclick="document.getElementById('projMenu').classList.remove('open');openNewProjModal()">+ New project</div>`;
+}
+
+// v0.1.65: project lifecycle actions
+async function renameProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  const newName = prompt('New project name:', p.name);
+  if(!newName || newName.trim() === p.name) return;
+  p.name = newName.trim();
+  if(p._cloud && db && db.ready){
+    const { error } = await db.projects.update(p.id, { title: p.name });
+    if(error){ toast('Cloud rename failed: ' + error.message); return; }
+    auditLog('update', 'project', p.id, { title: p.name }, { title: p.name }, p.id);
+  }
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
+  render();
+  toast('✓ Project renamed');
+}
+
+async function archiveProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  if(!confirm(`Archive "${p.name}"? It will be hidden from the project picker but kept in the database.`)) return;
+  if(p._cloud && db && db.ready){
+    const { error } = await db.projects.update(p.id, { archived: true });
+    if(error){ toast('Archive failed: ' + error.message); return; }
+    auditLog('archive', 'project', p.id, { archived: false }, { archived: true }, p.id);
+  }
+  PROJECTS = PROJECTS.filter(x => x.id !== pid);
+  if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
+  else if(!PROJECTS.length) currentProject = 'all';
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
+  render();
+  toast('✓ Project archived');
+}
+
+async function deleteProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  const taskCount = TASKS.filter(t => t.proj === pid).length;
+  if(!confirm(`DELETE "${p.name}" permanently? This removes ${taskCount} task${taskCount===1?'':'s'} and all comments. This cannot be undone.`)) return;
+  if(p._cloud && db && db.ready){
+    const { error } = await db.projects.delete(p.id);
+    if(error){ toast('Delete failed: ' + error.message); return; }
+    auditLog('delete', 'project', p.id, { title: p.name }, null, p.id);
+  }
+  PROJECTS = PROJECTS.filter(x => x.id !== pid);
+  TASKS = TASKS.filter(t => t.proj !== pid);
+  if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
+  else if(!PROJECTS.length) currentProject = 'all';
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
+  render();
+  toast('✓ Project deleted');
 }
 
 function getProjectOpens(){
