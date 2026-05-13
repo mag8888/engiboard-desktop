@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.63</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.64</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2362,6 +2362,90 @@ async function cloudHealthCheck(){
     toast('Supabase: ' + (h.reason || 'unreachable'), 3000);
   }
 }
+async function loadProjectMembers(){
+  const el = document.getElementById('projectMembersList');
+  if(!el || !db || !db.ready) return;
+  if(currentProject === 'all'){
+    el.innerHTML = '<div style="color:var(--t4);padding:8px 0">Select a specific project to see its team.</div>';
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('project_members')
+      .select('user_id, role, joined_at, user:profiles(email, full_name, avatar_url)')
+      .eq('project_id', currentProject);
+    if(error){ el.innerHTML = `<div style="color:var(--t4)">Cannot load: ${error.message}</div>`; return; }
+    if(!data?.length){ el.innerHTML = '<div style="color:var(--t4);padding:8px 0">No members yet.</div>'; return; }
+    const me = await db.auth.user();
+    const myUid = me?.id;
+    el.innerHTML = data.map(m => {
+      const u = m.user || {};
+      const name = u.full_name || u.email || 'Unknown';
+      const isMe = m.user_id === myUid;
+      const removeBtn = (!isMe && (m.role !== 'admin'))
+        ? `<button onclick="removeProjectMember('${m.user_id}')" style="margin-left:auto;background:none;border:none;color:var(--t4);cursor:pointer;font-size:14px" title="Remove">×</button>`
+        : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">${initialsFromProfile(u)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="color:var(--t1)">${name}${isMe ? ' <span style="color:var(--acc);font-size:10px">(you)</span>' : ''}</div>
+          <div style="color:var(--t4);font-size:10px;font-family:var(--mono)">${u.email || ''} · ${m.role}</div>
+        </div>
+        ${removeBtn}
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = `<div style="color:var(--t4)">${e.message}</div>`; }
+}
+async function removeProjectMember(userId){
+  if(!confirm('Remove this member from the project?')) return;
+  if(currentProject === 'all') return;
+  const { error } = await sb.from('project_members')
+    .delete().eq('project_id', currentProject).eq('user_id', userId);
+  if(error){ toast('Remove failed: ' + error.message); return; }
+  toast('✓ Member removed');
+  loadProjectMembers();
+}
+async function loadPendingInvites(){
+  const el = document.getElementById('pendingInvitesList');
+  if(!el || !db || !db.ready) return;
+  if(currentProject === 'all'){
+    el.innerHTML = '<div style="color:var(--t4);padding:8px 0">Select a specific project to manage invites.</div>';
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('project_invites')
+      .select('id, email, role, token, expires_at, accepted_at, created_at')
+      .eq('project_id', currentProject)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false });
+    if(error){ el.innerHTML = `<div style="color:var(--t4)">Cannot load: ${error.message}</div>`; return; }
+    if(!data?.length){ el.innerHTML = '<div style="color:var(--t4);padding:8px 0;font-style:italic">No pending invites.</div>'; return; }
+    el.innerHTML = data.map(i => {
+      const exp = new Date(i.expires_at);
+      const expired = exp < new Date();
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="flex:1;min-width:0">
+          <div style="color:var(--t1)">${i.email} <span style="color:var(--t4);font-size:10px">· ${i.role}</span></div>
+          <div style="color:${expired?'#EF4444':'var(--t4)'};font-size:10px;font-family:var(--mono)">${expired?'expired':'expires '+exp.toLocaleDateString()}</div>
+        </div>
+        <button onclick="copyInviteLink('${i.token}')" style="background:none;border:1px solid var(--line-2);color:var(--t2);padding:4px 8px;border-radius:5px;cursor:pointer;font-size:10px">Copy link</button>
+        <button onclick="revokeInvite('${i.id}')" style="background:none;border:none;color:var(--t4);cursor:pointer;font-size:14px" title="Revoke">×</button>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = `<div style="color:var(--t4)">${e.message}</div>`; }
+}
+async function copyInviteLink(token){
+  const link = `engiboard://invite/${token}`;
+  try { await navigator.clipboard.writeText(link); toast('✓ Invite link copied'); }
+  catch(_){ toast(link, 4000); }
+}
+async function revokeInvite(id){
+  if(!confirm('Revoke this invite?')) return;
+  const { error } = await sb.from('project_invites').delete().eq('id', id);
+  if(error){ toast('Revoke failed: ' + error.message); return; }
+  toast('✓ Invite revoked');
+  loadPendingInvites();
+}
+
 async function loadActivityFeed(){
   const el = document.getElementById('activityFeed');
   if(!el || !db || !db.ready) return;
@@ -4299,6 +4383,20 @@ function renderProfileSection(){
     </div>
 
     <div class="profile-card">
+      <div class="profile-card-h">Team · current project</div>
+      <div id="projectMembersList" style="font-size:12px;padding:4px 0">
+        <div style="color:var(--t4);font-style:italic">Loading members…</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-card-h">Pending invites</div>
+      <div id="pendingInvitesList" style="font-size:12px;padding:4px 0">
+        <div style="color:var(--t4);font-style:italic">Loading invites…</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
       <div class="profile-card-h">Activity log</div>
       <div id="activityFeed" style="max-height:280px;overflow:auto;font-size:12px">
         <div style="color:var(--t4);padding:8px 0;font-style:italic">Loading activity…</div>
@@ -4317,16 +4415,16 @@ function renderProfileSection(){
       <div class="profile-card-h">Integrations · Slack webhook</div>
       <div style="padding:10px 0;display:flex;flex-direction:column;gap:8px">
         <div style="font-size:11px;color:var(--t4);line-height:1.5">
-          Уведомления при переходе задачи в <b>Done</b> или <b>Problem</b>.
-          URL берётся в Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
+          Notifications fire when a task switches to <b>Done</b> or <b>Problem</b>.
+          Get the URL from Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
         </div>
         <input id="slackWebhookInp" type="url" placeholder="https://hooks.slack.com/services/T.../B.../..."
-          style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)"
-          onfocus="this.blur();outOfScope('Slack status notifications','Stage 2')">
+          value="${(localStorage.getItem('eb_slack_webhook')||'').replace(/"/g,'&quot;')}"
+          style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)">
         <div style="display:flex;gap:8px">
-          <button class="profile-action" onclick="outOfScope('Slack status notifications','Stage 2')">Save</button>
-          <button class="profile-action" onclick="outOfScope('Slack status notifications','Stage 2')">Send test</button>
-          <button class="profile-action danger" onclick="outOfScope('Slack status notifications','Stage 2')">Clear</button>
+          <button class="profile-action" onclick="setWebhookUrl(document.getElementById('slackWebhookInp').value);toast('✓ Webhook saved')">Save</button>
+          <button class="profile-action" onclick="sendTestWebhook()">Send test</button>
+          <button class="profile-action danger" onclick="setWebhookUrl('');document.getElementById('slackWebhookInp').value='';toast('Webhook cleared')">Clear</button>
         </div>
       </div>
     </div>
@@ -4341,6 +4439,9 @@ function renderProfileSection(){
   // v0.1.63: kick off activity feed + connection check on every Profile open
   if(typeof loadActivityFeed === 'function') loadActivityFeed();
   if(typeof cloudHealthCheck === 'function') cloudHealthCheck();
+  // v0.1.64
+  if(typeof loadProjectMembers === 'function') loadProjectMembers();
+  if(typeof loadPendingInvites === 'function') loadPendingInvites();
 }
 
 function updateSidebarCounts(){
@@ -4944,6 +5045,8 @@ async function testWebhook(){
   await notifyWebhook({ n: 'Test message from EngiBoard', proj: PROJECTS[0]?.id, w: '26W17' }, 1);
   toast('✓ Test sent — check Slack', 2500);
 }
+// v0.1.64: alias used by Profile UI
+const sendTestWebhook = testWebhook;
 
 // ━━━ P2-6 · TIME TRACKING ━━━
 function formatTime(min){
