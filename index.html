@@ -1512,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.67</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.68</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2117,9 +2117,10 @@ if (window.__TAURI__) {
 }
 
 function completeLogin(email, fromOAuth){
-  if(confirm('Создать пустой аккаунт без demo-данных?')){
-    TASKS = []; PROJECTS = [];
-  }
+  // v0.1.68 FIX (QA #1): never wipe TASKS/PROJECTS unconditionally — that
+  // destroyed unsaved demo work irreversibly. Keep local data; showApp()
+  // will pull cloud data and only REPLACE if the cloud actually returns
+  // rows. If cloud is empty the local demo/work stays intact.
   localStorage.setItem('eb_account', email);
   showApp();
   toast(fromOAuth ? '✓ Signed in with Google' : 'Welcome, ' + email.split('@')[0]);
@@ -2127,6 +2128,13 @@ function completeLogin(email, fromOAuth){
 function logout(){
   localStorage.removeItem('eb_account');
   if(db.ready) db.auth.signOut().catch(()=>{});
+  // v0.1.68 FIX (QA #12): tear down the realtime channel so a later signin
+  // doesn't early-return on the stale subscription and silently get no
+  // updates (and stop leaking the previous user's events).
+  if(_realtimeChannel && sb){
+    try { sb.removeChannel(_realtimeChannel); } catch(_){}
+    _realtimeChannel = null;
+  }
   document.getElementById('LP').classList.remove('hide');
   document.getElementById('APP').classList.remove('on');
   document.getElementById('profileMenu').classList.remove('open');
@@ -2246,6 +2254,36 @@ async function inviteToCurrentProject(){
 
 // v0.1.62 (Phase G minimal): audit log helper. Writes one row per change.
 // Fire-and-forget — never blocks the UI, errors swallowed.
+// v0.1.68 (QA #2 + #5): wrap every cloud write. Verifies an authenticated
+// session FIRST (an expired session would otherwise hit RLS, fail silently,
+// and the UI would falsely show success). On failure: surface a toast and
+// run the optional rollback so local state matches reality.
+//   await cloudWrite('Status', () => db.tasks.update(id,{...}), () => { t.s = prev });
+async function cloudWrite(label, fn, rollback){
+  if(!db || !db.ready) return { ok:false, skipped:true };
+  try {
+    const u = await db.auth.user();
+    if(!u){
+      if(typeof rollback === 'function') rollback();
+      toast(`⚠ ${label}: not signed in — change not saved to cloud`, 3000);
+      return { ok:false, reason:'no-session' };
+    }
+    const res = await fn();
+    if(res && res.error){
+      if(typeof rollback === 'function') rollback();
+      toast(`⚠ ${label} failed to sync: ${res.error.message}`, 3500);
+      console.warn('[cloudWrite]', label, res.error);
+      return { ok:false, reason: res.error.message };
+    }
+    return { ok:true, data: res && res.data };
+  } catch(e){
+    if(typeof rollback === 'function') rollback();
+    toast(`⚠ ${label} failed to sync`, 3000);
+    console.warn('[cloudWrite]', label, e.message);
+    return { ok:false, reason: e.message };
+  }
+}
+
 async function auditLog(action, entity, entityId, before, after, projectId){
   if(!db || !db.ready) return;
   try {
@@ -3241,13 +3279,12 @@ async function createTaskFor(projectId, title, cloudParent){
 function saveTaskName(taskId, name){
   const t = TASKS.find(x => x.id === taskId);
   if(t && name.trim()){
+    const prevTitle = t.title, prevN = t.n;
     t.title = name.trim();
     t.n = name.trim();  // back-compat
-    // v0.1.61: write through to cloud if task lives there
-    if(t._cloud && db && db.ready){
-      db.tasks.update(t.id, { title: t.title }).then(({error}) => {
-        if(error) console.warn('[cloud] saveTaskName failed:', error.message);
-      });
+    if(t._cloud){
+      cloudWrite('Rename', () => db.tasks.update(t.id, { title: t.title }),
+        () => { t.title = prevTitle; t.n = prevN; render(); });
     }
   }
 }
@@ -3296,14 +3333,16 @@ function changeStatus(taskId, sid){
     if(sid !== prevStatus && (sid === 1 || sid === 5)){
       if(typeof notifyWebhook === 'function') notifyWebhook(t, sid);
     }
-    // v0.1.61: write through to cloud — only update desktop_status, the
-    // sync_task_status trigger maps it to web `status` text automatically.
-    if(t._cloud && db && db.ready){
-      db.tasks.update(t.id, { desktop_status: sid }).then(({error}) => {
-        if(error) console.warn('[cloud] changeStatus failed:', error.message);
+    // v0.1.68: cloud write with rollback (QA #2). sync_task_status trigger
+    // maps desktop_status → web `status` text automatically.
+    if(t._cloud){
+      cloudWrite('Status change',
+        () => db.tasks.update(t.id, { desktop_status: sid }),
+        () => { t.s = prevStatus; closeStMenu(); render(); }
+      ).then(r => {
+        if(r.ok) auditLog('status_change', 'task', t.id,
+          { desktop_status: prevStatus }, { desktop_status: sid }, t.proj);
       });
-      auditLog('status_change', 'task', t.id,
-        { desktop_status: prevStatus }, { desktop_status: sid }, t.proj);
     }
   }
 }
@@ -4853,11 +4892,15 @@ async function sendInlineChat(inp){
     } catch(_){}
   }
 
+  // v0.1.68 (QA #3): tag optimistic message with a client id so the realtime
+  // echo of our own INSERT can be de-duplicated even before the .then resolves.
+  const clientId = 'c' + Date.now() + Math.random().toString(36).slice(2,7);
   const localMsg = {
     a: myInitials,
     text,
     ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
-    _pending: t._cloud
+    _pending: t._cloud,
+    _clientId: clientId
   };
   t.chat.push(localMsg);
   inp.value = '';
@@ -4865,15 +4908,22 @@ async function sendInlineChat(inp){
   if(t._cloud && db && db.ready && authorId){
     db.taskComments.create({ task_id: t.id, body: text, author_id: authorId })
       .then(({ data, error }) => {
-        if(error){ console.warn('[cloud] sendInlineChat failed:', error.message); return; }
-        // Replace pending with confirmed
+        if(error){
+          // Roll the optimistic message back so the user knows it didn't send
+          const i = t.chat.indexOf(localMsg);
+          if(i >= 0) t.chat.splice(i, 1);
+          toast('⚠ Message not sent: ' + error.message, 3000);
+          render();
+          return;
+        }
         const idx = t.chat.indexOf(localMsg);
         if(idx >= 0){
           t.chat[idx] = {
             a: initialsFromProfile(data?.author),
             text: data?.body || text,
             ts: new Date(data?.created_at || Date.now()).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
-            id: data?.id
+            id: data?.id,
+            _clientId: clientId
           };
         }
       });
