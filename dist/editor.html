@@ -542,23 +542,25 @@ function redoNext(){
 }
 function clearAll(){if(!annotations.length&&!comments.length) return;pushHistory();annotations=[];comments=[];selId=null;renderAll();updateList();updateCount();}
 
-// v0.1.71: ONE hard-close path. destroy() kills the window immediately and
-// does NOT fire onCloseRequested, so there is no close_editor↔onCloseRequested
-// loop (that loop, plus html2canvas throwing, was why the window "не
-// закрывается ни Done/Esc, ни крестиком"). Also tell main to show itself.
+// v0.1.72: close goes through Rust (invoke close_editor → w.destroy()) FIRST.
+// The previous version called the JS getCurrentWindow().destroy() first, but
+// the Tauri-2 JS window API path is unreliable across builds (getCurrentWindow
+// can be undefined → silent throw → window stays open). Rust-side destroy()
+// always works and is not blockable. JS API kept only as a last-ditch fallback.
 async function forceCloseEditor(){
   _autosaveSkip = true;
-  try { if(window.__TAURI__) await window.__TAURI__.core.invoke('show_main'); } catch(_){}
-  if(window.__TAURI__ && window.__TAURI__.window){
-    try {
-      const { getCurrentWindow } = window.__TAURI__.window;
-      await getCurrentWindow().destroy();        // hard kill, no onCloseRequested
-      return;
-    } catch(e){ console.error('destroy failed', e); }
-  }
-  // Fallbacks
-  try { if(window.__TAURI__) await window.__TAURI__.core.invoke('close_editor'); }
-  catch(_){ try { window.close(); } catch(__){} }
+  // Primary: ask Rust to destroy the editor window + show main.
+  try {
+    const invoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
+    if(invoke){ await invoke('close_editor'); return; }
+  } catch(e){ console.error('invoke close_editor failed', e); }
+  // Fallback A: JS window API
+  try {
+    const gw = window.__TAURI__?.window?.getCurrentWindow;
+    if(gw){ await gw().destroy(); return; }
+  } catch(e){ console.error('JS destroy failed', e); }
+  // Fallback B
+  try { window.close(); } catch(_){}
 }
 
 async function saveTask(){

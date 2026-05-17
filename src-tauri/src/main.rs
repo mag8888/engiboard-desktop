@@ -398,8 +398,14 @@ fn open_screen_recording_settings() {
 
 #[tauri::command]
 fn close_editor(app: tauri::AppHandle) {
+    // v0.1.72: destroy() not close(). close() fires the webview's
+    // onCloseRequested handler — the source of the "окно не закрывается"
+    // loop. destroy() kills the window from the Rust side immediately and
+    // does NOT invoke any JS close handler, so it cannot be blocked. JS just
+    // calls invoke('close_editor'); all the teardown happens here.
     if let Some(w) = app.get_webview_window("editor") {
-        let _ = w.close();
+        eprintln!("close_editor: destroying editor window");
+        let _ = w.destroy();
     }
     // When editor closes, restore main window so user has somewhere to go
     if let Some(main_win) = app.get_webview_window("main") {

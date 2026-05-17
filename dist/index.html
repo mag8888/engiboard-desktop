@@ -1517,7 +1517,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.71</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.72</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -3131,12 +3131,11 @@ function renderPic(t, slot){
         <span style="opacity:.55;color:#EF4444">data missing — re-capture</span>
       </div>`;
     }
-    // v0.1.70: click on a finished screenshot OPENS the lightbox viewer
-    // (раскрыть/просмотр), not the editor directly. The lightbox has an
-    // "Annotation tools / Editor" button for those who want to edit.
-    // img draggable=false — otherwise the browser drags the image itself
-    // instead of starting the row reorder (Roman: "таски не перетаскиваются").
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openShotViewer('${t.id}',${slotIdx})" title="Click to open · drag the row by the ⋮⋮ handle">
+    // v0.1.72: click on a finished screenshot opens the EDITOR directly with
+    // tools loaded (Roman: "сразу пусть будут инструменты, не надо в отдельный
+    // режим переходить"). img draggable=false so the browser doesn't hijack
+    // the drag-reorder with native image drag.
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})" title="Click to open in editor">
       <span class="pi-lbl">${lblText}</span>
       <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
