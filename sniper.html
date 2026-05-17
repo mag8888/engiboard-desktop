@@ -10,12 +10,22 @@ html,body{
   cursor:crosshair;user-select:none
 }
 
-/* Лёгкое затемнение на весь экран */
+/* v0.1.67: затемнение усилено 0.10 → 0.38. На светлых обоях 10% было
+   визуально неотличимо от обычного экрана — клиент думал что sniper
+   "не открывается". Теперь оверлей явно заметен. */
 #dim{
   position:fixed;inset:0;
-  background:rgba(0,0,0,0.10);
+  background:rgba(0,0,0,0.38);
   pointer-events:none;
   z-index:1
+}
+/* Яркая рамка по периметру — мгновенный сигнал "ты в режиме захвата" */
+#frame{
+  position:fixed;inset:0;
+  border:3px solid #2563EB;
+  pointer-events:none;
+  z-index:2;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)
 }
 
 /* Когда выделение активно — outline вокруг рамки делает дополнительное затемнение,
@@ -50,6 +60,7 @@ html,body{
 </head>
 <body>
 <div id="dim"></div>
+<div id="frame"></div>
 <div id="sel"></div>
 <div id="dims"></div>
 <div id="cross-h"></div>

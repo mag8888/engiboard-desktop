@@ -244,7 +244,22 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("capture failed: {}", e);
-                if let Some(win) = app.get_webview_window("main") { let _ = win.show(); }
+                // v0.1.67 FIX: when screencapture is denied Screen Recording
+                // permission it exits non-zero and writes NO file at all, so
+                // we land here (not in the <1500-byte heuristic below). The
+                // old code just `return`ed silently — user saw nothing and
+                // assumed "скриншоттер не работает". Now surface the same
+                // permission modal on macOS so the cause is obvious.
+                if let Some(main_win) = app.get_webview_window("main") {
+                    let _ = main_win.show();
+                    let _ = main_win.set_focus();
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = main_win.emit("capture-needs-permission", serde_json::json!({
+                            "reason": e
+                        }));
+                    }
+                }
                 return;
             }
         };
