@@ -1,6 +1,6 @@
 {
   "productName": "EngiBoard",
-  "version": "0.1.68",
+  "version": "0.1.69",
   "identifier": "com.engiboard.desktop",
   "build": {
     "frontendDist": "../dist"

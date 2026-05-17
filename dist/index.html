@@ -333,8 +333,6 @@ body.dark-mode .proj-floating-action{background:rgba(255,255,255,.04)}
 /* Legacy non-tbar picker — keep for backward compat (compare modal etc.) */
 .proj-picker-btn{
   display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
-.proj-picker-btn{
-  display:inline-flex;align-items:center;gap:10px;padding:7px 14px 7px 12px;
   background:var(--surf);border:1px solid var(--line-2);border-radius:10px;
   cursor:pointer;font-family:inherit;color:var(--t1);transition:.12s;min-width:280px
 }
@@ -490,8 +488,9 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* Row */
 .row{
-  /* v0.1.46: grid order: drag · CHAT (was 3rd) · title-id-status · before · after */
-  display:grid;grid-template-columns:24px 260px 240px 1fr 1fr;
+  /* v0.1.55: title-col removed (title + id no longer shown), status moved into
+     chat-col actions row. Grid: drag · CHAT(+actions+status) · BEFORE · AFTER */
+  display:grid;grid-template-columns:24px 320px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px
@@ -547,8 +546,12 @@ body.dark-mode .tit-col .tc-title:hover{background:rgba(255,255,255,.04)}
 
 .st-menu{
   position:absolute;top:30px;left:0;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;
-  box-shadow:0 8px 24px rgba(15,23,42,.12);z-index:50;padding:6px;min-width:180px;display:none
+  box-shadow:0 8px 24px rgba(15,23,42,.12);z-index:200;padding:6px;min-width:180px;display:none
 }
+/* v0.1.57: prevent menu from overflowing chat-col on narrow grids — keep it
+   inside the row by clamping right side to the row bounds. */
+.chat-row-actions .tc-status{position:relative}
+.chat-row-actions .tc-status .st-menu{left:0;right:auto;max-width:240px}
 .st-menu.open{display:block}
 .st-opt{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;border-radius:6px;font-size:12px;color:var(--t1)}
 .st-opt:hover{background:#F1F5F9}
@@ -1135,12 +1138,16 @@ body.sb-collapsed #chatPop{left:54px}
 .pres-nav button:disabled{opacity:.4;cursor:not-allowed}
 .pres-counter{font-size:12px;color:var(--t4);font-family:var(--mono)}
 
-/* Chat panel inside preview (DM-6) */
-.pres-card.with-chat{max-width:1480px}
-.pres-body-grid{flex:1;display:grid;grid-template-columns:1fr 320px;gap:0;overflow:hidden}
+/* v0.1.58 (A.5): Chat LEFT, pics side-by-side RIGHT */
+.pres-card.with-chat{max-width:1600px}
+.pres-body-grid{flex:1;display:grid;grid-template-columns:340px 1fr;gap:0;overflow:hidden}
+.pres-pics-pair{
+  padding:20px 24px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  align-items:stretch;background:var(--bg)
+}
 .pres-pic-col{padding:20px 24px;overflow:auto;display:flex;flex-direction:column}
 .pres-chat-col{
-  border-left:1px solid var(--line);background:var(--bg);
+  border-right:1px solid var(--line);background:var(--bg);
   display:flex;flex-direction:column;min-height:0;overflow:hidden
 }
 .pres-chat-h{
@@ -1184,10 +1191,17 @@ body.sb-collapsed #chatPop{left:54px}
 .dash-back:hover{border-color:var(--acc);color:var(--acc)}
 
 .dash-summary{padding:24px 32px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+/* v0.1.58 (A.4): 8-card KPI strip — 4×2 on wide screens, falls back to 2 cols */
+.dash-summary-8{grid-template-columns:repeat(8,1fr);gap:10px}
+@media (max-width:1500px){.dash-summary-8{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:900px){.dash-summary-8{grid-template-columns:repeat(2,1fr)}}
 .ds-card{
-  background:var(--surf);border:1px solid var(--line-2);border-radius:12px;padding:18px 20px;
-  display:flex;flex-direction:column;gap:6px;position:relative
+  background:var(--surf);border:1px solid var(--line-2);border-radius:12px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:4px;position:relative
 }
+.ds-card.kpi-status{border-top:3px solid var(--line-2);padding-top:12px}
+.ds-card.kpi-status .num{font-size:24px}
+.ds-card.kpi-status .lbl{font-size:10px}
 .ds-card .lbl{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em}
 .ds-card .num{font-size:30px;font-weight:700;color:var(--t1);letter-spacing:-.02em;line-height:1.1}
 .ds-card .delta{font-size:11px;color:var(--t4);font-family:var(--mono)}
@@ -1227,16 +1241,15 @@ body.sb-collapsed #chatPop{left:54px}
 .dproj-bar-seg{height:100%}
 .dproj-progress-info .lbl{font-size:11px;color:var(--t4);font-family:var(--mono)}
 
-.dproj-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+/* v0.1.58 (A.4): 2×4 legend grid — one cell per status, .zero dims unused */
+.dproj-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,auto);gap:6px;margin-top:12px}
 .dproj-stat{
-  text-align:center;padding:10px 4px;background:var(--bg);border-radius:8px
+  text-align:center;padding:8px 4px;background:var(--bg);border-radius:8px;
+  border-top:2px solid var(--st-color,var(--line-2));transition:opacity .12s
 }
-.dproj-stat-num{font-size:18px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--t1)}
-.dproj-stat-lbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:3px;font-weight:600}
-.dproj-stat.danger{background:#FEF2F2}
-.dproj-stat.danger .dproj-stat-num{color:#B91C1C}
-.dproj-stat.success{background:#ECFDF5}
-.dproj-stat.success .dproj-stat-num{color:#15803D}
+.dproj-stat.zero{opacity:.35}
+.dproj-stat-num{font-size:16px;font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--t1)}
+.dproj-stat-lbl{font-size:9px;color:var(--t3);text-transform:none;letter-spacing:.02em;margin-top:3px;font-weight:600}
 
 .dproj.add-new{
   border:2px dashed var(--line-2);background:transparent;display:flex;align-items:center;
@@ -1475,13 +1488,13 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="lp-mark">E</div>
     <div class="lp-h1">EngiBoard</div>
     <div class="lp-h2">Engineering tracker · Desktop</div>
-    <button class="gbtn" onclick="outOfScope('Вход через Google (облачные аккаунты)','Этап 2 · cloud sync')">
+    <button class="gbtn" onclick="loginGoogle()">
       <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Sign in with Google
     </button>
     <div class="lp-or">OR</div>
-    <button class="dbtn" onclick="loginDemo()">▸ Try demo (no signup)</button>
-    <div class="lp-foot">Demo mode only in Stage 1 — cloud accounts arrive in Stage 2.</div>
+    <button class="dbtn" onclick="loginDemo()">▸ Try demo (local only)</button>
+    <div class="lp-foot">Sign in syncs with team across devices. Demo runs offline only.</div>
   </div>
 </div>
 
@@ -1499,7 +1512,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.53</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.69</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1515,8 +1528,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <div class="proj-members-h"><span>Members</span><span class="ct" id="ppMembersCt">0</span></div>
           <div class="proj-members-list" id="ppMembersList"></div>
           <div class="proj-invite-row">
-            <input type="email" id="ppInviteEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter') outOfScope('Invite project members by email','Sprint 2.4')">
-            <button id="ppInviteBtn" onclick="outOfScope('Invite project members by email','Sprint 2.4')">Invite</button>
+            <input type="email" id="ppInviteEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter') inviteToCurrentProject()">
+            <button id="ppInviteBtn" onclick="inviteToCurrentProject()">Invite</button>
           </div>
         </div>
       </div>
@@ -1639,21 +1652,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) -->
-<div class="oos-overlay" id="oosOverlay" onclick="if(event.target===this) closeOOS()">
-  <div class="oos-card" role="dialog" aria-modal="true">
-    <div class="oos-icon">🛠</div>
-    <div class="oos-tag" id="oosTag">Stage 2 · after Stage 1 release</div>
-    <div class="oos-title">Feature «<span class="oos-feature" id="oosFeature">…</span>» — coming soon</div>
-    <div class="oos-body" id="oosBody">
-      Текущая сборка соответствует Этапу 1 of the contract (initiation, design and kickoff phase). Эта функция запланирована на следующий этап.
-    </div>
-    <div class="oos-when">📅 Release: <b id="oosWhen">Stage 2</b></div>
-    <div class="oos-actions">
-      <button onclick="closeOOS()">Close</button>
-    </div>
-  </div>
-</div>
+<!-- v0.1.55: stage-1 out-of-scope modal removed. Full feature set is in scope now. -->
 
 <!-- PASTE OVERLAY -->
 <div id="pasteOverlay">
@@ -1842,6 +1841,20 @@ function applyLang(){
   document.documentElement.lang = currentLang;
 }
 
+// v0.1.58 (A.7): inline SVG icon set. Use ICON('name') in template literals
+// to replace emoji. Stroke uses currentColor so it inherits text color.
+const _ICON = {
+  play:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  clock:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>',
+  swap:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="7 17 4 14 7 11"/><line x1="4" y1="14" x2="20" y2="14"/><polyline points="17 7 20 10 17 13"/><line x1="4" y1="10" x2="20" y2="10"/></svg>',
+  chat:    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  camera:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  send:    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+  check:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  x:       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+};
+function ICON(name){ return _ICON[name] || ''; }
+
 const STATUSES = [
   {id:0, l:'Info', c:'#94A3B8', cls:'bg-info'},
   {id:1, l:'Done', c:'#22C55E', cls:'bg-done'},
@@ -1880,28 +1893,34 @@ const db = {
       return { ok:true, count: (data||[]).length };
     } catch(e){ return { ok:false, reason: e.message }; }
   },
+  // v0.1.61: real schema match — projects has `title` (not name), `archived`
+  // column added by migration 0010, sort_order new.
   projects: {
     list:   () => sb.from('projects').select('*').eq('archived', false).order('sort_order'),
     create: (data) => sb.from('projects').insert(data).select().single(),
     update: (id, data) => sb.from('projects').update(data).eq('id', id),
     delete: (id) => sb.from('projects').delete().eq('id', id),
   },
+  // v0.1.61: real schema — `desktop_status` (int) is the desktop's primary
+  // status column; trigger sync_task_status keeps web `status` (text) in sync.
   tasks: {
-    list:   (projectId) => sb.from('tasks').select('*').eq('project_id', projectId).order('sort_order'),
-    listAll:() => sb.from('tasks').select('*, project:projects(name, code, color)').order('sort_order'),
-    create: (data) => sb.from('tasks').insert(data).select().single(),
-    update: (id, data) => sb.from('tasks').update(data).eq('id', id),
-    delete: (id) => sb.from('tasks').delete().eq('id', id),
+    list:    (projectId) => sb.from('tasks').select('*').eq('project_id', projectId).order('sort_order'),
+    listAll: ()          => sb.from('tasks').select('*, project:projects(title, project_code)').order('sort_order'),
+    create:  (data)      => sb.from('tasks').insert(data).select().single(),
+    update:  (id, data)  => sb.from('tasks').update(data).eq('id', id),
+    delete:  (id)        => sb.from('tasks').delete().eq('id', id),
   },
-  comments: {
-    listForTask: (taskId) => sb.from('comments').select('*, author:profiles(initials, display_name, avatar_color)').eq('task_id', taskId).order('created_at'),
-    create:      (data) => sb.from('comments').insert(data).select().single(),
-    delete:      (id) => sb.from('comments').delete().eq('id', id),
+  // v0.1.61: schema 0010 created `task_comments` (per-task chat) — separate
+  // from web's project-level `messages` table.
+  taskComments: {
+    listForTask: (taskId) => sb.from('task_comments').select('*, author:profiles(email, full_name, avatar_url)').eq('task_id', taskId).order('created_at'),
+    create:      (data)   => sb.from('task_comments').insert(data).select('*, author:profiles(email, full_name, avatar_url)').single(),
+    delete:      (id)     => sb.from('task_comments').delete().eq('id', id),
   },
   imageComments: {
-    listForTask: (taskId) => sb.from('image_comments').select('*, author:profiles(initials, display_name, avatar_color)').eq('task_id', taskId).order('created_at'),
-    create:      (data) => sb.from('image_comments').insert(data).select().single(),
-    delete:      (id) => sb.from('image_comments').delete().eq('id', id),
+    listForTask: (taskId) => sb.from('image_comments').select('*, author:profiles(email, full_name, avatar_url)').eq('task_id', taskId).order('created_at'),
+    create:      (data)   => sb.from('image_comments').insert(data).select().single(),
+    delete:      (id)     => sb.from('image_comments').delete().eq('id', id),
   },
   storage: {
     async uploadShot(taskId, dataUrl){
@@ -2035,13 +2054,33 @@ async function loginGoogle(){
 }
 
 
-// Listen for OAuth callback from deep link (engiboard://oauth/callback?access_token=...)
+// Listen for deep links — both OAuth callback (engiboard://oauth/callback?...)
+// and invite acceptance (engiboard://invite/{token}).
 if (window.__TAURI__) {
-  window.__TAURI__.event.listen('oauth-callback', (event) => {
+  window.__TAURI__.event.listen('oauth-callback', async (event) => {
     const urls = event.payload || [];
-    console.log('OAuth callback received:', urls);
+    console.log('Deep link received:', urls);
     if (urls.length === 0) return;
     const url = urls[0];
+    // v0.1.63: handle invite deep link
+    const inviteMatch = url.match(/engiboard:\/\/invite\/([A-Za-z0-9+/=_-]+)/);
+    if(inviteMatch){
+      const token = inviteMatch[1];
+      const u = await db.auth.user().catch(() => null);
+      if(!u){
+        toast('Please sign in first, then click the invite link again');
+        localStorage.setItem('eb_pending_invite', token);
+        return;
+      }
+      try {
+        const { data, error } = await sb.rpc('accept_project_invite', { p_token: token });
+        if(error){ toast('Invite failed: ' + error.message); return; }
+        toast('✓ Joined the project');
+        localStorage.removeItem('eb_pending_invite');
+        if(typeof cloudSyncNow === 'function') cloudSyncNow();
+      } catch(e){ toast('Invite error: ' + e.message); }
+      return;
+    }
     try {
       // Supabase passes tokens in URL fragment: #access_token=...&refresh_token=...
       const u = new URL(url);
@@ -2078,9 +2117,10 @@ if (window.__TAURI__) {
 }
 
 function completeLogin(email, fromOAuth){
-  if(confirm('Создать пустой аккаунт без demo-данных?')){
-    TASKS = []; PROJECTS = [];
-  }
+  // v0.1.68 FIX (QA #1): never wipe TASKS/PROJECTS unconditionally — that
+  // destroyed unsaved demo work irreversibly. Keep local data; showApp()
+  // will pull cloud data and only REPLACE if the cloud actually returns
+  // rows. If cloud is empty the local demo/work stays intact.
   localStorage.setItem('eb_account', email);
   showApp();
   toast(fromOAuth ? '✓ Signed in with Google' : 'Welcome, ' + email.split('@')[0]);
@@ -2088,11 +2128,416 @@ function completeLogin(email, fromOAuth){
 function logout(){
   localStorage.removeItem('eb_account');
   if(db.ready) db.auth.signOut().catch(()=>{});
+  // v0.1.68 FIX (QA #12): tear down the realtime channel so a later signin
+  // doesn't early-return on the stale subscription and silently get no
+  // updates (and stop leaking the previous user's events).
+  if(_realtimeChannel && sb){
+    try { sb.removeChannel(_realtimeChannel); } catch(_){}
+    _realtimeChannel = null;
+  }
   document.getElementById('LP').classList.remove('hide');
   document.getElementById('APP').classList.remove('on');
   document.getElementById('profileMenu').classList.remove('open');
 }
-function showApp(){
+// v0.1.60 (Phase B kickoff): map existing web-app schema → desktop in-memory model.
+// Web schema (see supabase/ARCHITECTURE_DECISION.md):
+//   projects: id, title, description, status (text), priority, owner_id, due_date, cad_software, project_code, progress
+//   tasks:    id, title, description, status (text), priority, project_id, assignee_id, checklist (jsonb), position, progress
+// Desktop model:
+//   projects: { id, name, code, client, status }
+//   tasks:    { id, n, title, s (0-7), w, proj, uid, chat[], shot1, shot2, shots[] }
+const WEB_STATUS_TO_DESKTOP = {
+  'info': 0, 'done': 1, 'completed': 1,
+  'not_relevant': 2, 'not-relevant': 2, 'cancelled': 2,
+  'review': 3, 'in_review': 3,
+  'info_required': 4, 'info-required': 4, 'blocked': 4,
+  'problem': 5, 'issue': 5,
+  'in_progress': 6, 'in-progress': 6, 'active': 6,
+  'upcoming': 7, 'todo': 7, 'pending': 7
+};
+function webStatusToDesktop(s){
+  if(typeof s === 'number') return Math.max(0, Math.min(7, s));
+  return WEB_STATUS_TO_DESKTOP[String(s||'').toLowerCase()] ?? 7;
+}
+
+async function loadFromSupabase(){
+  // Returns { ok, projects, tasks, reason? } — non-fatal, caller decides fallback.
+  if(!db || !db.ready) return { ok:false, reason:'Supabase client not loaded' };
+  try {
+    const u = await db.auth.user();
+    if(!u) return { ok:false, reason:'No authenticated user' };
+    const projRes = await db.projects.list();
+    if(projRes.error) return { ok:false, reason: 'projects: ' + projRes.error.message };
+    const taskRes = await db.tasks.listAll();
+    if(taskRes.error) return { ok:false, reason: 'tasks: ' + taskRes.error.message };
+    const projects = (projRes.data || []).map(p => ({
+      id: p.id,
+      name: p.title || 'Untitled project',
+      code: p.project_code || (p.title || 'P').substring(0,4).toUpperCase(),
+      client: p.client || p.description || 'Internal',
+      status: p.status || 'active',
+      _cloud: true
+    }));
+    const tasks = (taskRes.data || []).map(t => ({
+      id: t.id,
+      proj: t.project_id,
+      uid: t.position || 0,
+      n: t.title || '',
+      title: t.title || '',
+      s: (typeof t.desktop_status === 'number') ? t.desktop_status : webStatusToDesktop(t.status),
+      w: t.week_tag || (t.due_date ? formatWeek(t.due_date) : ''),
+      chat: [],          // task_comments fetched lazily per task
+      shot1: t.shot1_url || null,
+      shot2: t.shot2_url || null,
+      shots: Array.isArray(t.shots_extra) ? t.shots_extra : [],
+      timeMin: t.time_min || 0,
+      timerStart: t.timer_start ? new Date(t.timer_start).getTime() : null,
+      annotations: Array.isArray(t.annotations) ? t.annotations : [],
+      _cloud: true
+    }));
+    // Fetch task_comments for all tasks in one query
+    if(tasks.length){
+      const ids = tasks.map(t => t.id);
+      const { data: cmts } = await sb.from('task_comments')
+        .select('*, author:profiles(email, full_name)')
+        .in('task_id', ids)
+        .order('created_at');
+      if(cmts){
+        const byTask = {};
+        cmts.forEach(c => {
+          (byTask[c.task_id] = byTask[c.task_id] || []).push({
+            a: initialsFromProfile(c.author),
+            text: c.body,
+            ts: new Date(c.created_at).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+            id: c.id
+          });
+        });
+        tasks.forEach(t => { t.chat = byTask[t.id] || []; });
+      }
+    }
+    return { ok:true, projects, tasks, user: u };
+  } catch(e){ return { ok:false, reason: e.message }; }
+}
+function initialsFromProfile(p){
+  if(!p) return '??';
+  const src = p.full_name || p.email || '?';
+  return src.split(/[ .@]/).filter(Boolean).slice(0,2).map(s => s[0].toUpperCase()).join('') || '??';
+}
+
+// v0.1.62: invite teammate by email — writes a project_invites row.
+// Triggers RLS check via invites_insert policy (only admin/owner can invite).
+async function inviteToCurrentProject(){
+  if(!db || !db.ready) return toast('Sign in to invite team members');
+  const inp = document.getElementById('ppInviteEmail');
+  const email = (inp?.value || '').trim().toLowerCase();
+  if(!email || !email.includes('@')) return toast('Enter a valid email');
+  if(currentProject === 'all') return toast('Pick a specific project first');
+  try {
+    const u = await db.auth.user();
+    if(!u) return toast('Not signed in');
+    const { data, error } = await sb.from('project_invites')
+      .insert({ project_id: currentProject, email, role: 'engineer', invited_by: u.id })
+      .select().single();
+    if(error){
+      if(error.code === '23505') return toast(email + ' already invited');
+      return toast('Invite failed: ' + error.message);
+    }
+    if(inp) inp.value = '';
+    // Provide a copy-paste link the inviter can send to the invitee.
+    const link = `engiboard://invite/${data.token}`;
+    if(navigator.clipboard){
+      try { await navigator.clipboard.writeText(link); } catch(_){}
+    }
+    toast('✓ Invite created — link copied to clipboard');
+  } catch(e){ toast('Invite error: ' + e.message); }
+}
+
+// v0.1.62 (Phase G minimal): audit log helper. Writes one row per change.
+// Fire-and-forget — never blocks the UI, errors swallowed.
+// v0.1.68 (QA #2 + #5): wrap every cloud write. Verifies an authenticated
+// session FIRST (an expired session would otherwise hit RLS, fail silently,
+// and the UI would falsely show success). On failure: surface a toast and
+// run the optional rollback so local state matches reality.
+//   await cloudWrite('Status', () => db.tasks.update(id,{...}), () => { t.s = prev });
+async function cloudWrite(label, fn, rollback){
+  if(!db || !db.ready) return { ok:false, skipped:true };
+  try {
+    const u = await db.auth.user();
+    if(!u){
+      if(typeof rollback === 'function') rollback();
+      toast(`⚠ ${label}: not signed in — change not saved to cloud`, 3000);
+      return { ok:false, reason:'no-session' };
+    }
+    const res = await fn();
+    if(res && res.error){
+      if(typeof rollback === 'function') rollback();
+      toast(`⚠ ${label} failed to sync: ${res.error.message}`, 3500);
+      console.warn('[cloudWrite]', label, res.error);
+      return { ok:false, reason: res.error.message };
+    }
+    return { ok:true, data: res && res.data };
+  } catch(e){
+    if(typeof rollback === 'function') rollback();
+    toast(`⚠ ${label} failed to sync`, 3000);
+    console.warn('[cloudWrite]', label, e.message);
+    return { ok:false, reason: e.message };
+  }
+}
+
+async function auditLog(action, entity, entityId, before, after, projectId){
+  if(!db || !db.ready) return;
+  try {
+    const u = await db.auth.user();
+    if(!u) return;
+    await sb.from('audit_events').insert({
+      actor_id: u.id,
+      project_id: projectId || null,
+      entity, entity_id: entityId, action,
+      before_data: before || null,
+      after_data:  after  || null
+    });
+  } catch(e){ console.warn('[audit]', e.message); }
+}
+
+// v0.1.61 (Phase D minimal): realtime subscription. Listens for INSERT /
+// UPDATE / DELETE on tasks + task_comments and merges into the local state.
+let _realtimeChannel = null;
+function subscribeRealtime(){
+  if(!sb || _realtimeChannel) return;
+  try {
+    _realtimeChannel = sb.channel('eb_main')
+      .on('postgres_changes', { event:'*', schema:'public', table:'tasks' },
+        (payload) => applyRealtimeTaskChange(payload))
+      .on('postgres_changes', { event:'*', schema:'public', table:'task_comments' },
+        (payload) => applyRealtimeCommentChange(payload))
+      .on('postgres_changes', { event:'*', schema:'public', table:'projects' },
+        (payload) => applyRealtimeProjectChange(payload))
+      .subscribe(status => console.log('[Realtime] channel status:', status));
+  } catch(e){ console.warn('[Realtime] subscribe failed:', e.message); }
+}
+function applyRealtimeTaskChange(p){
+  const { eventType, new: row, old: prev } = p;
+  if(eventType === 'DELETE'){
+    const idx = TASKS.findIndex(t => t.id === prev.id);
+    if(idx >= 0){ TASKS.splice(idx, 1); render(); }
+    return;
+  }
+  const existing = TASKS.find(t => t.id === row.id);
+  if(!existing){
+    // New row from another client
+    TASKS.push({
+      id: row.id, proj: row.project_id, uid: row.position || 0,
+      n: row.title, title: row.title,
+      s: (typeof row.desktop_status === 'number') ? row.desktop_status : webStatusToDesktop(row.status),
+      w: row.week_tag || '', chat: [],
+      shot1: row.shot1_url || null, shot2: row.shot2_url || null,
+      shots: Array.isArray(row.shots_extra) ? row.shots_extra : [],
+      _cloud: true
+    });
+  } else {
+    existing.title = row.title; existing.n = row.title;
+    if(typeof row.desktop_status === 'number') existing.s = row.desktop_status;
+    if(row.shot1_url) existing.shot1 = row.shot1_url;
+    if(row.shot2_url) existing.shot2 = row.shot2_url;
+  }
+  render();
+}
+function applyRealtimeCommentChange(p){
+  const { eventType, new: row, old: prev } = p;
+  if(eventType === 'DELETE'){
+    const t = TASKS.find(x => x.id === prev.task_id);
+    if(t && Array.isArray(t.chat)){
+      t.chat = t.chat.filter(m => m.id !== prev.id);
+      render();
+    }
+    return;
+  }
+  if(eventType !== 'INSERT') return;
+  const t = TASKS.find(x => x.id === row.task_id);
+  if(!t) return;
+  if(!Array.isArray(t.chat)) t.chat = [];
+  // Skip if already in our chat (our own optimistic insert that got confirmed)
+  if(t.chat.some(m => m.id === row.id)) return;
+  t.chat.push({
+    a: '??', // we don't have profile join in realtime payload — show initials placeholder
+    text: row.body,
+    ts: new Date(row.created_at).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+    id: row.id
+  });
+  render();
+}
+function applyRealtimeProjectChange(p){
+  const { eventType, new: row, old: prev } = p;
+  if(eventType === 'DELETE'){
+    const idx = PROJECTS.findIndex(x => x.id === prev.id);
+    if(idx >= 0){ PROJECTS.splice(idx, 1); render(); }
+    return;
+  }
+  const existing = PROJECTS.find(x => x.id === row.id);
+  if(!existing){
+    PROJECTS.push({
+      id: row.id, name: row.title, code: row.project_code,
+      client: row.client || 'Internal', status: row.status, _cloud: true
+    });
+  } else {
+    existing.name = row.title; existing.code = row.project_code;
+    existing.client = row.client || existing.client; existing.status = row.status;
+  }
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  render();
+}
+async function cloudHealthCheck(){
+  const el = document.getElementById('cloudConnStatus');
+  if(el) el.textContent = 'checking…';
+  if(!db || !db.ready){ if(el) el.textContent = '🔴 client not initialized'; return; }
+  const h = await db.health();
+  const user = await db.auth.user().catch(() => null);
+  if(h.ok){
+    if(el) el.innerHTML = `🟢 OK · ${user ? user.email : 'anon'} · ${h.count} rows`;
+    toast('Supabase: connection OK');
+  } else {
+    if(el) el.innerHTML = `🔴 ${h.reason || 'unreachable'}`;
+    toast('Supabase: ' + (h.reason || 'unreachable'), 3000);
+  }
+}
+async function loadProjectMembers(){
+  const el = document.getElementById('projectMembersList');
+  if(!el || !db || !db.ready) return;
+  if(currentProject === 'all'){
+    el.innerHTML = '<div style="color:var(--t4);padding:8px 0">Select a specific project to see its team.</div>';
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('project_members')
+      .select('user_id, role, joined_at, user:profiles(email, full_name, avatar_url)')
+      .eq('project_id', currentProject);
+    if(error){ el.innerHTML = `<div style="color:var(--t4)">Cannot load: ${error.message}</div>`; return; }
+    if(!data?.length){ el.innerHTML = '<div style="color:var(--t4);padding:8px 0">No members yet.</div>'; return; }
+    const me = await db.auth.user();
+    const myUid = me?.id;
+    el.innerHTML = data.map(m => {
+      const u = m.user || {};
+      const name = u.full_name || u.email || 'Unknown';
+      const isMe = m.user_id === myUid;
+      const removeBtn = (!isMe && (m.role !== 'admin'))
+        ? `<button onclick="removeProjectMember('${m.user_id}')" style="margin-left:auto;background:none;border:none;color:var(--t4);cursor:pointer;font-size:14px" title="Remove">×</button>`
+        : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">${initialsFromProfile(u)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="color:var(--t1)">${name}${isMe ? ' <span style="color:var(--acc);font-size:10px">(you)</span>' : ''}</div>
+          <div style="color:var(--t4);font-size:10px;font-family:var(--mono)">${u.email || ''} · ${m.role}</div>
+        </div>
+        ${removeBtn}
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = `<div style="color:var(--t4)">${e.message}</div>`; }
+}
+async function removeProjectMember(userId){
+  if(!confirm('Remove this member from the project?')) return;
+  if(currentProject === 'all') return;
+  const { error } = await sb.from('project_members')
+    .delete().eq('project_id', currentProject).eq('user_id', userId);
+  if(error){ toast('Remove failed: ' + error.message); return; }
+  toast('✓ Member removed');
+  loadProjectMembers();
+}
+async function loadPendingInvites(){
+  const el = document.getElementById('pendingInvitesList');
+  if(!el || !db || !db.ready) return;
+  if(currentProject === 'all'){
+    el.innerHTML = '<div style="color:var(--t4);padding:8px 0">Select a specific project to manage invites.</div>';
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('project_invites')
+      .select('id, email, role, token, expires_at, accepted_at, created_at')
+      .eq('project_id', currentProject)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false });
+    if(error){ el.innerHTML = `<div style="color:var(--t4)">Cannot load: ${error.message}</div>`; return; }
+    if(!data?.length){ el.innerHTML = '<div style="color:var(--t4);padding:8px 0;font-style:italic">No pending invites.</div>'; return; }
+    el.innerHTML = data.map(i => {
+      const exp = new Date(i.expires_at);
+      const expired = exp < new Date();
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="flex:1;min-width:0">
+          <div style="color:var(--t1)">${i.email} <span style="color:var(--t4);font-size:10px">· ${i.role}</span></div>
+          <div style="color:${expired?'#EF4444':'var(--t4)'};font-size:10px;font-family:var(--mono)">${expired?'expired':'expires '+exp.toLocaleDateString()}</div>
+        </div>
+        <button onclick="copyInviteLink('${i.token}')" style="background:none;border:1px solid var(--line-2);color:var(--t2);padding:4px 8px;border-radius:5px;cursor:pointer;font-size:10px">Copy link</button>
+        <button onclick="revokeInvite('${i.id}')" style="background:none;border:none;color:var(--t4);cursor:pointer;font-size:14px" title="Revoke">×</button>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = `<div style="color:var(--t4)">${e.message}</div>`; }
+}
+async function copyInviteLink(token){
+  const link = `engiboard://invite/${token}`;
+  try { await navigator.clipboard.writeText(link); toast('✓ Invite link copied'); }
+  catch(_){ toast(link, 4000); }
+}
+async function revokeInvite(id){
+  if(!confirm('Revoke this invite?')) return;
+  const { error } = await sb.from('project_invites').delete().eq('id', id);
+  if(error){ toast('Revoke failed: ' + error.message); return; }
+  toast('✓ Invite revoked');
+  loadPendingInvites();
+}
+
+async function loadActivityFeed(){
+  const el = document.getElementById('activityFeed');
+  if(!el || !db || !db.ready) return;
+  try {
+    const { data, error } = await sb.from('audit_events')
+      .select('*, actor:profiles(email, full_name)')
+      .order('created_at', { ascending: false }).limit(20);
+    if(error){ el.innerHTML = `<div style="color:var(--t4);padding:8px 0">Activity unavailable: ${error.message}</div>`; return; }
+    if(!data || data.length === 0){ el.innerHTML = `<div style="color:var(--t4);padding:8px 0;font-style:italic">No activity yet — make a change and it will appear here.</div>`; return; }
+    el.innerHTML = data.map(ev => {
+      const who = ev.actor?.full_name || ev.actor?.email || 'Someone';
+      const ago = new Date(ev.created_at).toLocaleString();
+      let summary = `${ev.action} ${ev.entity}`;
+      if(ev.action === 'status_change' && ev.after_data?.desktop_status !== undefined){
+        const s = STATUSES[ev.after_data.desktop_status];
+        summary = `changed status to <b style="color:${s?.c}">${s?.l}</b>`;
+      } else if(ev.action === 'create'){
+        summary = `created ${ev.entity}`;
+      } else if(ev.action === 'delete'){
+        summary = `deleted ${ev.entity} (<span style="opacity:.6">${ev.before_data?.title || ev.entity_id.slice(0,6)}</span>)`;
+      }
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+        <div style="color:var(--t2)">${who} ${summary}</div>
+        <div style="color:var(--t4);font-size:10px;font-family:var(--mono);margin-top:2px">${ago}</div>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = `<div style="color:var(--t4);padding:8px 0">${e.message}</div>`; }
+}
+
+async function cloudSyncNow(){
+  if(!db || !db.ready) return toast('Supabase client not loaded');
+  toast('Syncing…');
+  const res = await loadFromSupabase();
+  if(res.ok){
+    PROJECTS = res.projects;
+    TASKS = res.tasks;
+    if(typeof render === 'function') render();
+    if(typeof updateHeader === 'function') updateHeader();
+    toast(`✓ Synced ${res.tasks.length} tasks / ${res.projects.length} projects`);
+  } else {
+    toast('Sync failed: ' + res.reason, 3000);
+  }
+}
+
+function formatWeek(dateStr){
+  try {
+    const d = new Date(dateStr);
+    const start = new Date(d.getFullYear(), 0, 1);
+    const wk = Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
+    return String(d.getFullYear()).slice(-2) + 'W' + String(wk).padStart(2,'0');
+  } catch(_){ return ''; }
+}
+
+async function showApp(){
   document.getElementById('LP').classList.add('hide');
   document.getElementById('APP').classList.add('on');
   // P2-6: restore time tracking state from localStorage
@@ -2101,6 +2546,38 @@ function showApp(){
   if(typeof ensureTaskUids === 'function') ensureTaskUids();
   // P2-4: apply current language to all data-t / data-t-ph elements
   if(typeof applyLang === 'function') applyLang();
+
+  // v0.1.60 (Phase B): try to load real data from Supabase. If signed in and
+  // schema is reachable, replace seed/localStorage with cloud data. Otherwise
+  // keep the local state — no data loss either way.
+  if(db && db.ready && localStorage.getItem('eb_account') && localStorage.getItem('eb_account') !== 'demo'){
+    // v0.1.63: if there's a pending invite token, accept it before listing
+    // projects — otherwise the invited project won't appear in the result.
+    const pendingInvite = localStorage.getItem('eb_pending_invite');
+    if(pendingInvite){
+      try {
+        const { error } = await sb.rpc('accept_project_invite', { p_token: pendingInvite });
+        if(!error){
+          toast('✓ Joined invited project');
+          localStorage.removeItem('eb_pending_invite');
+        } else {
+          console.warn('[invite] accept failed:', error.message);
+        }
+      } catch(e){ console.warn('[invite] accept threw:', e.message); }
+    }
+    const res = await loadFromSupabase();
+    if(res.ok && (res.projects.length || res.tasks.length)){
+      PROJECTS = res.projects;
+      TASKS = res.tasks;
+      toast(`✓ Loaded ${res.tasks.length} tasks from cloud`);
+      console.log('[Supabase] Loaded', res);
+      // v0.1.61: subscribe to realtime updates from other team members
+      subscribeRealtime();
+    } else if(!res.ok){
+      console.warn('[Supabase] load failed:', res.reason, '→ using local data');
+    }
+  }
+
   if(PROJECTS.length === 0){
     // No projects — show empty
     document.getElementById('list').innerHTML = `<div class="es-zero"><div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div><div class="es-zero-h">No projects yet</div><div class="es-zero-s">Create your first project to start</div><button class="dbtn" style="max-width:240px;margin:0 auto" onclick="openNewProjModal()">+ Create project</button></div>`;
@@ -2249,11 +2726,77 @@ function renderProjMenu(){
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
     const pct = total ? Math.round(done/total*100) : 0;
-    return `<div class="pm-item ${p.id===currentProject?'on':''}" onclick="switchProject('${p.id}');document.getElementById('projMenu').classList.remove('open')">
-      <div class="pm-name">${p.name}</div>
-      <div class="pm-meta">${p.code} · ${total} tasks · ${pct}% done</div>
+    const isCurrent = p.id === currentProject;
+    // v0.1.65: per-project edit/archive/delete actions inline
+    const actions = `<div class="pm-actions" style="display:flex;gap:4px;margin-left:auto" onclick="event.stopPropagation()">
+      <button title="Rename" onclick="renameProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">✎</button>
+      <button title="Archive" onclick="archiveProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">📦</button>
+      <button title="Delete" onclick="deleteProject('${p.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">×</button>
+    </div>`;
+    return `<div class="pm-item ${isCurrent?'on':''}" onclick="switchProject('${p.id}');document.getElementById('projMenu').classList.remove('open')" style="display:flex;align-items:center;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div class="pm-name">${p.name}</div>
+        <div class="pm-meta">${p.code} · ${total} tasks · ${pct}% done</div>
+      </div>
+      ${actions}
     </div>`;
   }).join('') + `<div class="pm-add" onclick="document.getElementById('projMenu').classList.remove('open');openNewProjModal()">+ New project</div>`;
+}
+
+// v0.1.65: project lifecycle actions
+async function renameProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  const newName = prompt('New project name:', p.name);
+  if(!newName || newName.trim() === p.name) return;
+  p.name = newName.trim();
+  if(p._cloud && db && db.ready){
+    const { error } = await db.projects.update(p.id, { title: p.name });
+    if(error){ toast('Cloud rename failed: ' + error.message); return; }
+    auditLog('update', 'project', p.id, { title: p.name }, { title: p.name }, p.id);
+  }
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
+  render();
+  toast('✓ Project renamed');
+}
+
+async function archiveProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  if(!confirm(`Archive "${p.name}"? It will be hidden from the project picker but kept in the database.`)) return;
+  if(p._cloud && db && db.ready){
+    const { error } = await db.projects.update(p.id, { archived: true });
+    if(error){ toast('Archive failed: ' + error.message); return; }
+    auditLog('archive', 'project', p.id, { archived: false }, { archived: true }, p.id);
+  }
+  PROJECTS = PROJECTS.filter(x => x.id !== pid);
+  if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
+  else if(!PROJECTS.length) currentProject = 'all';
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
+  render();
+  toast('✓ Project archived');
+}
+
+async function deleteProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  const taskCount = TASKS.filter(t => t.proj === pid).length;
+  if(!confirm(`DELETE "${p.name}" permanently? This removes ${taskCount} task${taskCount===1?'':'s'} and all comments. This cannot be undone.`)) return;
+  if(p._cloud && db && db.ready){
+    const { error } = await db.projects.delete(p.id);
+    if(error){ toast('Delete failed: ' + error.message); return; }
+    auditLog('delete', 'project', p.id, { title: p.name }, null, p.id);
+  }
+  PROJECTS = PROJECTS.filter(x => x.id !== pid);
+  TASKS = TASKS.filter(t => t.proj !== pid);
+  if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
+  else if(!PROJECTS.length) currentProject = 'all';
+  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
+  render();
+  toast('✓ Project deleted');
 }
 
 function getProjectOpens(){
@@ -2511,7 +3054,7 @@ function renderRow(t){
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
   const presLabel = (typeof T==='function' ? T('btn.presentation') : 'Presentation');
-  const slideshowLabel = totalShots > 2 ? `▶ ${presLabel} · ${totalShots}` : `▶ ${presLabel}`;
+  const slideshowLabel = totalShots > 2 ? `${ICON('play')} ${presLabel} · ${totalShots}` : `${ICON('play')} ${presLabel}`;
   const compareLabel = (typeof T==='function' ? T('btn.compare') : 'Compare');
   const hasBoth = !!(t.shot1 && t.shot2);
   // v0.1.33: inline chat preview — last 8 msgs in DOM, ~3 visible at once via max-height,
@@ -2524,7 +3067,6 @@ function renderRow(t){
         return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
           <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
-          <span class="ts">${m.ts||''}</span>
         </div>`;
       }).join('');
   // P2-6 timer state
@@ -2532,7 +3074,7 @@ function renderRow(t){
   const totalMin = (t.timeMin || 0) + (isTimerRunning ? Math.floor((Date.now() - t.timerStart) / 60000) : 0);
   const timerLabel = isTimerRunning
     ? `${formatTime(totalMin)} · stop`
-    : (totalMin > 0 ? `⏱ ${formatTime(totalMin)}` : '⏱ start');
+    : (totalMin > 0 ? `${ICON('clock')} ${formatTime(totalMin)}` : `${ICON('clock')} start`);
   // Bulk select cell — replaces drag-handle
   const firstCell = selectMode
     ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
@@ -2549,22 +3091,15 @@ function renderRow(t){
     <div class="chat-col" onclick="event.stopPropagation()">
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
-        <input type="text" placeholder="Quick reply…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
-        <button onclick="event.stopPropagation();sendInlineChat(this.previousElementSibling)" title="Send">▷</button>
+        <input type="text" placeholder="Type a message and press Enter…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
       </div>
       <div class="chat-row-actions">
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking — Sprint 2.5">${timerLabel}</span>
-        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">⇄ ${compareLabel}</span>` : ''}
-      </div>
-    </div>
-    <div class="tit-col">
-      <div class="tc-title" contenteditable="true" data-placeholder="Task title…" onblur="saveTaskName('${t.id}',this.textContent)" onclick="event.stopPropagation()">${t.title || t.n || ''}</div>
-      <div class="tc-id">#${t.uid || '?'}</div>
-      <div class="tc-status">
-        <span class="st ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')">
+        <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip"></span>${st.l}
         </span>
+        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
+        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">${ICON('swap')} ${compareLabel}</span>` : ''}
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -2622,8 +3157,15 @@ function openExistingShotEditor(taskId, slotIdx){
   // Set context so editor's save flow puts the annotated image back into this slot
   pendingAnnotateContext = { taskId, slotIdx };
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  // v0.1.62 (Phase C #3): pass previously-saved vector annotations / comments
+  // so the editor reopens in the same state instead of starting from scratch.
+  const payload = {
+    dataUrl,
+    annotations: Array.isArray(t.annotations) ? t.annotations : [],
+    comments:    Array.isArray(t.comments)    ? t.comments    : []
+  };
   if(invoke){
-    invoke('open_editor_with_image', { dataUrl }).catch(err => {
+    invoke('open_editor_with_image', payload).catch(err => {
       console.error('open_editor_with_image failed:', err);
       toast('Failed to open editor: ' + err);
       pendingAnnotateContext = null;
@@ -2644,25 +3186,16 @@ function renderEmptyRow(){
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
     </div>
-    <div class="tit-col">
-      <span style="font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:600">#${nextUid}</span>
-      <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
-    </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
   </div>`;
 }
 
 function renderEmptyRowForProject(projId){
-  const nextUid = nextTaskUid(projId);
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
-    </div>
-    <div class="tit-col">
-      <span style="font-size:11px;color:var(--t4);font-family:var(--mono);font-weight:600">#${nextUid}</span>
-      <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -2670,20 +3203,19 @@ function renderEmptyRowForProject(projId){
 }
 
 function renderZero(){
+  // v0.1.57: aligned with 4-col grid `drag · chat · BEFORE · AFTER`.
   return `<div class="es-zero">
     <div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
     <div class="es-zero-h">No tasks yet</div>
     <div class="es-zero-s">Type below to create your first task</div>
     <div class="row empty" style="max-width:1100px;margin:0 auto" data-task-id="new">
       <div></div>
-      <div class="wk-st">
-        <span class="wk">26W17</span>
-        <span class="st bg-info"><span class="pip"></span>${STATUSES[0].l}</span>
+      <div class="chat-col" style="padding:10px 8px;justify-content:center">
+        <input id="newInpZero" placeholder="What needs to be done?" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)"
+          onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'26W17',s:0,title:txt,n:txt});this.value='';render();updateHeader();toast('✓ Task created');}">
       </div>
-      <div class="pc"><div class="pi">paste·drop</div></div>
-      <div class="pc"><div class="pi">paste·drop</div></div>
-      <div class="nt"><input id="newInpZero" placeholder="What needs to be done?"
-        onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'26W17',s:0,title:txt,n:txt});this.value='';render();updateHeader();toast('✓ Task created');}"></div>
+      <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
+      <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
     </div>
   </div>`;
 }
@@ -2691,23 +3223,14 @@ function renderZero(){
 function wireUpEmptyInput(){
   // Wire all per-project empty inputs
   document.querySelectorAll('.newInpProj').forEach(inp => {
-    inp.onkeydown = function(e){
+    inp.onkeydown = async function(e){
       if(e.key === 'Enter' && this.value.trim()){
         const projId = this.dataset.proj;
         const text = this.value.trim();
-        TASKS.push({
-          id: 't' + Date.now(),
-          proj: projId,
-          uid: nextTaskUid(projId),  // v0.1.26: assign sequential numeric ID
-          w: '26W17',
-          s: 0,
-          title: text,
-          n: text,  // back-compat
-        });
+        const proj = PROJECTS.find(p => p.id === projId);
         this.value = '';
-        render();
-        updateHeader();
-        toast('✓ Task added to ' + (PROJECTS.find(p=>p.id===projId)?.name || 'project'));
+        await createTaskFor(projId, text, proj && proj._cloud);
+        toast('✓ Task added to ' + (proj?.name || 'project'));
         // Re-focus the same project input after re-render
         setTimeout(() => {
           const newInp = document.querySelector('.newInpProj[data-proj="'+projId+'"]');
@@ -2718,11 +3241,51 @@ function wireUpEmptyInput(){
   });
 }
 
+// v0.1.61: shared helper — create a task, cloud-first if the parent project
+// is a cloud project (i.e. came from Supabase). Falls back to local insert.
+async function createTaskFor(projectId, title, cloudParent){
+  if(cloudParent && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        const { data, error } = await db.tasks.create({
+          title, project_id: projectId, desktop_status: 7,
+          priority: 'medium', created_by: u.id, position: nextTaskUid(projectId)
+        });
+        if(!error && data){
+          TASKS.push({
+            id: data.id, proj: projectId, uid: data.position || 0,
+            n: data.title, title: data.title,
+            s: (typeof data.desktop_status === 'number') ? data.desktop_status : 7,
+            w: '', chat: [], shot1: null, shot2: null, shots: [],
+            _cloud: true
+          });
+          auditLog('create', 'task', data.id, null, { title: data.title }, projectId);
+          render(); updateHeader();
+          return;
+        }
+        if(error) console.warn('[cloud] createTask failed:', error.message);
+      }
+    } catch(e){ console.warn('[cloud] createTask error:', e.message); }
+  }
+  // Local fallback
+  TASKS.push({
+    id: 't' + Date.now(), proj: projectId, uid: nextTaskUid(projectId),
+    w: '26W17', s: 0, title, n: title
+  });
+  render(); updateHeader();
+}
+
 function saveTaskName(taskId, name){
   const t = TASKS.find(x => x.id === taskId);
   if(t && name.trim()){
+    const prevTitle = t.title, prevN = t.n;
     t.title = name.trim();
     t.n = name.trim();  // back-compat
+    if(t._cloud){
+      cloudWrite('Rename', () => db.tasks.update(t.id, { title: t.title }),
+        () => { t.title = prevTitle; t.n = prevN; render(); });
+    }
   }
 }
 
@@ -2770,6 +3333,17 @@ function changeStatus(taskId, sid){
     if(sid !== prevStatus && (sid === 1 || sid === 5)){
       if(typeof notifyWebhook === 'function') notifyWebhook(t, sid);
     }
+    // v0.1.68: cloud write with rollback (QA #2). sync_task_status trigger
+    // maps desktop_status → web `status` text automatically.
+    if(t._cloud){
+      cloudWrite('Status change',
+        () => db.tasks.update(t.id, { desktop_status: sid }),
+        () => { t.s = prevStatus; closeStMenu(); render(); }
+      ).then(r => {
+        if(r.ok) auditLog('status_change', 'task', t.id,
+          { desktop_status: prevStatus }, { desktop_status: sid }, t.proj);
+      });
+    }
   }
 }
 
@@ -2777,9 +3351,7 @@ function changeStatus(taskId, sid){
 function onDragStart(e, taskId){
   // v0.1.53: allow file drops from Finder — only intercept HTML5 drags between rows.
   if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
-  // stage-1-strict: drag-reorder задач — Sprint 2.4
-  // Surface the OOS modal once user actually attempts to drag (so dragging
-  // a screenshot file onto a row still works — that goes through .pi handler).
+  // Don't start a row-drag from interactive controls inside the row.
   if(e.target.closest(
     'input, textarea, button, [contenteditable], ' +
     '.pi, .st, .st-wrap, .tc-status, .st-menu, .nt-chat, .nt-chat-input, ' +
@@ -2788,8 +3360,10 @@ function onDragStart(e, taskId){
     e.preventDefault();
     return;
   }
-  e.preventDefault();
-  outOfScope('Drag-reorder tasks between weeks / projects','Sprint 2.4');
+  // v0.1.66: drag-reorder is fully enabled — Roman's "минимум кликов" rule.
+  dragTaskId = taskId;
+  e.target.closest('.row')?.classList.add('dragging');
+  if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; }
 }
 function onDragOver(e){
   e.preventDefault();
@@ -2816,6 +3390,18 @@ function onDropTask(e, targetId){
   const insertAt = TASKS.findIndex(t => t.id === targetId);
   TASKS.splice(isTop ? insertAt : insertAt + 1, 0, item);
   document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
+  // v0.1.66: persist new order. Update sort_order for all tasks in the same
+  // project so the next reload picks up the manual order.
+  const projTasks = TASKS.filter(t => t.proj === item.proj);
+  projTasks.forEach((t, idx) => { t.uid = idx + 1; });
+  if(db && db.ready){
+    projTasks.forEach((t, idx) => {
+      if(t._cloud){
+        db.tasks.update(t.id, { sort_order: idx, position: idx + 1 })
+          .catch(e => console.warn('[cloud] sort persist failed:', t.id, e.message));
+      }
+    });
+  }
   render();
 }
 function onDragEnd(e){
@@ -2887,33 +3473,42 @@ function presentNext(){if(presentIdx < presentSlides.length-1){presentIdx++;rend
 function presentPrev(){if(presentIdx > 0){presentIdx--;renderPresent();}}
 
 function renderPresent(){
+  // v0.1.58 (A.5): split-view — chat LEFT (340px), pics side-by-side RIGHT.
+  // Both BEFORE and AFTER are shown together; click either to open editor.
   const t = presentTask;
   if(!t) return;
-  const slide = presentSlides[presentIdx];
-  if(!slide) return;
-  // v0.1.47: guard against broken/empty src — webview shows huge "broken-image"
-  // sidebar-like icon if src is empty or invalid. Skip those slides.
-  if(!slide.src || typeof slide.src !== 'string' || slide.src.length < 32){
-    console.warn('[renderPresent] slide src missing/short — skipping render', slide);
-    // Try to skip to next valid slide if exists
-    const nextValid = presentSlides.findIndex((s,i) => i !== presentIdx && s.src && s.src.length >= 32);
-    if(nextValid >= 0){ presentIdx = nextValid; return renderPresent(); }
-    closePresent();
-    toast('Screenshot data missing for this task — close and re-capture.');
-    return;
-  }
+
+  // Build a side-by-side pair from t.shot1 / t.shot2 if both exist.
+  // For extras (t.shots[]) the pair is (slide[i], slide[i+1] || slide[i]).
+  const pic = (src, label, slotIdx) => {
+    if(!src || typeof src !== 'string' || src.length < 32){
+      return `<div class="pres-pic" style="min-height:440px"><div class="lbl">${label}</div>
+        <div class="pres-pic-empty" style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px">
+          <div style="font-size:32px;opacity:.4">—</div>
+          <div>No ${label.toLowerCase()} yet</div>
+        </div>
+      </div>`;
+    }
+    return `<div class="pres-pic" style="min-height:440px"><div class="lbl">${label}</div>
+      <img src="${src}" alt="" style="cursor:zoom-in" title="Click to open editor"
+           onerror="this.style.display='none'"
+           onclick="openExistingShotEditor('${t.id}',${slotIdx})">
+    </div>`;
+  };
+  const beforeHTML = pic(t.shot1, 'BEFORE', 0);
+  const afterHTML  = pic(t.shot2, 'AFTER', 1);
+
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
   card.classList.add('with-chat');
   const chatMsgs = (t.chat || []);
   const chatBody = chatMsgs.length === 0
-    ? '<div class="cp-empty"><div class="ico">💬</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment on this slide</div></div>'
+    ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
     : chatMsgs.map(m => {
         const isMine = m.a === 'AS';
         return `<div class="cp-msg ${isMine?'mine':''}">
           <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
           <div class="cp-msg-bd">
-            <div class="cp-msg-meta"><span class="ts">${m.ts}</span></div>
             <div class="cp-msg-bub">${m.text}</div>
           </div>
         </div>`;
@@ -2922,31 +3517,24 @@ function renderPresent(){
     <div class="pres-head">
       <div class="pres-status ${st.cls}"><span class="pip" style="width:6px;height:6px;border-radius:50%;background:${st.c}"></span>${st.l}</div>
       <div class="pres-title">${t.n}</div>
-      <div style="font-size:12px;color:var(--t4);font-family:var(--mono)">${t.w}</div>
       <button class="pres-close" onclick="closePresent()">×</button>
     </div>
     <div class="pres-body-grid">
-      <div class="pres-pic-col">
-        <div class="pres-pic" style="min-height:440px;flex:1"><div class="lbl">${slide.label}</div>
-          <img src="${slide.src}" alt="" style="cursor:zoom-in" title="Click to open editor"
-               onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div class=\\'pres-pic-empty\\' style=\\'display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px\\'><div style=\\'font-size:32px;opacity:.4\\'>—</div><div>Screenshot data missing</div></div>')"
-               onclick="openExistingShotEditor('${t.id}',${presentIdx})">
-        </div>
-      </div>
       <aside class="pres-chat-col">
-        <div class="pres-chat-h">💬 Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
+        <div class="pres-chat-h">Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
         <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
         <div class="pres-chat-foot">
-          <input id="presChatInput" placeholder="Write a comment…" onkeydown="if(event.key==='Enter') sendPresChat()">
-          <button onclick="sendPresChat()">Send</button>
+          <input id="presChatInput" placeholder="Type a message and press Enter…" onkeydown="if(event.key==='Enter') sendPresChat()">
         </div>
       </aside>
+      <div class="pres-pics-pair">
+        ${beforeHTML}
+        ${afterHTML}
+      </div>
     </div>
     <div class="pres-nav">
-      <button onclick="presentPrev()" ${presentIdx===0?'disabled':''}>← Prev</button>
-      <div class="pres-counter">${presentIdx+1} / ${presentSlides.length}</div>
-      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ 📷 Add</button>
-      <button onclick="presentNext()" ${presentIdx>=presentSlides.length-1?'disabled':''}>Next →</button>
+      <div class="pres-counter">BEFORE / AFTER pair</div>
+      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ Add screenshot</button>
     </div>`;
   // Auto-scroll chat to bottom
   const msgsEl = document.getElementById('presChatMsgs');
@@ -2984,9 +3572,7 @@ function syncTaskRowChat(taskId){
     const initials = (m.a || '?').slice(0, 2).toUpperCase();
     return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
       <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
-      <span class="ts">${m.ts||''}</span>
-    </div>`;
+      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>    </div>`;
   }).join('');
   panel.scrollTop = panel.scrollHeight;
 }
@@ -3209,7 +3795,7 @@ function renderChatMsgs(t){
     return `<div class="cp-msg ${isMine?'mine':''}">
       <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
       <div class="cp-msg-bd">
-        <div class="cp-msg-meta"><span class="ts">${m.ts}</span></div>
+        
         <div class="cp-msg-bub">${m.text}</div>
       </div>
     </div>`;
@@ -3234,25 +3820,41 @@ function sendChat(){
 
 // ━━━ DASHBOARD ━━━
 function renderDashboard(){
+  // v0.1.58 (Phase A.4): KPI strip = 8 cards (one per status); each project
+  // card has a 2×4 status legend grid and an 8-segment progress bar.
   const dash = document.getElementById('dash');
   const totalTasks = TASKS.length;
-  const totalDone = TASKS.filter(t => t.s === 1).length;
-  const totalProb = TASKS.filter(t => t.s === 5).length;
-  const totalProg = TASKS.filter(t => t.s === 6).length;
-  const totalRev = TASKS.filter(t => t.s === 3).length;
-  const overallPct = totalTasks ? Math.round(totalDone/totalTasks*100) : 0;
+
+  // 8 status totals across ALL tasks
+  const statusTotals = STATUSES.map(s => TASKS.filter(t => t.s === s.id).length);
+
+  const kpiCards = STATUSES.map((s, i) => {
+    const cnt = statusTotals[i];
+    const pct = totalTasks ? Math.round(cnt / totalTasks * 100) : 0;
+    return `<div class="ds-card kpi-status" style="border-top-color:${s.c}">
+      <span class="lbl">${s.l}</span>
+      <span class="num" style="color:${s.c}">${cnt}</span>
+      <span class="delta">${pct}% of ${totalTasks}</span>
+    </div>`;
+  }).join('');
 
   const projCards = PROJECTS.map(p => {
     const pt = TASKS.filter(t => t.proj === p.id);
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
-    const inProg = pt.filter(t => t.s === 6).length;
-    const probs = pt.filter(t => t.s === 5).length;
-    const review = pt.filter(t => t.s === 3).length;
     const pct = total ? Math.round(done/total*100) : 0;
+    // 8-segment stacked progress bar (one segment per status)
     const segs = STATUSES.map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
-      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
+      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%" title="${s.l}: ${cnt}"></div>` : '';
+    }).join('');
+    // 2×4 grid: one cell per status, .zero opacity when count = 0
+    const legend = STATUSES.map(s => {
+      const cnt = pt.filter(t => t.s === s.id).length;
+      return `<div class="dproj-stat ${cnt === 0 ? 'zero' : ''}" style="--st-color:${s.c}">
+        <div class="dproj-stat-num">${cnt}</div>
+        <div class="dproj-stat-lbl">${s.l}</div>
+      </div>`;
     }).join('');
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setView('tasks')">
       <div class="dproj-head">
@@ -3266,12 +3868,7 @@ function renderDashboard(){
           <span class="lbl">${done}/${total} complete</span>
         </div>
       </div>
-      <div class="dproj-stats-grid">
-        <div class="dproj-stat success"><div class="dproj-stat-num">${done}</div><div class="dproj-stat-lbl">Done</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${inProg}</div><div class="dproj-stat-lbl">Active</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${review}</div><div class="dproj-stat-lbl">Review</div></div>
-        <div class="dproj-stat ${probs>0?'danger':''}"><div class="dproj-stat-num">${probs}</div><div class="dproj-stat-lbl">Issues</div></div>
-      </div>
+      <div class="dproj-stats-grid">${legend}</div>
     </div>`;
   }).join('');
 
@@ -3282,12 +3879,7 @@ function renderDashboard(){
       <button class="dash-back" onclick="setView('tasks')">← Back to project</button>
       <h2>Projects <span class="accent">overview</span></h2>
     </div>
-    <div class="dash-summary">
-      <div class="ds-card"><span class="lbl">Total projects</span><span class="num">${PROJECTS.length}</span><span class="delta">${PROJECTS.filter(p=>p.status==='active').length} active</span></div>
-      <div class="ds-card"><span class="lbl">Total tasks</span><span class="num">${totalTasks}</span><span class="delta">${overallPct}% complete</span></div>
-      <div class="ds-card progress"><span class="lbl">In progress</span><span class="num">${totalProg}</span><span class="delta">${totalRev} in review</span></div>
-      <div class="ds-card problems"><span class="lbl">Open issues</span><span class="num">${totalProb}</span><span class="delta">${totalProb===0?'all clear':'needs attention'}</span></div>
-    </div>
+    <div class="dash-summary dash-summary-8">${kpiCards}</div>
     <div class="dash-section-title">All projects</div>
     <div class="dash-grid">${projCards}${addCard}</div>
   `;
@@ -3304,16 +3896,47 @@ function closeNewProjModal(){
   document.getElementById('npmCode').value = '';
   document.getElementById('npmClient').value = '';
 }
-function createNewProject(){
+async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
   const client = document.getElementById('npmClient').value.trim();
   if(!name){toast('Name required');return;}
+
+  // v0.1.61: try cloud-first if signed in
+  if(db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        const { data, error } = await db.projects.create({
+          title: name,
+          project_code: code || name.substring(0,4).toUpperCase(),
+          client: client || 'Internal',
+          status: 'active',
+          priority: 'medium',
+          owner_id: u.id
+        });
+        if(!error && data){
+          PROJECTS.push({
+            id: data.id, name: data.title, code: data.project_code,
+            client: data.client || 'Internal', status: data.status, _cloud: true
+          });
+          auditLog('create', 'project', data.id, null, { title: data.title }, data.id);
+          closeNewProjModal();
+          switchProject(data.id);
+          toast('✓ Project created (cloud)');
+          return;
+        }
+        if(error) console.warn('[cloud] createProject failed:', error.message);
+      }
+    } catch(e){ console.warn('[cloud] createProject error:', e.message); }
+  }
+
+  // Fallback: local-only
   const p = {id:'p'+Date.now(),name,code:code||name.substring(0,4).toUpperCase(),client:client||'Internal',status:'active'};
   PROJECTS.push(p);
   closeNewProjModal();
   switchProject(p.id);
-  toast('✓ Project created');
+  toast('✓ Project created (local)');
 }
 
 // ━━━ PASTE / DROP / TAURI ━━━
@@ -3339,16 +3962,30 @@ document.addEventListener('paste', e => {
 if(window.__TAURI__){
   window.__TAURI__.event.listen('screenshot-ready', e => {
     const newUrl = e.payload.dataUrl;
+    // v0.1.62: editor now also returns vector annotations + comments so we
+    // can re-open in editable state next time (Phase C #3).
+    const annPayload = Array.isArray(e.payload.annotations) ? e.payload.annotations : [];
+    const cmtPayload = Array.isArray(e.payload.comments) ? e.payload.comments : [];
     // v0.1.31: if user came from lightbox 'Annotate', re-inject into same task slot
     if(pendingAnnotateContext){
       const { taskId, slotIdx } = pendingAnnotateContext;
       pendingAnnotateContext = null;
       const t = TASKS.find(x => x.id === taskId);
       if(t){
-        if(slotIdx === 0) t.shot1 = newUrl;
-        else if(slotIdx === 1) t.shot2 = newUrl;
-        else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) t.shots[slotIdx - 2] = newUrl;
-        render();
+        if(slotIdx === 0 || slotIdx === 1){
+          assignShotToSlot(t, slotIdx, newUrl);
+        } else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined){
+          t.shots[slotIdx - 2] = newUrl;
+          render();
+        }
+        // Persist vector annotations on the task for next-session edit
+        t.annotations = annPayload;
+        t.comments = cmtPayload;
+        if(t._cloud && db && db.ready){
+          db.tasks.update(t.id, { annotations: annPayload }).then(({error}) => {
+            if(error) console.warn('[cloud] annotations save failed:', error.message);
+          });
+        }
         toast('✓ Annotations saved to task');
         return;
       }
@@ -3416,13 +4053,41 @@ document.addEventListener('click', e => {
   e.preventDefault(); e.stopPropagation();
   const t = TASKS.find(x => x.id === pi.dataset.taskId);
   if(t && pendingScreenshot){
-    if(pi.dataset.slot === 'before') t.shot1 = pendingScreenshot;
-    else t.shot2 = pendingScreenshot;
+    const slot = pi.dataset.slot === 'before' ? 0 : 1;
+    assignShotToSlot(t, slot, pendingScreenshot);
     exitPasteMode();
-    render();
     toast('✓ Screenshot inserted');
   }
 });
+
+// v0.1.61: assign a screenshot to a task slot — local immediate, cloud upload
+// in the background. Slot: 0 = before, 1 = after.
+async function assignShotToSlot(t, slot, dataUrl){
+  if(!t || !dataUrl) return;
+  // 1) Optimistic local — UI updates immediately with base64
+  if(slot === 0) t.shot1 = dataUrl;
+  else if(slot === 1) t.shot2 = dataUrl;
+  render();
+
+  // 2) Cloud upload in the background (only for cloud-tracked tasks)
+  if(t._cloud && db && db.ready){
+    try {
+      const { url } = await db.storage.uploadShot(t.id, dataUrl);
+      if(!url) return;
+      // Replace base64 with signed URL in-memory
+      const slotKey = slot === 0 ? 'shot1' : 'shot2';
+      const colKey  = slot === 0 ? 'shot1_url' : 'shot2_url';
+      t[slotKey] = url;
+      await db.tasks.update(t.id, { [colKey]: url });
+      auditLog('shot_upload', 'task', t.id, null, { slot: slot === 0 ? 'before' : 'after', url }, t.proj);
+      render();
+      toast('✓ Screenshot uploaded');
+    } catch(e){
+      console.warn('[cloud] upload failed:', e.message);
+      // Keep base64 locally — fallback works
+    }
+  }
+}
 
 // P1-2: add new screenshot to currently-presented task's shots[] array
 function addShotToPresentTask(dataUrl){
@@ -3472,9 +4137,8 @@ document.addEventListener('drop', e => {
   r.onload = ev => {
     const t = TASKS.find(x => x.id === pi.dataset.taskId);
     if(!t) return;
-    if(pi.dataset.slot === 'before') t.shot1 = ev.target.result;
-    else t.shot2 = ev.target.result;
-    render();
+    const slot = pi.dataset.slot === 'before' ? 0 : 1;
+    assignShotToSlot(t, slot, ev.target.result);
     toast('✓ Image dropped');
   };
   r.readAsDataURL(file);
@@ -3567,13 +4231,22 @@ function openChatForTask(taskId){
 }
 
 function renderDashboardSection(){
+  // v0.1.58 (Phase A.4): 8 KPI cards + 2×4 status legend grid per project.
   const view = document.getElementById('dashView');
   const totalTasks = TASKS.length;
-  const totalDone = TASKS.filter(t => t.s === 1).length;
-  const totalProb = TASKS.filter(t => t.s === 5).length;
-  const totalProg = TASKS.filter(t => t.s === 6).length;
-  const totalRev = TASKS.filter(t => t.s === 3).length;
-  const overallPct = totalTasks ? Math.round(totalDone/totalTasks*100) : 0;
+
+  // 8 status totals (KPI strip)
+  const statusTotals = STATUSES.map(s => TASKS.filter(t => t.s === s.id).length);
+
+  const kpiHTML = STATUSES.map((s, i) => {
+    const cnt = statusTotals[i];
+    const pct = totalTasks ? Math.round(cnt / totalTasks * 100) : 0;
+    return `<div class="ds-card kpi-status" style="border-top-color:${s.c}">
+      <span class="lbl">${s.l}</span>
+      <span class="num" style="color:${s.c}">${cnt}</span>
+      <span class="delta">${pct}% of ${totalTasks}</span>
+    </div>`;
+  }).join('');
 
   // v0.1.28: rank projects by user's open count + task volume → top-6 cards
   const opens = getProjectOpens();
@@ -3590,13 +4263,18 @@ function renderDashboardSection(){
     const pt = TASKS.filter(t => t.proj === p.id);
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
-    const inProg = pt.filter(t => t.s === 6).length;
-    const probs = pt.filter(t => t.s === 5).length;
-    const review = pt.filter(t => t.s === 3).length;
     const pct = total ? Math.round(done/total*100) : 0;
     const segs = STATUSES.map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
-      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
+      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%" title="${s.l}: ${cnt}"></div>` : '';
+    }).join('');
+    // 2×4 legend grid covering all 8 statuses
+    const legend = STATUSES.map(s => {
+      const cnt = pt.filter(t => t.s === s.id).length;
+      return `<div class="dproj-stat ${cnt === 0 ? 'zero' : ''}" style="--st-color:${s.c}">
+        <div class="dproj-stat-num">${cnt}</div>
+        <div class="dproj-stat-lbl">${s.l}</div>
+      </div>`;
     }).join('');
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setSection('projects')">
       <div class="dproj-head">
@@ -3610,12 +4288,7 @@ function renderDashboardSection(){
           <span class="lbl">${done}/${total} complete</span>
         </div>
       </div>
-      <div class="dproj-stats-grid">
-        <div class="dproj-stat success"><div class="dproj-stat-num">${done}</div><div class="dproj-stat-lbl">Done</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${inProg}</div><div class="dproj-stat-lbl">Active</div></div>
-        <div class="dproj-stat"><div class="dproj-stat-num">${review}</div><div class="dproj-stat-lbl">Review</div></div>
-        <div class="dproj-stat ${probs>0?'danger':''}"><div class="dproj-stat-num">${probs}</div><div class="dproj-stat-lbl">Issues</div></div>
-      </div>
+      <div class="dproj-stats-grid">${legend}</div>
     </div>`;
   };
 
@@ -3653,12 +4326,7 @@ function renderDashboardSection(){
     <div class="dash-h">
       <h2 style="margin:0">Projects <span class="accent">overview</span></h2>
     </div>
-    <div class="dash-summary">
-      <div class="ds-card"><span class="lbl">Total projects</span><span class="num">${PROJECTS.length}</span><span class="delta">${PROJECTS.filter(p=>p.status==='active'||!p.status).length} active</span></div>
-      <div class="ds-card"><span class="lbl">Total tasks</span><span class="num">${totalTasks}</span><span class="delta">${overallPct}% complete</span></div>
-      <div class="ds-card progress"><span class="lbl">In progress</span><span class="num">${totalProg}</span><span class="delta">${totalRev} in review</span></div>
-      <div class="ds-card problems"><span class="lbl">Open issues</span><span class="num">${totalProb}</span><span class="delta">${totalProb===0?'all clear':'needs attention'}</span></div>
-    </div>
+    <div class="dash-summary dash-summary-8">${kpiHTML}</div>
     <div class="dash-section-title">${rest.length > 0 ? 'Most active' : 'All projects'} ${rest.length>0?'<span style="font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:400;margin-left:6px">'+top.length+' / '+PROJECTS.length+'</span>':''}</div>
     <div class="dash-grid">${topCardsHTML}</div>
     ${restListHTML}
@@ -3820,6 +4488,39 @@ function renderProfileSection(){
     </div>
 
     <div class="profile-card">
+      <div class="profile-card-h">Cloud sync · Supabase</div>
+      <div class="profile-row"><span class="lbl">Project ref</span><span class="val" style="font-family:var(--mono);font-size:11px">gselxucvcomqlfyogidz</span></div>
+      <div class="profile-row"><span class="lbl">Client status</span><span class="val" id="cloudClientStatus">${db && db.ready ? '🟢 loaded' : '🔴 not loaded'}</span></div>
+      <div class="profile-row"><span class="lbl">Connection</span><span class="val" id="cloudConnStatus">checking…</span></div>
+      <div style="padding:10px 0;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="profile-action" onclick="cloudHealthCheck()">Test connection</button>
+        <button class="profile-action" onclick="cloudSyncNow()">Reload from cloud</button>
+        ${isDemo ? '<button class="profile-action danger" onclick="logout()">Sign in with Google</button>' : ''}
+      </div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-card-h">Team · current project</div>
+      <div id="projectMembersList" style="font-size:12px;padding:4px 0">
+        <div style="color:var(--t4);font-style:italic">Loading members…</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-card-h">Pending invites</div>
+      <div id="pendingInvitesList" style="font-size:12px;padding:4px 0">
+        <div style="color:var(--t4);font-style:italic">Loading invites…</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-card-h">Activity log</div>
+      <div id="activityFeed" style="max-height:280px;overflow:auto;font-size:12px">
+        <div style="color:var(--t4);padding:8px 0;font-style:italic">Loading activity…</div>
+      </div>
+    </div>
+
+    <div class="profile-card">
       <div class="profile-card-h">Statistics</div>
       <div class="profile-row"><span class="lbl">Projects</span><span class="val">${PROJECTS.length}</span></div>
       <div class="profile-row"><span class="lbl">Tasks total</span><span class="val">${TASKS.length}</span></div>
@@ -3831,16 +4532,16 @@ function renderProfileSection(){
       <div class="profile-card-h">Integrations · Slack webhook</div>
       <div style="padding:10px 0;display:flex;flex-direction:column;gap:8px">
         <div style="font-size:11px;color:var(--t4);line-height:1.5">
-          Уведомления при переходе задачи в <b>Done</b> или <b>Problem</b>.
-          URL берётся в Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
+          Notifications fire when a task switches to <b>Done</b> or <b>Problem</b>.
+          Get the URL from Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
         </div>
         <input id="slackWebhookInp" type="url" placeholder="https://hooks.slack.com/services/T.../B.../..."
-          style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)"
-          onfocus="this.blur();outOfScope('Slack status notifications','Stage 2')">
+          value="${(localStorage.getItem('eb_slack_webhook')||'').replace(/"/g,'&quot;')}"
+          style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)">
         <div style="display:flex;gap:8px">
-          <button class="profile-action" onclick="outOfScope('Slack status notifications','Stage 2')">Save</button>
-          <button class="profile-action" onclick="outOfScope('Slack status notifications','Stage 2')">Send test</button>
-          <button class="profile-action danger" onclick="outOfScope('Slack status notifications','Stage 2')">Clear</button>
+          <button class="profile-action" onclick="setWebhookUrl(document.getElementById('slackWebhookInp').value);toast('✓ Webhook saved')">Save</button>
+          <button class="profile-action" onclick="sendTestWebhook()">Send test</button>
+          <button class="profile-action danger" onclick="setWebhookUrl('');document.getElementById('slackWebhookInp').value='';toast('Webhook cleared')">Clear</button>
         </div>
       </div>
     </div>
@@ -3852,6 +4553,12 @@ function renderProfileSection(){
       <div class="profile-row"><span class="lbl">Sign out</span><button class="profile-action danger" onclick="logout()">Logout</button></div>
     </div>
   </div>`;
+  // v0.1.63: kick off activity feed + connection check on every Profile open
+  if(typeof loadActivityFeed === 'function') loadActivityFeed();
+  if(typeof cloudHealthCheck === 'function') cloudHealthCheck();
+  // v0.1.64
+  if(typeof loadProjectMembers === 'function') loadProjectMembers();
+  if(typeof loadPendingInvites === 'function') loadPendingInvites();
 }
 
 function updateSidebarCounts(){
@@ -4102,11 +4809,7 @@ function saveTaskNotes(taskId, notes){
 // v0.1.31: Compare modal — BEFORE vs AFTER with wipe slider
 let _cmpDrag = false;
 function openCompare(taskId){
-  // v0.1.41 stage-1-strict: compare wipe в стабилизации.
-  if(typeof outOfScope === 'function'){
-    outOfScope('BEFORE/AFTER compare с wipe-слайдером','v0.1.42 — финальная отладка');
-    return;
-  }
+  // v0.1.55: gate removed — compare is part of the full feature set now.
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !t.shot1 || !t.shot2){
     toast('Need both BEFORE and AFTER screenshots to compare');
@@ -4165,7 +4868,7 @@ function setComparePos(pct){
 })();
 
 // v0.1.33: inline chat send from task row — keeps last 8 in DOM, scrolls to bottom
-function sendInlineChat(inp){
+async function sendInlineChat(inp){
   // v0.1.43: chat возвращён — это спринт 1.4 ТЗ (мини-чат внутри карточки задачи).
   if(!inp) return;
   const taskId = inp.dataset.taskId;
@@ -4174,12 +4877,57 @@ function sendInlineChat(inp){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   if(!Array.isArray(t.chat)) t.chat = [];
-  t.chat.push({
-    a: 'AS',
-    ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
+
+  // v0.1.61: cloud-first if this task lives in Supabase. We optimistically
+  // push a "pending" entry, then replace with the server-confirmed row.
+  let myInitials = 'AS';
+  let authorId = null;
+  if(t._cloud && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        authorId = u.id;
+        myInitials = initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name });
+      }
+    } catch(_){}
+  }
+
+  // v0.1.68 (QA #3): tag optimistic message with a client id so the realtime
+  // echo of our own INSERT can be de-duplicated even before the .then resolves.
+  const clientId = 'c' + Date.now() + Math.random().toString(36).slice(2,7);
+  const localMsg = {
+    a: myInitials,
     text,
-  });
+    ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
+    _pending: t._cloud,
+    _clientId: clientId
+  };
+  t.chat.push(localMsg);
   inp.value = '';
+
+  if(t._cloud && db && db.ready && authorId){
+    db.taskComments.create({ task_id: t.id, body: text, author_id: authorId })
+      .then(({ data, error }) => {
+        if(error){
+          // Roll the optimistic message back so the user knows it didn't send
+          const i = t.chat.indexOf(localMsg);
+          if(i >= 0) t.chat.splice(i, 1);
+          toast('⚠ Message not sent: ' + error.message, 3000);
+          render();
+          return;
+        }
+        const idx = t.chat.indexOf(localMsg);
+        if(idx >= 0){
+          t.chat[idx] = {
+            a: initialsFromProfile(data?.author),
+            text: data?.body || text,
+            ts: new Date(data?.created_at || Date.now()).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+            id: data?.id,
+            _clientId: clientId
+          };
+        }
+      });
+  }
   // Update only this row's chat panel without full re-render (preserve focus)
   const panel = document.getElementById('ntChat-' + taskId);
   if(panel){
@@ -4188,9 +4936,7 @@ function sendInlineChat(inp){
       const initials = (m.a || '?').slice(0, 2).toUpperCase();
       return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
         <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
-        <span class="ts">${m.ts||''}</span>
-      </div>`;
+        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>      </div>`;
     }).join('');
     panel.scrollTop = panel.scrollHeight;
   }
@@ -4256,6 +5002,16 @@ function bulkDelete(){
   if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
   if(!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? This cannot be undone.`)) return;
   const before = TASKS.length;
+  // v0.1.63: also delete in cloud for tasks marked _cloud
+  if(db && db.ready){
+    const toDelete = TASKS.filter(t => selectedTaskIds.has(t.id) && t._cloud);
+    toDelete.forEach(t => {
+      db.tasks.delete(t.id).then(({error}) => {
+        if(error) console.warn('[cloud] delete failed:', t.id, error.message);
+        else auditLog('delete', 'task', t.id, { title: t.title }, null, t.proj);
+      });
+    });
+  }
   TASKS = TASKS.filter(t => !selectedTaskIds.has(t.id));
   const n = before - TASKS.length;
   toast(`✓ ${n} task${n===1?'':'s'} deleted`);
@@ -4417,6 +5173,8 @@ async function testWebhook(){
   await notifyWebhook({ n: 'Test message from EngiBoard', proj: PROJECTS[0]?.id, w: '26W17' }, 1);
   toast('✓ Test sent — check Slack', 2500);
 }
+// v0.1.64: alias used by Profile UI
+const sendTestWebhook = testWebhook;
 
 // ━━━ P2-6 · TIME TRACKING ━━━
 function formatTime(min){
@@ -4869,38 +5627,17 @@ function toast(msg, ms=1800){
   t._t = setTimeout(() => t.classList.remove('show'), ms);
 }
 
-// ━━━ STAGE-1 OUT-OF-SCOPE GUARD (v0.1.40) ━━━
-// Surfaces a modal explaining that a feature ships in a later contract stage.
-// UI controls remain visible — only the action is gated. This is the
-// stage-1-strict build the client requested.
-function outOfScope(feature, sprint){
-  feature = feature || 'Эта функция';
-  sprint = sprint || 'Этап 2';
-  const ov = document.getElementById('oosOverlay');
-  if(!ov) return;
-  const tag = document.getElementById('oosTag');
-  const ft = document.getElementById('oosFeature');
-  const body = document.getElementById('oosBody');
-  const when = document.getElementById('oosWhen');
-  if(ft) ft.textContent = feature;
-  if(when) when.textContent = sprint;
-  if(tag) tag.textContent = sprint + ' · после релиза 1';
-  if(body){
-    body.innerHTML = `Current build matches <b>Stage 1</b> of the contract (initiation, design and kickoff phase). Feature planned for <b>${sprint}</b> — UI kept in place so design can be reviewed now.`;
+// v0.1.55: outOfScope downgraded to a soft toast — Roman asked to drop
+// stage/sprint gating and ship the full app. Call sites without a real
+// implementation just notify and continue silently.
+function outOfScope(feature){
+  if(typeof toast === 'function'){
+    toast((feature || 'This feature') + ' — coming next');
+  } else {
+    console.log('[outOfScope]', feature);
   }
-  ov.classList.add('on');
 }
-function closeOOS(){
-  const ov = document.getElementById('oosOverlay');
-  if(ov) ov.classList.remove('on');
-}
-// ESC closes the modal
-document.addEventListener('keydown', e => {
-  if(e.key === 'Escape'){
-    const ov = document.getElementById('oosOverlay');
-    if(ov && ov.classList.contains('on')) closeOOS();
-  }
-});
+function closeOOS(){ /* no-op, modal removed */ }
 </script>
 
 </body>

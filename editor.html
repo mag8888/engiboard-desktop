@@ -36,6 +36,10 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .tbtn-sm:hover{background:rgba(255,255,255,.08);color:var(--t1);border-color:var(--line2)}
 .tbtn-sm.blue{background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;border:none;box-shadow:0 2px 8px rgba(59,130,246,.35)}
 .tbtn-sm.blue:hover{box-shadow:0 4px 14px rgba(59,130,246,.5);transform:translateY(-1px)}
+/* v0.1.69: icon-only undo/redo buttons */
+.tbtn-sm.tbtn-ic{display:inline-flex;align-items:center;justify-content:center;padding:5px 8px}
+.tbtn-sm.tbtn-ic svg{width:15px;height:15px;display:block}
+.tbtn-sm.tbtn-ic:disabled{opacity:.35;cursor:not-allowed}
 
 .body{flex:1;display:flex;overflow:hidden}
 .cw{
@@ -160,11 +164,15 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
   <div style="width:78px;flex-shrink:0"></div>
   <div class="ttl">EngiBoard · Annotate</div>
   <div class="tact">
-    <button class="tbtn-sm" onclick="undoLast()" title="Undo (⌘Z)">↶</button>
-    <button class="tbtn-sm" onclick="redoNext()" title="Redo (⌘⇧Z)">↷</button>
+    <button class="tbtn-sm tbtn-ic" onclick="undoLast()" title="Undo (⌘Z)" aria-label="Undo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
+    </button>
+    <button class="tbtn-sm tbtn-ic" onclick="redoNext()" title="Redo (⌘⇧Z)" aria-label="Redo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg>
+    </button>
     <button class="tbtn-sm" onclick="clearAll()">Clear</button>
-    <button class="tbtn-sm" onclick="discard()">Esc</button>
-    <button class="tbtn-sm blue" onclick="saveTask()" title="Done — closes window and saves to task (autosaves on close too)">Done ✓</button>
+    <button class="tbtn-sm" onclick="discard()" title="Discard (Esc)">Discard</button>
+    <button class="tbtn-sm blue" onclick="saveTask()" title="Done — save to task & close (Enter)">Done ✓</button>
   </div>
 </div>
 
@@ -232,15 +240,8 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     </div>
     <div class="rps-list" id="cmtList"><div class="rps-empty">Click anywhere with the comment tool to add a pin</div></div>
   </div>
-  <div class="rps-actions">
-    <div style="display:flex;gap:6px">
-      <button onclick="undoLast()" class="tbtn-sm" style="flex:1">↶ Undo (⌘Z)</button>
-      <button onclick="redoNext()" class="tbtn-sm" style="flex:1">↷ Redo (⌘⇧Z)</button>
-      <button onclick="clearAll()" class="tbtn-sm" style="flex:1">Clear</button>
-    </div>
-    <button onclick="saveTask()" class="tbtn-sm blue" style="width:100%;padding:10px;font-size:12px">Done ✓</button>
-    <button onclick="discard()" class="tbtn-sm" style="width:100%;padding:8px">Discard (Esc)</button>
-  </div>
+  <!-- v0.1.69: duplicate bottom action block removed — all actions live in
+       the top toolbar (.tact) only, per Roman's request. -->
 </div>
 </div>
 
@@ -584,28 +585,42 @@ async function saveTask(){
 }
 
 async function discard(){
-  if(!annotations.length&&!comments.length||confirm('Discard?')){
-    _autosaveSkip = true; // tell beforeunload not to autosave
-    if(window.__TAURI__){
-      try{await window.__TAURI__.core.invoke('close_editor');}
-      catch(e){
-        try{await window.__TAURI__.window.getCurrentWindow().close();}
-        catch(e2){window.close();}
-      }
+  // v0.1.69: native confirm() is blocked inside the Tauri webview — it
+  // returned undefined so the close never fired ("окно не закрывается").
+  // Discard is an explicit user action: just close without saving.
+  _autosaveSkip = true; // tell onCloseRequested/beforeunload NOT to autosave
+  if(window.__TAURI__){
+    try{ await window.__TAURI__.core.invoke('close_editor'); }
+    catch(e){
+      try{ await window.__TAURI__.window.getCurrentWindow().destroy(); }
+      catch(e2){ window.close(); }
     }
-  }
+  } else { window.close(); }
 }
 
 const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',d:'dimension',b:'blur',q:'comment',m:'marker'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();
+  // v0.1.69: Enter = Done (save & close), Esc = Discard — Roman's request.
+  // Esc first cancels any active text/comment edit or selection; if there's
+  // nothing to cancel it discards & closes the window.
+  if(e.key==='Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey){
+    e.preventDefault(); saveTask(); return;
+  }
+  if(k==='escape'){
+    e.preventDefault();
+    const hadOverlay = (selId !== null) ||
+      (document.getElementById('textInp')?.style.display === 'block');
+    selId=null; closeCmtPop(); commitText(); renderAll(); updateList();
+    if(!hadOverlay) discard();   // nothing to cancel → close
+    return;
+  }
   if(KMAP[k]){e.preventDefault();setTool(KMAP[k]);return;}
   if((e.metaKey||e.ctrlKey)&&e.shiftKey&&k==='z'){e.preventDefault();redoNext();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undoLast();return;}
   if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redoNext();return;}
   if(k==='delete'||k==='backspace'){if(selId) delAnn(selId);}
-  if(k==='escape'){selId=null;closeCmtPop();commitText();renderAll();updateList();}
 });
 
 // v0.1.57: autosave-on-close via Tauri onCloseRequested — prevents the close
