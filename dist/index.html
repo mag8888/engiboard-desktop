@@ -504,11 +504,16 @@ body.select-mode .row{cursor:pointer}
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
-  font-size:14px;opacity:.35;transition:opacity .12s,color .12s;user-select:none
+  font-size:16px;opacity:.5;transition:opacity .12s,color .12s;user-select:none
 }
-.row:hover .drag-handle{opacity:.85}
+.row:hover .drag-handle{opacity:1;color:var(--acc)}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
-.drag-handle:active{cursor:grabbing}
+.drag-handle:active,.row.dragging{cursor:grabbing}
+/* v0.1.70: whole row signals it's draggable (except interactive controls) */
+.row:not(.empty){cursor:grab}
+.row:not(.empty) input,.row:not(.empty) textarea,.row:not(.empty) button,
+.row:not(.empty) [contenteditable],.row:not(.empty) .st,.row:not(.empty) .pi{cursor:auto}
+.row:not(.empty) .pi.has-img{cursor:zoom-in}
 
 /* v0.1.31: Title / ID / Status as 3-row stacked column */
 .tit-col{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:2px 8px 2px 6px;min-width:0;justify-content:center;height:100%}
@@ -1512,7 +1517,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.69</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.71</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -3126,15 +3131,37 @@ function renderPic(t, slot){
         <span style="opacity:.55;color:#EF4444">data missing — re-capture</span>
       </div>`;
     }
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})">
+    // v0.1.70: click on a finished screenshot OPENS the lightbox viewer
+    // (раскрыть/просмотр), not the editor directly. The lightbox has an
+    // "Annotation tools / Editor" button for those who want to edit.
+    // img draggable=false — otherwise the browser drags the image itself
+    // instead of starting the row reorder (Roman: "таски не перетаскиваются").
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openShotViewer('${t.id}',${slotIdx})" title="Click to open · drag the row by the ⋮⋮ handle">
       <span class="pi-lbl">${lblText}</span>
-      <img src="${src}" alt="" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
+      <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
   }
   return `<div class="pi" data-task-id="${t.id}" data-slot="${slot}">
     <span class="pi-lbl">${lblText}</span>
     <span style="opacity:.55">paste·drop</span>
   </div>`;
+}
+
+// v0.1.70: open the finished screenshot in the lightbox viewer (раскрыть).
+// From there the user can hit "Annotation tools / Editor" to edit.
+function openShotViewer(taskId, slotIdx){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  let dataUrl = null;
+  if(slotIdx === 0) dataUrl = t.shot1;
+  else if(slotIdx === 1) dataUrl = t.shot2;
+  else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined) dataUrl = t.shots[slotIdx - 2];
+  if(!dataUrl){ toast('No screenshot in this slot'); return; }
+  if(typeof openLightbox === 'function'){
+    openLightbox(dataUrl, taskId, slotIdx);
+  } else {
+    openExistingShotEditor(taskId, slotIdx); // fallback
+  }
 }
 
 // v0.1.37: open existing screenshot directly in editor (with annotation tools loaded)
@@ -3351,11 +3378,15 @@ function changeStatus(taskId, sid){
 function onDragStart(e, taskId){
   // v0.1.53: allow file drops from Finder — only intercept HTML5 drags between rows.
   if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
-  // Don't start a row-drag from interactive controls inside the row.
+  // v0.1.70: only block drag from genuine input controls. Previously this
+  // list also had .pi / .pi-lbl / .compare-ic / dead .time-ic|.play-ic,
+  // which covered almost the whole row — leaving only the 24px ⋮⋮ strip
+  // draggable, so Roman "could not drag tasks". The screenshot <img> is now
+  // draggable=false (so it won't hijack the drag), and the picture cell is
+  // a valid grab area.
   if(e.target.closest(
     'input, textarea, button, [contenteditable], ' +
-    '.pi, .st, .st-wrap, .tc-status, .st-menu, .nt-chat, .nt-chat-input, ' +
-    '.row-check, .resize-h, .time-ic, .play-ic, .compare-ic, .pi-lbl'
+    '.st, .tc-status, .st-menu, .nt-chat-input, .row-check, .resize-h'
   )){
     e.preventDefault();
     return;
@@ -3363,7 +3394,7 @@ function onDragStart(e, taskId){
   // v0.1.66: drag-reorder is fully enabled — Roman's "минимум кликов" rule.
   dragTaskId = taskId;
   e.target.closest('.row')?.classList.add('dragging');
-  if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; }
+  if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', taskId); } catch(_){} }
 }
 function onDragOver(e){
   e.preventDefault();
@@ -3962,6 +3993,9 @@ document.addEventListener('paste', e => {
 if(window.__TAURI__){
   window.__TAURI__.event.listen('screenshot-ready', e => {
     const newUrl = e.payload.dataUrl;
+    // v0.1.71: an empty/null dataUrl means "autosave-on-close, vectors only".
+    // Must NOT overwrite the slot with null (that erased the screenshot).
+    const hasImage = typeof newUrl === 'string' && newUrl.length > 32;
     // v0.1.62: editor now also returns vector annotations + comments so we
     // can re-open in editable state next time (Phase C #3).
     const annPayload = Array.isArray(e.payload.annotations) ? e.payload.annotations : [];
@@ -3972,11 +4006,13 @@ if(window.__TAURI__){
       pendingAnnotateContext = null;
       const t = TASKS.find(x => x.id === taskId);
       if(t){
-        if(slotIdx === 0 || slotIdx === 1){
-          assignShotToSlot(t, slotIdx, newUrl);
-        } else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined){
-          t.shots[slotIdx - 2] = newUrl;
-          render();
+        if(hasImage){
+          if(slotIdx === 0 || slotIdx === 1){
+            assignShotToSlot(t, slotIdx, newUrl);
+          } else if(Array.isArray(t.shots) && t.shots[slotIdx - 2] !== undefined){
+            t.shots[slotIdx - 2] = newUrl;
+            render();
+          }
         }
         // Persist vector annotations on the task for next-session edit
         t.annotations = annPayload;
@@ -3986,10 +4022,12 @@ if(window.__TAURI__){
             if(error) console.warn('[cloud] annotations save failed:', error.message);
           });
         }
-        toast('✓ Annotations saved to task');
+        if(hasImage) render();
+        toast(hasImage ? '✓ Saved to task' : '✓ Annotations saved');
         return;
       }
     }
+    if(!hasImage) return;  // autosave-on-close with no image + no context — nothing to paste
     // v0.1.39: capture started from slideshow "+ Add" button → attach directly
     if(pendingPresentAttach && presentTask){
       pendingPresentAttach = false;

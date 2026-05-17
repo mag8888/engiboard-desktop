@@ -542,60 +542,58 @@ function redoNext(){
 }
 function clearAll(){if(!annotations.length&&!comments.length) return;pushHistory();annotations=[];comments=[];selId=null;renderAll();updateList();updateCount();}
 
-async function saveTask(){
-  // v0.1.57: mark autosave skipped before doing async work so the close
-  // handler doesn't re-enter saveTask and double-emit screenshot-ready.
+// v0.1.71: ONE hard-close path. destroy() kills the window immediately and
+// does NOT fire onCloseRequested, so there is no close_editor↔onCloseRequested
+// loop (that loop, plus html2canvas throwing, was why the window "не
+// закрывается ни Done/Esc, ни крестиком"). Also tell main to show itself.
+async function forceCloseEditor(){
   _autosaveSkip = true;
-  notify('Saving...');
+  try { if(window.__TAURI__) await window.__TAURI__.core.invoke('show_main'); } catch(_){}
+  if(window.__TAURI__ && window.__TAURI__.window){
+    try {
+      const { getCurrentWindow } = window.__TAURI__.window;
+      await getCurrentWindow().destroy();        // hard kill, no onCloseRequested
+      return;
+    } catch(e){ console.error('destroy failed', e); }
+  }
+  // Fallbacks
+  try { if(window.__TAURI__) await window.__TAURI__.core.invoke('close_editor'); }
+  catch(_){ try { window.close(); } catch(__){} }
+}
+
+async function saveTask(){
+  _autosaveSkip = true;
+  notify('Saving…');
+  let dataUrl = null;
   try{
     const paperEl=document.getElementById('paper');
     const canvas=await html2canvas(paperEl,{backgroundColor:null,scale:window.devicePixelRatio||2,useCORS:true,allowTaint:true,logging:false});
-    const dataUrl=canvas.toDataURL('image/png');
-
-    if(window.__TAURI__){
-      // 1) Сначала emit событие в main — payload now also carries vector
-      //    annotations so the next open can resume editing instead of just
-      //    showing the flat PNG (Phase C #3 from Roman's call).
+    dataUrl=canvas.toDataURL('image/png');
+  }catch(e){
+    // html2canvas can throw (tainted canvas etc). Done must STILL close —
+    // we just skip writing the flattened image back.
+    console.error('html2canvas failed:', e);
+    notify('Could not render image — closing without save');
+  }
+  try{
+    if(window.__TAURI__ && dataUrl){
       await window.__TAURI__.event.emit('screenshot-ready',{
         dataUrl,
         annotations: JSON.parse(JSON.stringify(annotations)),
         comments: JSON.parse(JSON.stringify(comments))
       });
-      // 2) Показать main окно
-      try{await window.__TAURI__.core.invoke('show_main');}catch(e){}
-      // 3) НЕМЕДЛЕННО закрыть — без setTimeout
-      // Закрываем через Rust команду — самый надёжный способ
-      try{
-        await window.__TAURI__.core.invoke('close_editor');
-      }catch(e){
-        try{
-          const{getCurrentWindow}=window.__TAURI__.window;
-          await getCurrentWindow().close();
-        }catch(e2){window.close();}
-      }
-    }else{
+    } else if(!window.__TAURI__ && dataUrl){
       const a=document.createElement('a');a.download='engisnap-'+Date.now()+'.png';a.href=dataUrl;a.click();
-      notify('Downloaded');
+      notify('Downloaded'); return;   // browser: keep window
     }
-  }catch(e){
-    console.error('saveTask error:',e);
-    notify('Error: '+e.message);
-    _autosaveSkip = false; // recover so user can retry
-  }
+  }catch(e){ console.error('emit failed:', e); }
+  await forceCloseEditor();           // ALWAYS close on Done
 }
 
 async function discard(){
-  // v0.1.69: native confirm() is blocked inside the Tauri webview — it
-  // returned undefined so the close never fired ("окно не закрывается").
-  // Discard is an explicit user action: just close without saving.
-  _autosaveSkip = true; // tell onCloseRequested/beforeunload NOT to autosave
-  if(window.__TAURI__){
-    try{ await window.__TAURI__.core.invoke('close_editor'); }
-    catch(e){
-      try{ await window.__TAURI__.window.getCurrentWindow().destroy(); }
-      catch(e2){ window.close(); }
-    }
-  } else { window.close(); }
+  // Explicit user action — close immediately, no save, no confirm
+  // (native confirm() is blocked inside the Tauri webview anyway).
+  await forceCloseEditor();
 }
 
 const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',d:'dimension',b:'blur',q:'comment',m:'marker'};
@@ -623,24 +621,29 @@ document.addEventListener('keydown',e=>{
   if(k==='delete'||k==='backspace'){if(selId) delAnn(selId);}
 });
 
-// v0.1.57: autosave-on-close via Tauri onCloseRequested — prevents the close
-// while saveTask() finishes its async work, then closes for real. beforeunload
-// is unreliable for async flow because the window unloads before emit reaches
-// main. discard() and saveTask() both set _autosaveSkip first to opt out.
+// v0.1.71: onCloseRequested NEVER preventDefault — that was the root cause of
+// the unkillable window (preventDefault → await saveTask → invoke close_editor
+// → w.close() → onCloseRequested again → loop; and if html2canvas threw, the
+// window was held open forever). Now the title-bar ✕ does a best-effort
+// fire-and-forget autosave emit and lets the window close normally. Explicit
+// Done/Discard go through forceCloseEditor() → destroy() (no handler at all).
 let _autosaveSkip = false;
 (async () => {
   if(!window.__TAURI__ || !window.__TAURI__.window) return;
   try {
     const { getCurrentWindow } = window.__TAURI__.window;
-    const win = getCurrentWindow();
-    await win.onCloseRequested(async (event) => {
-      if(_autosaveSkip) return;                       // already saving / discarding
-      if(!annotations.length && !comments.length) return; // nothing to save
-      event.preventDefault();                          // hold the close
-      try { await saveTask(); }
-      catch(e){ console.error('autosave failed', e); _autosaveSkip = true;
-        try{ await win.destroy(); }catch(_){ window.close(); }
-      }
+    await getCurrentWindow().onCloseRequested(() => {
+      if(_autosaveSkip) return;                            // Done/Discard handled it
+      if(!annotations.length && !comments.length) return;  // nothing to save
+      // Fire-and-forget: emit the current vector state so the task keeps it.
+      // We do NOT preventDefault — the window closes right away.
+      try {
+        window.__TAURI__.event.emit('screenshot-ready', {
+          dataUrl: null,
+          annotations: JSON.parse(JSON.stringify(annotations)),
+          comments: JSON.parse(JSON.stringify(comments))
+        });
+      } catch(e){ console.error('close autosave emit failed', e); }
     });
   } catch(e) { console.error('cannot install close handler', e); }
 })();
