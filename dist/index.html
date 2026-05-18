@@ -1517,7 +1517,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.73</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.74</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -3231,10 +3231,15 @@ function renderEmptyRow(){
 }
 
 function renderEmptyRowForProject(projId){
+  // v0.1.74: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
+  // JS binding (it could be missed if render order changed, leaving Enter
+  // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
-      <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
+      <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){const v=this.value.trim();this.value='';createTaskFor('${projId}',v,(PROJECTS.find(p=>p.id==='${projId}')||{})._cloud).then(()=>toast('✓ Task created'));}"
+        style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
