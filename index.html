@@ -1517,7 +1517,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.72</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.73</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2197,6 +2197,11 @@ async function loadFromSupabase(){
       shots: Array.isArray(t.shots_extra) ? t.shots_extra : [],
       timeMin: t.time_min || 0,
       timerStart: t.timer_start ? new Date(t.timer_start).getTime() : null,
+      // v0.1.73 (QA #2): annotations column is now JSONB per-slot object
+      // {"0":[...],"1":[...]}. Tolerate the legacy flat array (→ slot 0).
+      annBySlot: Array.isArray(t.annotations)
+        ? (t.annotations.length ? { 0: t.annotations } : {})
+        : (t.annotations && typeof t.annotations === 'object' ? t.annotations : {}),
       annotations: Array.isArray(t.annotations) ? t.annotations : [],
       _cloud: true
     }));
@@ -3102,8 +3107,8 @@ function renderRow(t){
         <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip"></span>${st.l}
         </span>
-        <span class="ic-btn ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
-        <span class="ic-btn" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+        <span class="ic-btn time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
+        <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
         ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">${ICON('swap')} ${compareLabel}</span>` : ''}
       </div>
     </div>
@@ -3183,12 +3188,20 @@ function openExistingShotEditor(taskId, slotIdx){
   // Set context so editor's save flow puts the annotated image back into this slot
   pendingAnnotateContext = { taskId, slotIdx };
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
-  // v0.1.62 (Phase C #3): pass previously-saved vector annotations / comments
-  // so the editor reopens in the same state instead of starting from scratch.
+  // v0.1.73 (QA #2): annotations/comments are stored PER SLOT now. Previously
+  // a single t.annotations array was shared by BEFORE and AFTER, so opening
+  // AFTER showed BEFORE's arrows. annBySlot = { "0":[...], "1":[...], "2":[...] }.
+  // Backward-compat: a legacy flat t.annotations is treated as slot 0.
+  if(!t.annBySlot && Array.isArray(t.annotations) && t.annotations.length){
+    t.annBySlot = { 0: t.annotations };
+    t.cmtBySlot = { 0: Array.isArray(t.comments) ? t.comments : [] };
+  }
+  t.annBySlot = t.annBySlot || {};
+  t.cmtBySlot = t.cmtBySlot || {};
   const payload = {
     dataUrl,
-    annotations: Array.isArray(t.annotations) ? t.annotations : [],
-    comments:    Array.isArray(t.comments)    ? t.comments    : []
+    annotations: Array.isArray(t.annBySlot[slotIdx]) ? t.annBySlot[slotIdx] : [],
+    comments:    Array.isArray(t.cmtBySlot[slotIdx]) ? t.cmtBySlot[slotIdx] : []
   };
   if(invoke){
     invoke('open_editor_with_image', payload).catch(err => {
@@ -3850,69 +3863,10 @@ function sendChat(){
 
 // ━━━ DASHBOARD ━━━
 function renderDashboard(){
-  // v0.1.58 (Phase A.4): KPI strip = 8 cards (one per status); each project
-  // card has a 2×4 status legend grid and an 8-segment progress bar.
-  const dash = document.getElementById('dash');
-  const totalTasks = TASKS.length;
-
-  // 8 status totals across ALL tasks
-  const statusTotals = STATUSES.map(s => TASKS.filter(t => t.s === s.id).length);
-
-  const kpiCards = STATUSES.map((s, i) => {
-    const cnt = statusTotals[i];
-    const pct = totalTasks ? Math.round(cnt / totalTasks * 100) : 0;
-    return `<div class="ds-card kpi-status" style="border-top-color:${s.c}">
-      <span class="lbl">${s.l}</span>
-      <span class="num" style="color:${s.c}">${cnt}</span>
-      <span class="delta">${pct}% of ${totalTasks}</span>
-    </div>`;
-  }).join('');
-
-  const projCards = PROJECTS.map(p => {
-    const pt = TASKS.filter(t => t.proj === p.id);
-    const total = pt.length;
-    const done = pt.filter(t => t.s === 1).length;
-    const pct = total ? Math.round(done/total*100) : 0;
-    // 8-segment stacked progress bar (one segment per status)
-    const segs = STATUSES.map(s => {
-      const cnt = pt.filter(t => t.s === s.id).length;
-      return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%" title="${s.l}: ${cnt}"></div>` : '';
-    }).join('');
-    // 2×4 grid: one cell per status, .zero opacity when count = 0
-    const legend = STATUSES.map(s => {
-      const cnt = pt.filter(t => t.s === s.id).length;
-      return `<div class="dproj-stat ${cnt === 0 ? 'zero' : ''}" style="--st-color:${s.c}">
-        <div class="dproj-stat-num">${cnt}</div>
-        <div class="dproj-stat-lbl">${s.l}</div>
-      </div>`;
-    }).join('');
-    return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setView('tasks')">
-      <div class="dproj-head">
-        <div><div class="dproj-name">${p.name}</div><div class="dproj-meta">${p.code} · ${p.client}</div></div>
-        <span class="dproj-status-badge ${p.status}">${p.status}</span>
-      </div>
-      <div class="dproj-progress-row">
-        <div class="dproj-pct">${pct}<span class="pct-sym">%</span></div>
-        <div class="dproj-progress-info">
-          <div class="dproj-bar-wrap">${segs}</div>
-          <span class="lbl">${done}/${total} complete</span>
-        </div>
-      </div>
-      <div class="dproj-stats-grid">${legend}</div>
-    </div>`;
-  }).join('');
-
-  const addCard = `<div class="dproj add-new" onclick="openNewProjModal()"><div style="text-align:center"><div style="font-size:36px;margin-bottom:8px;line-height:1">+</div><div style="font-size:13px;font-weight:500">New project</div></div></div>`;
-
-  dash.innerHTML = `
-    <div class="dash-h">
-      <button class="dash-back" onclick="setView('tasks')">← Back to project</button>
-      <h2>Projects <span class="accent">overview</span></h2>
-    </div>
-    <div class="dash-summary dash-summary-8">${kpiCards}</div>
-    <div class="dash-section-title">All projects</div>
-    <div class="dash-grid">${projCards}${addCard}</div>
-  `;
+  // v0.1.73 (QA #3): consolidated. setView('dashboard') is never called
+  // anymore (sidebar uses setSection→renderDashboardSection). Keep this as
+  // a thin alias so the two never diverge again.
+  if(typeof renderDashboardSection === "function") return renderDashboardSection();
 }
 
 // ━━━ NEW PROJECT MODAL ━━━
@@ -4013,11 +3967,16 @@ if(window.__TAURI__){
             render();
           }
         }
-        // Persist vector annotations on the task for next-session edit
-        t.annotations = annPayload;
-        t.comments = cmtPayload;
+        // v0.1.73 (QA #2): persist annotations PER SLOT, not on one shared
+        // array. annBySlot = { "0":[...BEFORE], "1":[...AFTER], "2":[...] }.
+        t.annBySlot = t.annBySlot || {};
+        t.cmtBySlot = t.cmtBySlot || {};
+        t.annBySlot[slotIdx] = annPayload;
+        t.cmtBySlot[slotIdx] = cmtPayload;
+        // keep legacy flat field as slot-0 mirror for any old reader
+        if(slotIdx === 0){ t.annotations = annPayload; t.comments = cmtPayload; }
         if(t._cloud && db && db.ready){
-          db.tasks.update(t.id, { annotations: annPayload }).then(({error}) => {
+          db.tasks.update(t.id, { annotations: t.annBySlot }).then(({error}) => {
             if(error) console.warn('[cloud] annotations save failed:', error.message);
           });
         }
