@@ -1517,7 +1517,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.74</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.75</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1602,7 +1602,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
   <!-- BODY -->
   <div class="body" id="bodyTasks">
     <!-- v0.1.46: .proj-bar removed — picker is now in .tbar -->
-    <button class="proj-floating-action" onclick="openNewProjModal()" title="Create new project">+ New project</button>
+    <!-- v0.1.75: floating "+ New project" removed — accessible via project picker dropdown (pm-add) -->
 
     <div class="filters">
       <!-- v0.1.46: 8 status filter chips with their colors. Order matches STATUSES[]. -->
@@ -2010,7 +2010,9 @@ let presentIdx = -1;
 let presentSlides = [];
 let presentTask = null;
 let openStMenu = null;
-let dragTaskId = null;
+let dragTaskId = null; // legacy — HTML5 drag (file drops only)
+// v0.1.75: mouse-based row reorder (replaces unreliable HTML5 drag in WKWebView)
+let _mDragId = null, _mDragEl = null;
 let collapsedProjects = (() => {
   try { return new Set(JSON.parse(localStorage.getItem('eb_collapsed_projects') || '[]')); }
   catch { return new Set(); }
@@ -3086,15 +3088,11 @@ function renderRow(t){
     ? `${formatTime(totalMin)} · stop`
     : (totalMin > 0 ? `${ICON('clock')} ${formatTime(totalMin)}` : `${ICON('clock')} start`);
   // Bulk select cell — replaces drag-handle
+  // v0.1.75: drag handle fires mouse-based reorder (HTML5 drag removed from row)
   const firstCell = selectMode
     ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
-    : `<div class="drag-handle">⋮⋮</div>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" draggable="${selectMode?'false':'true'}" style="min-height:${height}px"
-    ${selectMode ? '' : `ondragstart="onDragStart(event,'${t.id}')"
-    ondragover="onDragOver(event)"
-    ondragleave="onDragLeave(event)"
-    ondrop="onDropTask(event,'${t.id}')"
-    ondragend="onDragEnd(event)"`}
+    : `<div class="drag-handle" onmousedown="event.stopPropagation();dragHandleDown(event,'${t.id}')">⋮⋮</div>`;
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="min-height:${height}px"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${firstCell}
     <!-- v0.1.46: chat moved BEFORE title-col (chat is now leftmost data column) -->
@@ -3231,7 +3229,7 @@ function renderEmptyRow(){
 }
 
 function renderEmptyRowForProject(projId){
-  // v0.1.74: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
+  // v0.1.75: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
   // JS binding (it could be missed if render order changed, leaving Enter
   // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
@@ -3391,72 +3389,74 @@ function changeStatus(taskId, sid){
   }
 }
 
-// ━━━ DRAG REORDER ━━━
-function onDragStart(e, taskId){
-  // v0.1.53: allow file drops from Finder — only intercept HTML5 drags between rows.
-  if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
-  // v0.1.70: only block drag from genuine input controls. Previously this
-  // list also had .pi / .pi-lbl / .compare-ic / dead .time-ic|.play-ic,
-  // which covered almost the whole row — leaving only the 24px ⋮⋮ strip
-  // draggable, so Roman "could not drag tasks". The screenshot <img> is now
-  // draggable=false (so it won't hijack the drag), and the picture cell is
-  // a valid grab area.
-  if(e.target.closest(
-    'input, textarea, button, [contenteditable], ' +
-    '.st, .tc-status, .st-menu, .nt-chat-input, .row-check, .resize-h'
-  )){
-    e.preventDefault();
-    return;
+// ━━━ DRAG REORDER (mouse-based, v0.1.75) ━━━
+// HTML5 drag removed from rows — unreliable in Tauri/WKWebView.
+// File drops onto .pi/.pres-pic handled by document-level listeners.
+// Row reorder: mousedown on ⋮⋮ handle → mousemove → mouseup.
+
+function dragHandleDown(e, taskId){
+  if(selectMode || e.button !== 0) return;
+  e.preventDefault();
+  _mDragId = taskId;
+  _mDragEl = e.target.closest('.row');
+  if(_mDragEl) _mDragEl.classList.add('dragging');
+  document.addEventListener('mousemove', _mDragMove, {capture:true});
+  document.addEventListener('mouseup',   _mDragUp,   {capture:true});
+}
+function _mDragMove(e){
+  if(!_mDragId) return;
+  document.querySelectorAll('.row[data-task-id]').forEach(r =>
+    r.classList.remove('drag-over-top','drag-over-bottom'));
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  const tgt = els.find(el =>
+    el.classList?.contains('row') &&
+    el.dataset?.taskId &&
+    el.dataset.taskId !== _mDragId &&
+    el.dataset.taskId !== 'new');
+  if(tgt){
+    const rect = tgt.getBoundingClientRect();
+    tgt.classList.add((e.clientY - rect.top) < rect.height/2 ? 'drag-over-top' : 'drag-over-bottom');
   }
-  // v0.1.66: drag-reorder is fully enabled — Roman's "минимум кликов" rule.
-  dragTaskId = taskId;
-  e.target.closest('.row')?.classList.add('dragging');
-  if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', taskId); } catch(_){} }
 }
-function onDragOver(e){
-  e.preventDefault();
-  if(!dragTaskId) return;
-  const row = e.currentTarget;
-  if(row.dataset.taskId === dragTaskId || row.dataset.taskId === 'new') return;
-  document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
-  const rect = row.getBoundingClientRect();
-  const isTop = (e.clientY - rect.top) < rect.height / 2;
-  row.classList.add(isTop ? 'drag-over-top' : 'drag-over-bottom');
-}
-function onDragLeave(e){
-  e.currentTarget.classList.remove('drag-over-top','drag-over-bottom');
-}
-function onDropTask(e, targetId){
-  e.preventDefault();
-  if(!dragTaskId || dragTaskId === targetId || targetId === 'new') return;
-  const fromIdx = TASKS.findIndex(t => t.id === dragTaskId);
-  const toIdx = TASKS.findIndex(t => t.id === targetId);
-  if(fromIdx < 0 || toIdx < 0) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const isTop = (e.clientY - rect.top) < rect.height / 2;
-  const [item] = TASKS.splice(fromIdx, 1);
-  const insertAt = TASKS.findIndex(t => t.id === targetId);
-  TASKS.splice(isTop ? insertAt : insertAt + 1, 0, item);
-  document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
-  // v0.1.66: persist new order. Update sort_order for all tasks in the same
-  // project so the next reload picks up the manual order.
-  const projTasks = TASKS.filter(t => t.proj === item.proj);
-  projTasks.forEach((t, idx) => { t.uid = idx + 1; });
-  if(db && db.ready){
-    projTasks.forEach((t, idx) => {
-      if(t._cloud){
-        db.tasks.update(t.id, { sort_order: idx, position: idx + 1 })
-          .catch(e => console.warn('[cloud] sort persist failed:', t.id, e.message));
+function _mDragUp(e){
+  document.removeEventListener('mousemove', _mDragMove, {capture:true});
+  document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
+  document.querySelectorAll('.row').forEach(r =>
+    r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  const tgt = els.find(el =>
+    el.classList?.contains('row') &&
+    el.dataset?.taskId &&
+    el.dataset.taskId !== _mDragId &&
+    el.dataset.taskId !== 'new');
+  if(tgt && _mDragId){
+    const fromIdx = TASKS.findIndex(t => t.id === _mDragId);
+    if(fromIdx >= 0){
+      const rect = tgt.getBoundingClientRect();
+      const isTop = (e.clientY - rect.top) < rect.height/2;
+      const [item] = TASKS.splice(fromIdx, 1);
+      const ins = TASKS.findIndex(t => t.id === tgt.dataset.taskId);
+      if(ins >= 0){
+        TASKS.splice(isTop ? ins : ins+1, 0, item);
+        const projTasks = TASKS.filter(t => t.proj === item.proj);
+        projTasks.forEach((t,i) => { t.uid = i+1; });
+        if(db?.ready){
+          projTasks.forEach((t,i) => {
+            if(t._cloud) db.tasks.update(t.id,{sort_order:i,position:i+1}).catch(()=>{});
+          });
+        }
+        render();
       }
-    });
+    }
   }
-  render();
+  _mDragId = null; _mDragEl = null;
 }
-function onDragEnd(e){
-  e.target.closest('.row')?.classList.remove('dragging');
-  document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
-  dragTaskId = null;
-}
+// Stub legacy HTML5 drag handlers (no longer wired to rows, kept to avoid errors)
+function onDragStart(){}
+function onDragEnd(){ dragTaskId = null; }
+function onDragOver(e){ e.preventDefault(); }
+function onDropTask(){}
+function onDragLeave(){}
 
 // ━━━ RESIZE HEIGHT ━━━
 function onResizeStart(e, taskId){
