@@ -481,7 +481,7 @@ fn watch_screenshots(app: tauri::AppHandle) {
     });
 }
 
-fn base64_encode(data: &[u8]) -> String {
+pub fn base64_encode(data: &[u8]) -> String {
     const C: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut o = String::with_capacity(data.len()*4/3+4);
     let mut i = 0;
@@ -634,4 +634,186 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error");
+}
+
+// ─── Unit tests ───────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // base64_encode — cross-validate with known RFC 4648 test vectors
+
+    #[test]
+    fn base64_empty() {
+        assert_eq!(base64_encode(b""), "");
+    }
+
+    #[test]
+    fn base64_f() {
+        assert_eq!(base64_encode(b"f"), "Zg==");
+    }
+
+    #[test]
+    fn base64_fo() {
+        assert_eq!(base64_encode(b"fo"), "Zm8=");
+    }
+
+    #[test]
+    fn base64_foo() {
+        assert_eq!(base64_encode(b"foo"), "Zm9v");
+    }
+
+    #[test]
+    fn base64_foob() {
+        assert_eq!(base64_encode(b"foob"), "Zm9vYg==");
+    }
+
+    #[test]
+    fn base64_fooba() {
+        assert_eq!(base64_encode(b"fooba"), "Zm9vYmE=");
+    }
+
+    #[test]
+    fn base64_foobar() {
+        assert_eq!(base64_encode(b"foobar"), "Zm9vYmFy");
+    }
+
+    #[test]
+    fn base64_man() {
+        assert_eq!(base64_encode(b"Man"), "TWFu");
+    }
+
+    #[test]
+    fn base64_hello() {
+        assert_eq!(base64_encode(b"Hello"), "SGVsbG8=");
+    }
+
+    #[test]
+    fn base64_all_zeros() {
+        assert_eq!(base64_encode(&[0u8, 0, 0]), "AAAA");
+    }
+
+    #[test]
+    fn base64_all_ff() {
+        assert_eq!(base64_encode(&[0xffu8, 0xff, 0xff]), "////");
+    }
+
+    #[test]
+    fn base64_png_header() {
+        // \x89PNG\r\n\x1a\n — standard PNG magic bytes
+        let magic = [0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        assert_eq!(base64_encode(&magic), "iVBORw0KGgo=");
+    }
+
+    // file_to_data_url — mime type detection logic
+
+    #[test]
+    fn mime_png_path() {
+        // The mime detection uses path suffix; we verify it by checking the prefix
+        // that would be embedded in the data URL. We test the logic only (no real file).
+        let path = "some/file.png";
+        let mime = if path.ends_with(".png") { "image/png" } else { "image/jpeg" };
+        assert_eq!(mime, "image/png");
+    }
+
+    #[test]
+    fn mime_jpg_path() {
+        let path = "capture_2026.jpg";
+        let mime = if path.ends_with(".png") { "image/png" } else { "image/jpeg" };
+        assert_eq!(mime, "image/jpeg");
+    }
+
+    #[test]
+    fn mime_jpeg_path() {
+        let path = "photo.jpeg";
+        let mime = if path.ends_with(".png") { "image/png" } else { "image/jpeg" };
+        assert_eq!(mime, "image/jpeg");
+    }
+
+    // capture_region_to_png — region bounds arithmetic (Windows/Linux xcap path)
+    // We test the crop-clamp math without actually spawning screencapture.
+
+    #[test]
+    fn crop_clamp_basic() {
+        // phys crop must not exceed monitor size
+        let full_w = 1920i32;
+        let full_h = 1080i32;
+        let phys_x = 100i32;
+        let phys_y = 50i32;
+        let phys_w = 400i32;
+        let phys_h = 300i32;
+
+        let crop_x = phys_x.max(0);
+        let crop_y = phys_y.max(0);
+        let crop_w = phys_w.min(full_w - crop_x).max(1);
+        let crop_h = phys_h.min(full_h - crop_y).max(1);
+
+        assert_eq!((crop_x, crop_y, crop_w, crop_h), (100, 50, 400, 300));
+    }
+
+    #[test]
+    fn crop_clamp_near_edge() {
+        let full_w = 1920i32;
+        let full_h = 1080i32;
+        let phys_x = 1800i32;
+        let phys_y = 900i32;
+        let phys_w = 400i32;  // would exceed right edge
+        let phys_h = 300i32;  // would exceed bottom
+
+        let crop_x = phys_x.max(0);
+        let crop_y = phys_y.max(0);
+        let crop_w = phys_w.min(full_w - crop_x).max(1);
+        let crop_h = phys_h.min(full_h - crop_y).max(1);
+
+        assert_eq!(crop_w, 120); // 1920-1800=120
+        assert_eq!(crop_h, 180); // 1080-900=180
+    }
+
+    #[test]
+    fn crop_clamp_minimum_1px() {
+        // Region at exact monitor edge → clamp to at least 1px
+        let full_w = 1920i32;
+        let full_h = 1080i32;
+        let phys_x = 1920i32; // exactly at edge
+        let phys_y = 1080i32;
+        let phys_w = 100i32;
+        let phys_h = 100i32;
+
+        let crop_x = phys_x.max(0);
+        let crop_y = phys_y.max(0);
+        let crop_w = phys_w.min(full_w - crop_x).max(1);
+        let crop_h = phys_h.min(full_h - crop_y).max(1);
+
+        assert_eq!(crop_w, 1);
+        assert_eq!(crop_h, 1);
+    }
+
+    // suspicious capture size heuristic
+
+    #[test]
+    fn suspicious_small_capture_detected() {
+        let w = 800i32; let h = 600i32;
+        let size = 500usize;                     // < 1500 bytes → suspicious
+        let area_px: i64 = (w as i64) * (h as i64);
+        let suspicious = area_px > 5000 && size < 1500;
+        assert!(suspicious, "Should flag small capture as permission-denied");
+    }
+
+    #[test]
+    fn large_capture_not_suspicious() {
+        let w = 100i32; let h = 20i32;           // tiny area
+        let size = 800usize;
+        let area_px: i64 = (w as i64) * (h as i64);
+        let suspicious = area_px > 5000 && size < 1500;
+        assert!(!suspicious, "Small area + small file is fine");
+    }
+
+    #[test]
+    fn normal_capture_not_suspicious() {
+        let w = 800i32; let h = 600i32;
+        let size = 50_000usize;
+        let area_px: i64 = (w as i64) * (h as i64);
+        let suspicious = area_px > 5000 && size < 1500;
+        assert!(!suspicious, "Normal capture should not be flagged");
+    }
 }

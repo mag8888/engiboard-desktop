@@ -56,6 +56,17 @@ html,body{
 
 #cross-h{position:fixed;left:0;right:0;height:1px;background:rgba(37,99,235,.3);pointer-events:none;z-index:2}
 #cross-v{position:fixed;top:0;bottom:0;width:1px;background:rgba(37,99,235,.3);pointer-events:none;z-index:2}
+
+#cancel-btn{
+  position:fixed;top:16px;right:16px;z-index:10;
+  width:32px;height:32px;border-radius:50%;
+  background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.3);
+  color:#fff;font-size:18px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-family:-apple-system,sans-serif;
+  transition:background .15s
+}
+#cancel-btn:hover{background:rgba(239,68,68,.75);border-color:rgba(239,68,68,.8)}
 </style>
 </head>
 <body>
@@ -66,6 +77,7 @@ html,body{
 <div id="cross-h"></div>
 <div id="cross-v"></div>
 <div id="hint">Выдели область экрана · <kbd>Esc</kbd> отмена</div>
+<button id="cancel-btn" onclick="cancel()" title="Cancel (Esc)">×</button>
 
 <script>
 const sel = document.getElementById('sel');

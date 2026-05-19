@@ -153,6 +153,19 @@ img[src=""], img:not([src]) { display: none }
   margin-top:24px;padding-top:18px;border-top:1px solid var(--line);
   font-size:11px;color:var(--t3);text-align:center;line-height:1.5
 }
+.lp-tabs{display:flex;gap:0;margin-bottom:14px;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.lp-tab{flex:1;padding:7px 0;font-size:12px;font-weight:600;cursor:pointer;background:none;border:none;color:var(--t3);transition:.12s;font-family:inherit}
+.lp-tab.on{background:var(--acc);color:#fff}
+.lp-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.lp-label{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.05em;text-transform:uppercase}
+.lp-input{border:1px solid var(--line-2);border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1);transition:.12s}
+.lp-input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(14,165,233,.15)}
+.lp-err{font-size:11px;color:#EF4444;min-height:16px;margin-bottom:2px}
+.lp-role{display:flex;gap:6px;margin-bottom:10px}
+.lp-role-btn{flex:1;padding:7px 4px;font-size:11px;font-weight:600;border:1.5px solid var(--line-2);border-radius:8px;cursor:pointer;background:none;color:var(--t2);transition:.12s;font-family:inherit}
+.lp-role-btn.on{border-color:var(--acc);background:rgba(14,165,233,.08);color:var(--acc)}
+.lp-ghost-btn{display:block;width:100%;border:1.5px solid var(--line-2);background:transparent;color:var(--t2);padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:0;transition:.12s}
+.lp-ghost-btn:hover{border-color:var(--acc);color:var(--acc)}
 
 /* ━━━ APP SHELL ━━━ */
 .app{display:none;flex-direction:column;height:100vh;width:100vw;background:var(--surf)}
@@ -186,10 +199,12 @@ body.platform-linux .tl-spacer{width:0;display:none}
 }
 body.sb-collapsed .brand{width:auto;padding-right:18px}
 .brand .mark{
-  width:26px;height:26px;border-radius:7px;
+  width:26px;height:26px;border-radius:7px;flex-shrink:0;
   background:linear-gradient(135deg,var(--acc-2),var(--acc));
   display:flex;align-items:center;justify-content:center;
-  font-size:13px;font-weight:700;color:#fff
+  font-size:13px;font-weight:800;color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
+  line-height:1;letter-spacing:0
 }
 
 .proj-switch{
@@ -504,7 +519,8 @@ body.select-mode .row{cursor:pointer}
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
-  font-size:16px;opacity:.5;transition:opacity .12s,color .12s;user-select:none
+  font-size:14px;opacity:.5;transition:opacity .12s,color .12s;user-select:none;
+  letter-spacing:-1px
 }
 .row:hover .drag-handle{opacity:1;color:var(--acc)}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
@@ -662,6 +678,7 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 .row .nt-chat-msg .av.RM{background:linear-gradient(135deg,#34D399,#059669)}
 .row .nt-chat-msg .av.AT{background:linear-gradient(135deg,#FBBF24,#D97706)}
 .row .nt-chat-msg .av.DM{background:linear-gradient(135deg,#F472B6,#DB2777)}
+.row .nt-chat-msg .av.AI{background:linear-gradient(135deg,#6366F1,#4F46E5)}
 .row .nt-chat-msg .txt{flex:1;min-width:0;color:var(--t2);word-break:break-word}
 .row .nt-chat-msg .txt b{color:var(--t1);font-weight:600;margin-right:3px}
 .row .nt-chat-msg .ts{font-size:9px;color:var(--t4);font-family:var(--mono);flex-shrink:0;margin-top:2px;opacity:.7}
@@ -683,6 +700,73 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 body.dark-mode .row .nt-chat{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.05)}
 body.dark-mode .row .nt-chat-msg:hover{background:rgba(14,165,233,.1)}
 body.dark-mode .row .nt-chat-input{background:rgba(255,255,255,.03)}
+/* Checklist panel (v0.1.78) */
+.cl-panel{
+  grid-column:1/-1;padding:7px 12px 9px 24px;
+  border-top:1px solid var(--line);background:rgba(248,250,252,.6);
+  display:none;flex-direction:column;gap:3px
+}
+.cl-panel.open{display:flex}
+body.dark-mode .cl-panel{background:rgba(255,255,255,.025)}
+.cl-item{display:flex;align-items:center;gap:7px;padding:1px 0}
+.cl-item input[type=checkbox]{width:13px;height:13px;cursor:pointer;flex-shrink:0;accent-color:var(--acc);margin:0}
+.cl-item-text{
+  flex:1;font-size:12px;color:var(--t1);background:none;border:none;outline:none;
+  font-family:inherit;padding:2px 4px;border-radius:3px;min-width:0
+}
+.cl-item-text:focus{background:rgba(14,165,233,.06);outline:1px solid rgba(14,165,233,.25)}
+.cl-item.done .cl-item-text{text-decoration:line-through;color:var(--t4)}
+.cl-item-del{
+  border:none;background:none;color:var(--t4);cursor:pointer;
+  padding:0 4px;font-size:14px;opacity:0;transition:opacity .12s;line-height:1;flex-shrink:0
+}
+.cl-item:hover .cl-item-del{opacity:1}
+.cl-add{display:flex;align-items:center;gap:6px;padding:4px 0 0}
+.cl-add input{
+  flex:1;border:none;border-bottom:1px solid var(--line-2);background:none;
+  font-size:12px;font-family:inherit;padding:2px 4px;color:var(--t1);outline:none
+}
+.cl-add input:focus{border-bottom-color:var(--acc)}
+.cl-add input::placeholder{color:var(--t4)}
+.cl-badge{
+  display:inline-flex;align-items:center;
+  font-size:9.5px;font-family:var(--mono);padding:1px 5px;
+  border-radius:3px;background:rgba(14,165,233,.12);color:var(--acc);font-weight:700
+}
+.ic-btn.cl-ic.active{color:var(--acc)}
+/* GDrive links panel (v0.1.78) */
+.links-panel{
+  grid-column:1/-1;padding:7px 12px 9px 24px;
+  border-top:1px solid var(--line);background:rgba(240,249,255,.5);
+  display:none;flex-direction:column;gap:4px
+}
+.links-panel.open{display:flex}
+body.dark-mode .links-panel{background:rgba(14,165,233,.04)}
+.link-item{display:flex;align-items:center;gap:7px;padding:2px 0}
+.link-item-ico{flex-shrink:0;opacity:.7}
+.link-item-title{
+  flex:1;font-size:12px;color:var(--acc);text-decoration:none;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer
+}
+.link-item-title:hover{text-decoration:underline}
+.link-item-del{
+  border:none;background:none;color:var(--t4);cursor:pointer;
+  padding:0 4px;font-size:13px;opacity:0;transition:opacity .12s;line-height:1;flex-shrink:0
+}
+.link-item:hover .link-item-del{opacity:1}
+.links-add{display:flex;align-items:center;gap:6px;padding:4px 0 0}
+.links-add input{
+  flex:1;border:none;border-bottom:1px solid var(--line-2);background:none;
+  font-size:12px;font-family:inherit;padding:2px 4px;color:var(--t1);outline:none
+}
+.links-add input:focus{border-bottom-color:var(--acc)}
+.links-add input::placeholder{color:var(--t4)}
+.link-badge{
+  display:inline-flex;align-items:center;
+  font-size:9.5px;font-family:var(--mono);padding:1px 5px;
+  border-radius:3px;background:rgba(14,165,233,.12);color:var(--acc);font-weight:700
+}
+.ic-btn.lnk-ic.active{color:var(--acc)}
 .row .nt-mt{font-size:11px;color:var(--t3);font-family:var(--mono);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .row .nt-mt .play-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -1109,11 +1193,11 @@ body.sb-collapsed #chatPop{left:54px}
 /* Presentation */
 #present{
   display:none;position:fixed;inset:0;z-index:9050;background:rgba(15,23,42,.85);backdrop-filter:blur(8px);
-  align-items:center;justify-content:center;padding:48px
+  align-items:center;justify-content:center;padding:16px
 }
 #present.on{display:flex}
 .pres-card{
-  background:var(--surf);border-radius:14px;width:80vw;max-width:1280px;max-height:84vh;
+  background:var(--surf);border-radius:14px;width:94vw;max-width:none;max-height:94vh;
   overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5)
 }
 .pres-head{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
@@ -1178,6 +1262,17 @@ body.sb-collapsed #chatPop{left:54px}
   border-radius:14px;font-weight:600;font-family:inherit
 }
 .pres-chat-foot button:hover{background:var(--acc-d)}
+/* Pres checklist */
+.pres-cl{border-top:1px solid var(--line);flex-shrink:0;padding:10px 14px 12px}
+.pres-cl-head{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.04em;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.pres-cl .cl-item{padding:2px 0;gap:8px}
+.pres-cl .cl-item-text{font-size:12px;background:none;border:none;outline:none;font-family:inherit;cursor:pointer}
+.pres-cl .cl-item.done .cl-item-text{text-decoration:line-through;color:var(--t4)}
+.pres-cl .cl-add{padding:4px 0 0;gap:6px}
+.pres-cl .cl-add input{
+  flex:1;border:none;border-bottom:1px solid var(--line-2);background:none;
+  font-size:12px;font-family:inherit;padding:2px 4px;color:var(--t1);outline:none}
+.pres-cl .cl-add input:focus{border-bottom-color:var(--acc)}
 
 /* Dashboard */
 #dash{display:none;position:fixed;inset:46px 0 0 0;z-index:100;background:var(--bg);overflow:auto}
@@ -1284,6 +1379,20 @@ body.sb-collapsed #chatPop{left:54px}
 .npm-foot button{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .npm-cancel{border:1px solid var(--line-2);background:var(--surf);color:var(--t2)}
 .npm-create{border:none;background:var(--acc);color:#fff}
+
+/* v0.1.77: confirm + rename-project modals (replaces window.confirm / prompt) */
+#confirmModal,#renameProjModal{
+  display:none;position:fixed;inset:0;z-index:9300;background:rgba(15,23,42,.5);
+  backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:48px
+}
+#confirmModal.on,#renameProjModal.on{display:flex}
+.confirm-card{background:var(--surf);border-radius:14px;padding:24px;width:360px;box-shadow:0 24px 80px rgba(0,0,0,.3)}
+.confirm-card h3{font-size:15px;font-weight:600;margin-bottom:10px}
+.confirm-card p{font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:20px}
+.confirm-foot{display:flex;gap:8px;justify-content:flex-end}
+.confirm-foot button{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.confirm-cancel{border:1px solid var(--line-2);background:var(--surf);color:var(--t2)}
+.confirm-ok{border:none;background:#EF4444;color:#fff}
 
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -1470,6 +1579,88 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 }
 .sc-mouse svg{width:11px;height:11px}
 
+/* ━━━ RECORDINGS (Stage 4.2 + 4.3) ━━━ */
+.rec-page{padding:24px 28px;max-width:820px;width:100%}
+.rec-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.rec-title{font-size:17px;font-weight:700;color:var(--t1)}
+.rec-subtitle{font-size:11px;color:var(--t3);margin-top:2px}
+.rec-upload-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0}
+.rec-upload-btn:hover{filter:brightness(1.08)}
+.rec-keys{background:rgba(14,165,233,.04);border:1px solid rgba(14,165,233,.15);border-radius:10px;padding:14px 16px;margin-bottom:18px}
+.rec-keys-h{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+.rec-key-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rec-key-row:last-child{margin-bottom:0}
+.rec-key-lbl{font-size:11px;color:var(--t2);width:90px;flex-shrink:0;font-weight:600}
+.rec-key-inp{flex:1;border:1px solid var(--line-2);border-radius:6px;padding:6px 10px;font-size:11px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)}
+.rec-key-inp:focus{border-color:var(--acc)}
+.rec-key-save{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--acc);background:var(--acc);color:#fff;font-family:inherit}
+.rec-queue{display:flex;flex-direction:column;gap:10px}
+.rec-empty{text-align:center;padding:52px 24px;color:var(--t4);font-size:13px;line-height:1.7}
+.rec-item{background:var(--surf);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.rec-item-head{display:flex;align-items:center;gap:10px;padding:11px 14px}
+.rec-item-icon{width:32px;height:32px;border-radius:8px;background:rgba(14,165,233,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rec-item-info{flex:1;min-width:0}
+.rec-item-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-item-meta{font-size:10px;color:var(--t3);margin-top:1px;font-family:var(--mono)}
+.rec-pill{font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;letter-spacing:.04em;flex-shrink:0}
+.rec-pill-queued{background:rgba(100,116,139,.1);color:#64748B}
+.rec-pill-transcribing{background:rgba(245,158,11,.12);color:#D97706}
+.rec-pill-transcribed{background:rgba(99,102,241,.1);color:#4F46E5}
+.rec-pill-extracting{background:rgba(99,102,241,.15);color:#4338CA}
+.rec-pill-done{background:rgba(34,197,94,.1);color:#16A34A}
+.rec-pill-error{background:rgba(239,68,68,.1);color:#DC2626}
+.rec-item-btns{display:flex;gap:6px;flex-shrink:0}
+.rec-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--line-2);background:none;color:var(--t2);font-family:inherit;transition:.1s}
+.rec-btn:hover{border-color:var(--acc);color:var(--acc)}
+.rec-btn.ok{background:var(--acc);color:#fff;border-color:var(--acc)}
+.rec-btn.ok:hover{filter:brightness(1.08)}
+.rec-btn.del{color:#EF4444}.rec-btn.del:hover{border-color:#EF4444}
+.rec-transcript{padding:0 14px;border-top:1px solid var(--line);display:none}
+.rec-transcript.open{display:block}
+.rec-transcript-text{font-size:10.5px;color:var(--t2);line-height:1.65;padding:10px 0 12px;white-space:pre-wrap;font-family:var(--mono);max-height:180px;overflow-y:auto}
+.rec-progress{height:3px;background:var(--line);margin:0 14px 10px}
+.rec-progress-bar{height:100%;background:var(--acc);border-radius:2px;transition:width .4s}
+/* Task Templates */
+.tmpl-picker{position:absolute;bottom:calc(100% + 4px);left:0;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);z-index:400;min-width:220px;max-width:300px;padding:4px 0}
+.tmpl-picker-head{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:7px 12px 4px}
+.tmpl-sep{height:1px;background:var(--line);margin:4px 0}
+.tmpl-item{display:flex;align-items:center;gap:6px;padding:7px 12px;cursor:pointer;transition:.1s}
+.tmpl-item:hover{background:var(--hover)}
+.tmpl-item-name{flex:1;font-size:12px;font-weight:500;color:var(--t1)}
+.tmpl-item-ct{font-size:10px;color:var(--t3);font-family:var(--mono);flex-shrink:0}
+.tmpl-item-del{color:var(--t4);font-size:11px;cursor:pointer;padding:1px 5px;border-radius:4px;border:none;background:none;line-height:1;flex-shrink:0}
+.tmpl-item-del:hover{color:#EF4444;background:rgba(239,68,68,.1)}
+.tmpl-empty{padding:10px 12px;font-size:11px;color:var(--t3);text-align:center}
+.tmpl-save-row{padding:8px 10px}
+.tmpl-save-inp{border:1px solid var(--line-2);border-radius:7px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1);width:100%;box-sizing:border-box}
+.tmpl-save-inp:focus{border-color:var(--acc)}
+.tmpl-save-btns{display:flex;gap:5px;margin-top:6px}
+.tmpl-save-ok{flex:1;padding:6px;border-radius:7px;border:none;background:var(--acc);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.tmpl-save-cancel{padding:6px 10px;border-radius:7px;border:1px solid var(--line-2);background:none;color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit}
+/* Draft tasks modal */
+.draft-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
+.draft-modal{background:var(--surf);border:1px solid var(--line);border-radius:14px;width:580px;max-width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(15,23,42,.2)}
+.draft-modal-h{padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-shrink:0}
+.draft-modal-title{font-size:15px;font-weight:700;color:var(--t1)}
+.draft-modal-sub{font-size:11px;color:var(--t3);margin-top:2px}
+.draft-modal-x{width:28px;height:28px;border-radius:50%;border:none;background:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.draft-modal-x:hover{background:var(--line);color:var(--t1)}
+.draft-list{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.draft-task{border:1.5px solid var(--line-2);border-radius:9px;padding:11px 13px;transition:.12s}
+.draft-task.accepted{border-color:#22C55E;background:rgba(34,197,94,.05)}
+.draft-task.rejected{opacity:.38;pointer-events:none}
+.draft-task-top{display:flex;align-items:flex-start;gap:8px}
+.draft-task-title{font-size:13px;font-weight:600;color:var(--t1);flex:1}
+.draft-task-st{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(14,165,233,.1);color:var(--acc);flex-shrink:0}
+.draft-task-detail{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4}
+.draft-task-acts{display:flex;gap:6px;margin-top:8px}
+.draft-task-accept{padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #22C55E;background:rgba(34,197,94,.08);color:#16A34A;font-family:inherit}
+.draft-task-accept:hover{background:#22C55E;color:#fff}
+.draft-task-reject{padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--line-2);background:none;color:var(--t3);font-family:inherit}
+.draft-task-reject:hover{border-color:#EF4444;color:#EF4444}
+.draft-modal-foot{padding:12px 16px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+.draft-modal-foot-ct{font-size:11px;color:var(--t3)}
+
 .sc-tip{
   background:linear-gradient(135deg,#EFF6FF,#F0F9FF);border:1px solid rgba(14,165,233,.15);
   border-radius:10px;padding:14px 16px;margin-top:18px;
@@ -1498,8 +1689,38 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       Sign in with Google
     </button>
     <div class="lp-or">OR</div>
-    <button class="dbtn" onclick="loginDemo()">▸ Try demo (local only)</button>
-    <div class="lp-foot">Sign in syncs with team across devices. Demo runs offline only.</div>
+
+    <!-- Email / password form -->
+    <div id="lpEmailForm">
+      <div class="lp-tabs">
+        <button class="lp-tab on" id="lpTabSignin" onclick="setAuthMode('signin')">Sign in</button>
+        <button class="lp-tab" id="lpTabSignup" onclick="setAuthMode('signup')">Sign up</button>
+      </div>
+      <div class="lp-field">
+        <label class="lp-label">Email</label>
+        <input class="lp-input" id="lpEmail" type="email" placeholder="you@company.com"
+          onkeydown="if(event.key==='Enter')document.getElementById('lpPass').focus()">
+      </div>
+      <div class="lp-field">
+        <label class="lp-label">Password</label>
+        <input class="lp-input" id="lpPass" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')lpSubmit()">
+      </div>
+      <div id="lpRoleRow" style="display:none;margin-bottom:10px">
+        <div class="lp-label" style="margin-bottom:6px">Your role</div>
+        <div class="lp-role">
+          <button class="lp-role-btn on" id="roleEngineer" onclick="selectRole('engineer')">Engineer</button>
+          <button class="lp-role-btn" id="roleLead" onclick="selectRole('lead')">Lead</button>
+          <button class="lp-role-btn" id="roleAdmin" onclick="selectRole('admin')">Admin</button>
+        </div>
+      </div>
+      <div class="lp-err" id="lpErr"></div>
+      <button class="dbtn" id="lpSubmitBtn" onclick="lpSubmit()">Sign in</button>
+    </div>
+
+    <div class="lp-or" style="margin-top:14px">OR</div>
+    <button class="lp-ghost-btn" onclick="loginDemo()">▸ Demo (offline only)</button>
+    <div class="lp-foot">Sign in syncs tasks across your team. Demo is local only.</div>
   </div>
 </div>
 
@@ -1517,7 +1738,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.74</span></div>
+    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.81</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1581,6 +1802,11 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
           <span data-t="sb.shortcuts">Shortcuts</span>
         </div>
+        <div class="sb-i" data-sec="recordings" data-label="Recordings" onclick="setSection('recordings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          <span>Recordings</span>
+          <span class="sb-ct" id="sbRecCount" style="display:none">0</span>
+        </div>
       </div>
       <div class="sb-bottom">
         <!-- v0.1.46: language toggle removed — EN-only build -->
@@ -1602,7 +1828,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
   <!-- BODY -->
   <div class="body" id="bodyTasks">
     <!-- v0.1.46: .proj-bar removed — picker is now in .tbar -->
-    <button class="proj-floating-action" onclick="openNewProjModal()" title="Create new project">+ New project</button>
+    <!-- v0.1.75: floating "+ New project" removed — accessible via project picker dropdown (pm-add) -->
 
     <div class="filters">
       <!-- v0.1.46: 8 status filter chips with their colors. Order matches STATUSES[]. -->
@@ -1620,7 +1846,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip fc-up"   data-f="7">Updated</button>
       <button class="chip fc-done" data-f="1">Done</button>
       <span style="flex:1"></span>
-      <button class="chip" onclick="exportPDF()" title="Export PDF report — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
+      <button class="chip" onclick="exportPDF()" title="Export PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
+      <button class="chip" onclick="exportWeeklySummaryPDF()" title="Export weekly summary PDF" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">Weeks</button>
       <button class="chip" onclick="document.getElementById('csvFileInp').click()" title="Import tasks from CSV — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">CSV</button>
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <input type="file" id="csvFileInp" accept=".csv,text/csv" style="display:none" onchange="handleCSVFile(event)">
@@ -1649,6 +1876,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 
   <!-- PROFILE VIEW (in main-area) -->
   <div id="profileView" class="section-view"></div>
+  <div id="recordingsView" class="section-view"></div>
+  <input type="file" id="recFileInp" accept="audio/*,video/*,.mp3,.mp4,.m4a,.wav,.webm,.ogg,.flac" multiple style="display:none" onchange="handleRecordingUpload(event)">
 
     </div><!-- /main-area -->
   </div><!-- /app-body -->
@@ -1751,6 +1980,30 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="npm-foot">
       <button class="npm-cancel" onclick="closeNewProjModal()">Cancel</button>
       <button class="npm-create" onclick="createNewProject()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- v0.1.77: generic confirm modal (replaces window.confirm) -->
+<div id="confirmModal">
+  <div class="confirm-card">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmMsg"></p>
+    <div class="confirm-foot">
+      <button class="confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="confirm-ok" id="confirmOkBtn" onclick="if(window._confirmCb){window._confirmCb();} closeConfirmModal()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- v0.1.77: rename project modal (replaces prompt) -->
+<div id="renameProjModal">
+  <div class="npm-card">
+    <h3>Rename project</h3>
+    <div class="npm-field"><label>New name</label><input id="renameProjInput" placeholder="Project name" onkeydown="if(event.key==='Enter')doRenameProject();if(event.key==='Escape')closeRenameProjModal()"></div>
+    <div class="npm-foot">
+      <button class="npm-cancel" onclick="closeRenameProjModal()">Cancel</button>
+      <button class="npm-create" onclick="doRenameProject()">Rename</button>
     </div>
   </div>
 </div>
@@ -1957,6 +2210,18 @@ const db = {
       return data?.session || null;
     },
     async signOut(){ if(sb) await sb.auth.signOut(); },
+    async signInWithPassword(email, password){
+      if(!sb) throw new Error('Supabase not available');
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+      return data;
+    },
+    async signUp(email, password){
+      if(!sb) throw new Error('Supabase not available');
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      return data;
+    },
   },
 };
 console.log('[EngiBoard] Supabase client', db.ready ? 'ready' : 'NOT loaded — falling back to localStorage');
@@ -1973,7 +2238,7 @@ let TASKS = [
   {id:'t2', proj:'p1', w:'26W14', s:1, n:'Existing motor specs documented', shot1:DEMO_PICS.conveyor},
   {id:'t3', proj:'p1', w:'26W15', s:1, n:'Replaced V-belt on drive pulley — torque verified at 42 Nm', shot1:DEMO_PICS.conveyor, shot2:DEMO_PICS.belt, chat:[{a:'AS',ts:'14:30',text:'New belt installed. Tension within spec.'}]},
   {id:'t4', proj:'p1', w:'26W15', s:1, n:'Bearing assembly #7 replaced and aligned', shot1:DEMO_PICS.bearing, shot2:DEMO_PICS.belt},
-  {id:'t5', proj:'p1', w:'26W15', s:5, n:'Frame weld at junction A3 cracked — needs reinforcement plate', shot1:DEMO_PICS.defect, shot2:DEMO_PICS.weld, chat:[{a:'AS',ts:'11:20',text:'Found 8mm crack near A3 junction'},{a:'JD',ts:'13:45',text:'Stop production at this section. Order plate 250x180mm 6mm thick.'},{a:'AS',ts:'14:00',text:'Ordered. ETA 3 days.'}]},
+  {id:'t5', proj:'p1', w:'26W15', s:5, n:'Frame weld at junction A3 cracked — needs reinforcement plate', shot1:DEMO_PICS.defect, shot2:DEMO_PICS.weld, chat:[{a:'AS',ts:'11:20',text:'Found 8mm crack near A3 junction'},{a:'JD',ts:'13:45',text:'Stop production at this section. Order plate 250x180mm 6mm thick.'},{a:'AS',ts:'14:00',text:'Ordered. ETA 3 days.'}], checklist:[{id:'cl001',text:'Mark crack boundaries with paint',done:true},{id:'cl002',text:'Order reinforcement plate 250×180×6mm',done:true},{id:'cl003',text:'Weld plate and grind flush',done:false},{id:'cl004',text:'Visual + NDT inspection',done:false}], links:[{id:'lnk001',url:'https://docs.google.com/spreadsheets/d/example/edit',title:'Weld inspection log',type:'gdrive'},{id:'lnk002',url:'https://drive.google.com/file/d/example/view',title:'A3 junction drawing Rev.C',type:'gdrive'}]},
   {id:'t6', proj:'p1', w:'26W15', s:1, n:'Sensor mounting bracket fabricated and installed', shot1:DEMO_PICS.bearing, shot2:DEMO_PICS.servo},
   {id:'t7', proj:'p1', w:'26W15', s:2, n:'Original plan: replace control panel — cancelled, panel is fine'},
   {id:'t8', proj:'p1', w:'26W16', s:1, n:'Outfeed conveyor raised by 10mm — alignment confirmed OK', shot1:DEMO_PICS.conveyor, shot2:DEMO_PICS.after, chat:[{a:'AS',ts:'08:15',text:'Adjustment complete. Product flow smooth.'}]},
@@ -2010,7 +2275,10 @@ let presentIdx = -1;
 let presentSlides = [];
 let presentTask = null;
 let openStMenu = null;
-let dragTaskId = null;
+let dragTaskId = null; // legacy — HTML5 drag (file drops only)
+// v0.1.75: mouse-based row reorder (replaces unreliable HTML5 drag in WKWebView)
+let _mDragId = null, _mDragEl = null;
+const expandedChecklists = new Set();
 let collapsedProjects = (() => {
   try { return new Set(JSON.parse(localStorage.getItem('eb_collapsed_projects') || '[]')); }
   catch { return new Set(); }
@@ -2058,6 +2326,75 @@ async function loginGoogle(){
   completeLogin(email, false);
 }
 
+
+// ━━━ EMAIL / PASSWORD AUTH ━━━
+let _lpMode = 'signin';
+let _lpRole = 'engineer';
+
+function setAuthMode(mode){
+  _lpMode = mode;
+  document.getElementById('lpTabSignin')?.classList.toggle('on', mode === 'signin');
+  document.getElementById('lpTabSignup')?.classList.toggle('on', mode === 'signup');
+  const roleRow = document.getElementById('lpRoleRow');
+  if(roleRow) roleRow.style.display = mode === 'signup' ? 'block' : 'none';
+  const btn = document.getElementById('lpSubmitBtn');
+  if(btn) btn.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  const errEl = document.getElementById('lpErr');
+  if(errEl) errEl.textContent = '';
+}
+
+function selectRole(role){
+  _lpRole = role;
+  ['engineer','lead','admin'].forEach(r => {
+    const el = document.getElementById('role' + r[0].toUpperCase() + r.slice(1));
+    if(el) el.classList.toggle('on', r === role);
+  });
+}
+
+async function lpSubmit(){
+  const email = (document.getElementById('lpEmail')?.value || '').trim();
+  const pass = document.getElementById('lpPass')?.value || '';
+  const errEl = document.getElementById('lpErr');
+  if(errEl) errEl.textContent = '';
+  if(!email){ if(errEl) errEl.textContent = 'Email required'; return; }
+  if(pass.length < 6){ if(errEl) errEl.textContent = 'Password must be at least 6 characters'; return; }
+  const btn = document.getElementById('lpSubmitBtn');
+  if(btn){ btn.textContent = 'Please wait…'; btn.disabled = true; }
+  try {
+    if(_lpMode === 'signin') await loginEmail(email, pass);
+    else await signUpEmail(email, pass, _lpRole);
+  } catch(e){
+    if(errEl) errEl.textContent = e.message || 'Authentication error';
+    if(btn){ btn.textContent = _lpMode === 'signup' ? 'Create account' : 'Sign in'; btn.disabled = false; }
+  }
+}
+
+async function loginEmail(email, password){
+  if(!db || !db.ready){
+    completeLogin(email, false);
+    return;
+  }
+  const data = await db.auth.signInWithPassword(email, password);
+  completeLogin(data.user.email, false);
+}
+
+async function signUpEmail(email, password, role){
+  if(!db || !db.ready){
+    localStorage.setItem('eb_user_role', role);
+    completeLogin(email, false);
+    toast('Account created (offline — will sync when connected)');
+    return;
+  }
+  const data = await db.auth.signUp(email, password);
+  localStorage.setItem('eb_user_role', role);
+  toast('✓ Account created — check your email to confirm');
+  completeLogin(data.user.email, false);
+}
+
+function getRoleLabel(){
+  const r = localStorage.getItem('eb_user_role') || 'engineer';
+  return { engineer:'Engineer', lead:'Lead', admin:'Admin' }[r] || 'Engineer';
+}
 
 // Listen for deep links — both OAuth callback (engiboard://oauth/callback?...)
 // and invite acceptance (engiboard://invite/{token}).
@@ -2347,8 +2684,10 @@ function applyRealtimeTaskChange(p){
   } else {
     existing.title = row.title; existing.n = row.title;
     if(typeof row.desktop_status === 'number') existing.s = row.desktop_status;
-    if(row.shot1_url) existing.shot1 = row.shot1_url;
-    if(row.shot2_url) existing.shot2 = row.shot2_url;
+    // Don't replace base64 with cloud URL while it's in memory — keeps thumbnail stable.
+    // The URL is only used on next app load (when there's no in-memory base64).
+    if(row.shot1_url && !(existing.shot1?.startsWith('data:'))) existing.shot1 = row.shot1_url;
+    if(row.shot2_url && !(existing.shot2?.startsWith('data:'))) existing.shot2 = row.shot2_url;
   }
   render();
 }
@@ -2541,6 +2880,7 @@ async function cloudSyncNow(){
 function formatWeek(dateStr){
   try {
     const d = new Date(dateStr);
+    if(isNaN(d.getTime())) return '';   // v0.1.76 fix: invalid date guard (was returning 'aNWNaN')
     const start = new Date(d.getFullYear(), 0, 1);
     const wk = Math.ceil(((d - start) / 86400000 + start.getDay() + 1) / 7);
     return String(d.getFullYear()).slice(-2) + 'W' + String(wk).padStart(2,'0');
@@ -2738,10 +3078,10 @@ function renderProjMenu(){
     const pct = total ? Math.round(done/total*100) : 0;
     const isCurrent = p.id === currentProject;
     // v0.1.65: per-project edit/archive/delete actions inline
-    const actions = `<div class="pm-actions" style="display:flex;gap:4px;margin-left:auto" onclick="event.stopPropagation()">
-      <button title="Rename" onclick="renameProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">✎</button>
-      <button title="Archive" onclick="archiveProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">📦</button>
-      <button title="Delete" onclick="deleteProject('${p.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:2px 6px;border-radius:4px;font-size:11px">×</button>
+    const actions = `<div class="pm-actions" style="display:flex;gap:2px;margin-left:auto" onclick="event.stopPropagation()">
+      <button title="Rename" onclick="renameProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg></button>
+      <button title="Archive" onclick="archiveProject('${p.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="14" height="11" rx="1.5"/><path d="M1 4l1.5-2.5h11L15 4"/><line x1="6" y1="9" x2="10" y2="9"/></svg></button>
+      <button title="Delete" onclick="deleteProject('${p.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
     </div>`;
     return `<div class="pm-item ${isCurrent?'on':''}" onclick="switchProject('${p.id}');document.getElementById('projMenu').classList.remove('open')" style="display:flex;align-items:center;gap:8px">
       <div style="flex:1;min-width:0">
@@ -2753,60 +3093,92 @@ function renderProjMenu(){
   }).join('') + `<div class="pm-add" onclick="document.getElementById('projMenu').classList.remove('open');openNewProjModal()">+ New project</div>`;
 }
 
-// v0.1.65: project lifecycle actions
-async function renameProject(pid){
+// v0.1.77: confirm + rename modals — replaces window.confirm / prompt (both blocked in Tauri 2 WKWebView)
+window._confirmCb = null;
+function openConfirmModal(title, msg, okLabel, cb){
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmOkBtn').textContent = okLabel || 'Confirm';
+  window._confirmCb = cb;
+  document.getElementById('confirmModal').classList.add('on');
+}
+function closeConfirmModal(){
+  document.getElementById('confirmModal').classList.remove('on');
+  window._confirmCb = null;
+}
+window._renameProjId = null;
+function openRenameProjModal(pid){
   const p = PROJECTS.find(x => x.id === pid);
   if(!p) return;
-  const newName = prompt('New project name:', p.name);
-  if(!newName || newName.trim() === p.name) return;
-  p.name = newName.trim();
+  window._renameProjId = pid;
+  const inp = document.getElementById('renameProjInput');
+  inp.value = p.name;
+  document.getElementById('renameProjModal').classList.add('on');
+  setTimeout(() => { inp.focus(); inp.select(); }, 50);
+}
+function closeRenameProjModal(){
+  document.getElementById('renameProjModal').classList.remove('on');
+  window._renameProjId = null;
+}
+async function doRenameProject(){
+  const newName = document.getElementById('renameProjInput').value.trim();
+  if(!newName || !window._renameProjId) return;
+  const pid = window._renameProjId;
+  closeRenameProjModal();
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p || newName === p.name) return;
+  p.name = newName;
   if(p._cloud && db && db.ready){
     const { error } = await db.projects.update(p.id, { title: p.name });
     if(error){ toast('Cloud rename failed: ' + error.message); return; }
     auditLog('update', 'project', p.id, { title: p.name }, { title: p.name }, p.id);
   }
   if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
-  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
   render();
   toast('✓ Project renamed');
 }
 
-async function archiveProject(pid){
-  const p = PROJECTS.find(x => x.id === pid);
-  if(!p) return;
-  if(!confirm(`Archive "${p.name}"? It will be hidden from the project picker but kept in the database.`)) return;
-  if(p._cloud && db && db.ready){
-    const { error } = await db.projects.update(p.id, { archived: true });
-    if(error){ toast('Archive failed: ' + error.message); return; }
-    auditLog('archive', 'project', p.id, { archived: false }, { archived: true }, p.id);
-  }
-  PROJECTS = PROJECTS.filter(x => x.id !== pid);
-  if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
-  else if(!PROJECTS.length) currentProject = 'all';
-  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
-  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
-  render();
-  toast('✓ Project archived');
+// v0.1.65: project lifecycle actions (v0.1.77: replaced prompt/confirm with custom modals)
+function renameProject(pid){
+  openRenameProjModal(pid);
 }
 
-async function deleteProject(pid){
+function archiveProject(pid){
+  const p = PROJECTS.find(x => x.id === pid);
+  if(!p) return;
+  openConfirmModal('Archive project', `Archive "${p.name}"? It will be hidden from the project picker.`, 'Archive', async () => {
+    if(p._cloud && db && db.ready){
+      const { error } = await db.projects.update(p.id, { archived: true });
+      if(error){ toast('Archive failed: ' + error.message); return; }
+      auditLog('archive', 'project', p.id, { archived: false }, { archived: true }, p.id);
+    }
+    PROJECTS = PROJECTS.filter(x => x.id !== pid);
+    if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
+    else if(!PROJECTS.length) currentProject = 'all';
+    if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+    render();
+    toast('✓ Project archived');
+  });
+}
+
+function deleteProject(pid){
   const p = PROJECTS.find(x => x.id === pid);
   if(!p) return;
   const taskCount = TASKS.filter(t => t.proj === pid).length;
-  if(!confirm(`DELETE "${p.name}" permanently? This removes ${taskCount} task${taskCount===1?'':'s'} and all comments. This cannot be undone.`)) return;
-  if(p._cloud && db && db.ready){
-    const { error } = await db.projects.delete(p.id);
-    if(error){ toast('Delete failed: ' + error.message); return; }
-    auditLog('delete', 'project', p.id, { title: p.name }, null, p.id);
-  }
-  PROJECTS = PROJECTS.filter(x => x.id !== pid);
-  TASKS = TASKS.filter(t => t.proj !== pid);
-  if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
-  else if(!PROJECTS.length) currentProject = 'all';
-  if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
-  if(typeof renderProjPickerMenu === 'function') renderProjPickerMenu();
-  render();
-  toast('✓ Project deleted');
+  openConfirmModal('Delete project', `DELETE "${p.name}" permanently? This removes ${taskCount} task${taskCount===1?'':'s'} and all comments. Cannot be undone.`, 'Delete', async () => {
+    if(p._cloud && db && db.ready){
+      const { error } = await db.projects.delete(p.id);
+      if(error){ toast('Delete failed: ' + error.message); return; }
+      auditLog('delete', 'project', p.id, { title: p.name }, null, p.id);
+    }
+    PROJECTS = PROJECTS.filter(x => x.id !== pid);
+    TASKS = TASKS.filter(t => t.proj !== pid);
+    if(currentProject === pid && PROJECTS.length) switchProject(PROJECTS[0].id);
+    else if(!PROJECTS.length) currentProject = 'all';
+    if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
+    render();
+    toast('✓ Project deleted');
+  });
 }
 
 function getProjectOpens(){
@@ -3086,15 +3458,23 @@ function renderRow(t){
     ? `${formatTime(totalMin)} · stop`
     : (totalMin > 0 ? `${ICON('clock')} ${formatTime(totalMin)}` : `${ICON('clock')} start`);
   // Bulk select cell — replaces drag-handle
+  // v0.1.75: drag handle fires mouse-based reorder (HTML5 drag removed from row)
   const firstCell = selectMode
     ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
-    : `<div class="drag-handle">⋮⋮</div>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" draggable="${selectMode?'false':'true'}" style="min-height:${height}px"
-    ${selectMode ? '' : `ondragstart="onDragStart(event,'${t.id}')"
-    ondragover="onDragOver(event)"
-    ondragleave="onDragLeave(event)"
-    ondrop="onDropTask(event,'${t.id}')"
-    ondragend="onDragEnd(event)"`}
+    : `<div class="drag-handle" onmousedown="event.stopPropagation();dragHandleDown(event,'${t.id}')">⋮⋮</div>`;
+  // Checklist badge
+  const cl = Array.isArray(t.checklist) ? t.checklist : [];
+  const clDone = cl.filter(x => x.done).length;
+  const clBadge = cl.length > 0 ? ` <span class="cl-badge">${clDone}/${cl.length}</span>` : '';
+  const clActive = expandedChecklists.has(t.id) ? ' active' : '';
+  const CL_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="4.5" height="4.5" rx=".7"/><polyline points="1.8,3.3 2.8,4.3 4.8,2.3"/><line x1="7.5" y1="3" x2="13" y2="3"/><line x1="1" y1="8.5" x2="13" y2="8.5"/><line x1="1" y1="12" x2="9" y2="12"/></svg>`;
+  // Links badge
+  const lnks = Array.isArray(t.links) ? t.links : [];
+  const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
+  const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
+  const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="min-height:${height}px"
+    onmousedown="${selectMode ? '' : `rowDragDown(event,'${t.id}')`}"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${firstCell}
     <!-- v0.1.46: chat moved BEFORE title-col (chat is now leftmost data column) -->
@@ -3110,10 +3490,16 @@ function renderRow(t){
         <span class="ic-btn time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
         <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
         ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">${ICON('swap')} ${compareLabel}</span>` : ''}
+        <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
+        <span class="ic-btn lnk-ic${lnkActive}" onclick="event.stopPropagation();toggleLinksPanel('${t.id}')" title="Links">${LNK_ICON}${lnkBadge}</span>
+        <span class="ic-btn" onclick="event.stopPropagation();askAI('${t.id}')" title="Ask AI assistant"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> AI</span>
+        <span class="ic-btn" id="tmplBtn_${t.id}" style="position:relative" onclick="event.stopPropagation();openTmplMenu('${t.id}')" title="Task templates"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Tmpl</span>
       </div>
     </div>
     <div class="pc">${piBefore}</div>
     <div class="pc">${piAfter}</div>
+    ${renderClPanel(t)}
+    ${renderLinksPanel(t)}
     <div class="resize-h" onmousedown="onResizeStart(event,'${t.id}')"></div>
   </div>`;
 }
@@ -3140,7 +3526,7 @@ function renderPic(t, slot){
     // tools loaded (Roman: "сразу пусть будут инструменты, не надо в отдельный
     // режим переходить"). img draggable=false so the browser doesn't hijack
     // the drag-reorder with native image drag.
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();openExistingShotEditor('${t.id}',${slotIdx})" title="Click to open in editor">
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();piClick('${t.id}',${slotIdx})" title="Click to open in editor · paste-mode: click to insert here">
       <span class="pi-lbl">${lblText}</span>
       <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
@@ -3169,7 +3555,24 @@ function openShotViewer(taskId, slotIdx){
 }
 
 // v0.1.37: open existing screenshot directly in editor (with annotation tools loaded)
-function openExistingShotEditor(taskId, slotIdx){
+// v0.1.76: piClick() routes click on a filled .pi — in paste mode it pastes,
+// otherwise it opens the editor. This prevents the inline onclick="stopPropagation"
+// from swallowing paste-mode clicks on already-occupied slots.
+function piClick(taskId, slotIdx){
+  if(pasteMode){
+    // In paste mode: insert pending screenshot into this slot
+    const t = TASKS.find(x => x.id === taskId);
+    if(t && pendingScreenshot){
+      assignShotToSlot(t, slotIdx, pendingScreenshot);
+      exitPasteMode();
+      toast('✓ Screenshot inserted');
+    }
+    return;
+  }
+  openExistingShotEditor(taskId, slotIdx);
+}
+
+async function openExistingShotEditor(taskId, slotIdx){
   // v0.1.43: editor вернули — это спринт 1.4 (визуальные аннотации поверх скриншотов).
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
@@ -3183,6 +3586,27 @@ function openExistingShotEditor(taskId, slotIdx){
     // Browser fallback — no editor window available, fall back to lightbox view
     if(typeof openLightbox === 'function') openLightbox(dataUrl, taskId, slotIdx);
     return;
+  }
+
+  // v0.1.76 (Bug 1 fix): if the screenshot is stored as a Supabase signed URL
+  // (https://), fetch it and convert to a base64 data URL before passing to the
+  // editor. This prevents ctx.drawImage() from throwing a CORS SecurityError that
+  // makes compositeToDataUrl() return a solid dark-blue canvas instead of the
+  // annotated image.
+  if(typeof dataUrl === 'string' && dataUrl.startsWith('http')){
+    try {
+      const resp = await fetch(dataUrl);
+      const blob = await resp.blob();
+      dataUrl = await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = ev => res(ev.target.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(blob);
+      });
+    } catch(fetchErr){
+      console.warn('openExistingShotEditor: fetch→base64 failed, continuing with original URL:', fetchErr);
+      // fall through — editor will still display; composite may fall back to dark bg
+    }
   }
 
   // Set context so editor's save flow puts the annotated image back into this slot
@@ -3231,7 +3655,7 @@ function renderEmptyRow(){
 }
 
 function renderEmptyRowForProject(projId){
-  // v0.1.74: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
+  // v0.1.75: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
   // JS binding (it could be missed if render order changed, leaving Enter
   // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
   return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
@@ -3391,72 +3815,230 @@ function changeStatus(taskId, sid){
   }
 }
 
-// ━━━ DRAG REORDER ━━━
-function onDragStart(e, taskId){
-  // v0.1.53: allow file drops from Finder — only intercept HTML5 drags between rows.
-  if(e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) return;
-  // v0.1.70: only block drag from genuine input controls. Previously this
-  // list also had .pi / .pi-lbl / .compare-ic / dead .time-ic|.play-ic,
-  // which covered almost the whole row — leaving only the 24px ⋮⋮ strip
-  // draggable, so Roman "could not drag tasks". The screenshot <img> is now
-  // draggable=false (so it won't hijack the drag), and the picture cell is
-  // a valid grab area.
-  if(e.target.closest(
-    'input, textarea, button, [contenteditable], ' +
-    '.st, .tc-status, .st-menu, .nt-chat-input, .row-check, .resize-h'
-  )){
-    e.preventDefault();
-    return;
-  }
-  // v0.1.66: drag-reorder is fully enabled — Roman's "минимум кликов" rule.
-  dragTaskId = taskId;
-  e.target.closest('.row')?.classList.add('dragging');
-  if(e.dataTransfer){ e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', taskId); } catch(_){} }
-}
-function onDragOver(e){
+// ━━━ DRAG REORDER (mouse-based, v0.1.78 rewrite) ━━━
+// Threshold-based: drag only starts after 5px movement.
+// Prevents accidental drags on click. Works from any non-interactive row area.
+
+let _mDragStartX = 0, _mDragStartY = 0, _mDragging = false;
+
+function dragHandleDown(e, taskId){
+  if(selectMode || e.button !== 0) return;
   e.preventDefault();
-  if(!dragTaskId) return;
-  const row = e.currentTarget;
-  if(row.dataset.taskId === dragTaskId || row.dataset.taskId === 'new') return;
-  document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
-  const rect = row.getBoundingClientRect();
-  const isTop = (e.clientY - rect.top) < rect.height / 2;
-  row.classList.add(isTop ? 'drag-over-top' : 'drag-over-bottom');
+  _mDragId = taskId;
+  _mDragEl = document.querySelector(`.row[data-task-id="${taskId}"]`);
+  _mDragStartX = e.clientX; _mDragStartY = e.clientY;
+  _mDragging = false;
+  document.addEventListener('mousemove', _mDragMove, {capture:true});
+  document.addEventListener('mouseup',   _mDragUp,   {capture:true, once:true});
 }
-function onDragLeave(e){
-  e.currentTarget.classList.remove('drag-over-top','drag-over-bottom');
+function rowDragDown(e, taskId){
+  if(selectMode || e.button !== 0) return;
+  const SKIP = 'input,textarea,button,.play-ic,.time-ic,.pi,.st-wrap,.tc-status,.st,.st-menu,.drag-handle,.resize-h,[contenteditable],.nt-chat,.nt-chat-input,.chat-row-actions,.nt-chat-msg,.cl-panel,.links-panel';
+  if(e.target.closest(SKIP)) return;
+  dragHandleDown(e, taskId);
 }
-function onDropTask(e, targetId){
-  e.preventDefault();
-  if(!dragTaskId || dragTaskId === targetId || targetId === 'new') return;
-  const fromIdx = TASKS.findIndex(t => t.id === dragTaskId);
-  const toIdx = TASKS.findIndex(t => t.id === targetId);
-  if(fromIdx < 0 || toIdx < 0) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const isTop = (e.clientY - rect.top) < rect.height / 2;
-  const [item] = TASKS.splice(fromIdx, 1);
-  const insertAt = TASKS.findIndex(t => t.id === targetId);
-  TASKS.splice(isTop ? insertAt : insertAt + 1, 0, item);
-  document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
-  // v0.1.66: persist new order. Update sort_order for all tasks in the same
-  // project so the next reload picks up the manual order.
-  const projTasks = TASKS.filter(t => t.proj === item.proj);
-  projTasks.forEach((t, idx) => { t.uid = idx + 1; });
-  if(db && db.ready){
-    projTasks.forEach((t, idx) => {
-      if(t._cloud){
-        db.tasks.update(t.id, { sort_order: idx, position: idx + 1 })
-          .catch(e => console.warn('[cloud] sort persist failed:', t.id, e.message));
-      }
-    });
-  }
+
+// ━━━ GDRIVE LINKS (v0.1.78) ━━━
+const expandedLinks = new Set();
+const GDRIVE_RE = /^https:\/\/(drive|docs)\.google\.com\//;
+function isGDriveUrl(url){ return GDRIVE_RE.test(url); }
+function gdriveTitleFromUrl(url){
+  try {
+    const u = new URL(url);
+    if(u.hostname === 'docs.google.com'){
+      const p = u.pathname.split('/');
+      const type = p[1]; // docs, spreadsheets, presentation, forms
+      const titles = {docs:'Google Doc',spreadsheets:'Google Sheet',presentation:'Google Slides',forms:'Google Form'};
+      return titles[type] || 'Google Drive file';
+    }
+    return 'Google Drive link';
+  } catch(_){ return 'Google Drive link'; }
+}
+function gdriveFaviconHTML(url){
+  try {
+    const p = new URL(url).pathname.split('/')[1];
+    const colors = {docs:'#4285F4',spreadsheets:'#34A853',presentation:'#FBBC04',forms:'#9C27B0'};
+    const c = colors[p] || '#EA4335';
+    return `<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect width="14" height="14" rx="2" fill="${c}"/><text x="2" y="11" font-size="9" fill="white" font-family="Arial,sans-serif" font-weight="bold">${p==='spreadsheets'?'S':p==='presentation'?'P':p==='forms'?'F':'D'}</text></svg>`;
+  } catch(_){ return '🔗'; }
+}
+function toggleLinksPanel(taskId){
+  if(expandedLinks.has(taskId)) expandedLinks.delete(taskId);
+  else expandedLinks.add(taskId);
   render();
 }
-function onDragEnd(e){
-  e.target.closest('.row')?.classList.remove('dragging');
-  document.querySelectorAll('.row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom'));
-  dragTaskId = null;
+function addLink(taskId, input){
+  const url = (input.value || '').trim();
+  if(!url) return;
+  if(!url.startsWith('http')){ toast('Please enter a valid URL'); return; }
+  const isDrive = isGDriveUrl(url);
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if(!Array.isArray(t.links)) t.links = [];
+  t.links.push({id:'lnk'+Date.now(), url, title: gdriveTitleFromUrl(url), type: isDrive ? 'gdrive' : 'url'});
+  input.value = '';
+  if(db?.ready && t._cloud) db.tasks.update(t.id,{links:t.links}).catch(()=>{});
+  render();
 }
+function deleteLink(taskId, linkId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.links)) return;
+  t.links = t.links.filter(x => x.id !== linkId);
+  if(db?.ready && t._cloud) db.tasks.update(t.id,{links:t.links}).catch(()=>{});
+  render();
+}
+function openLink(url){
+  if(window.__TAURI__){
+    window.__TAURI__.core.invoke('open_url', {url}).catch(()=>{
+      window.__TAURI__.shell?.open(url).catch(()=>{});
+    });
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
+}
+function renderLinksPanel(t){
+  const links = Array.isArray(t.links) ? t.links : [];
+  const isOpen = expandedLinks.has(t.id);
+  const items = links.map(lnk => `<div class="link-item">
+    <span class="link-item-ico">${gdriveFaviconHTML(lnk.url)}</span>
+    <a class="link-item-title" onclick="event.stopPropagation();openLink('${lnk.url.replace(/'/g,"\\'")}')">
+      ${(lnk.title||lnk.url).replace(/[<>]/g,'')}
+    </a>
+    <button class="link-item-del" onclick="event.stopPropagation();deleteLink('${t.id}','${lnk.id}')">×</button>
+  </div>`).join('');
+  return `<div class="links-panel${isOpen?' open':''}" onclick="event.stopPropagation()">
+    ${items}
+    <div class="links-add">
+      <span style="color:var(--t4);font-size:12px;line-height:1;padding:0 2px;font-family:var(--mono)">↗</span>
+      <input type="text" placeholder="Paste Google Drive link…"
+        onkeydown="if(event.key==='Enter'){event.stopPropagation();addLink('${t.id}',this)}"
+        onclick="event.stopPropagation()">
+    </div>
+  </div>`;
+}
+
+// ━━━ CHECKLISTS (v0.1.78) ━━━
+function toggleCLPanel(taskId){
+  if(expandedChecklists.has(taskId)) expandedChecklists.delete(taskId);
+  else expandedChecklists.add(taskId);
+  render();
+}
+function addClItem(taskId, input){
+  const text = (input.value || '').trim();
+  if(!text) return;
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if(!Array.isArray(t.checklist)) t.checklist = [];
+  t.checklist.push({id:'cl'+Date.now(), text, done:false});
+  input.value = '';
+  if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
+  render();
+}
+function toggleClItem(taskId, itemId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.checklist)) return;
+  const item = t.checklist.find(x => x.id === itemId);
+  if(item) item.done = !item.done;
+  if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
+  render();
+}
+function deleteClItem(taskId, itemId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.checklist)) return;
+  t.checklist = t.checklist.filter(x => x.id !== itemId);
+  if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
+  render();
+}
+function updateClItemText(taskId, itemId, input){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.checklist)) return;
+  const item = t.checklist.find(x => x.id === itemId);
+  if(item) item.text = input.value;
+  if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
+}
+function renderClPanel(t){
+  const cl = Array.isArray(t.checklist) ? t.checklist : [];
+  const isOpen = expandedChecklists.has(t.id);
+  const items = cl.map(it => `<div class="cl-item${it.done?' done':''}">
+    <input type="checkbox" ${it.done?'checked':''} onclick="event.stopPropagation();toggleClItem('${t.id}','${it.id}')">
+    <input class="cl-item-text" type="text" value="${(it.text||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+      onblur="event.stopPropagation();updateClItemText('${t.id}','${it.id}',this)"
+      onkeydown="if(event.key==='Enter'){this.blur();}event.stopPropagation()"
+      onclick="event.stopPropagation()">
+    <button class="cl-item-del" onclick="event.stopPropagation();deleteClItem('${t.id}','${it.id}')">×</button>
+  </div>`).join('');
+  return `<div class="cl-panel${isOpen?' open':''}" onclick="event.stopPropagation()">
+    ${items}
+    <div class="cl-add">
+      <span style="color:var(--t4);font-size:15px;line-height:1;padding:0 2px">+</span>
+      <input type="text" placeholder="Add item…"
+        onkeydown="if(event.key==='Enter'){event.stopPropagation();addClItem('${t.id}',this)}"
+        onclick="event.stopPropagation()">
+    </div>
+  </div>`;
+}
+function _mDragMove(e){
+  if(!_mDragId) return;
+  if(!_mDragging){
+    const dx = e.clientX - _mDragStartX, dy = e.clientY - _mDragStartY;
+    if(Math.abs(dx) + Math.abs(dy) < 5) return;
+    _mDragging = true;
+    if(_mDragEl) _mDragEl.classList.add('dragging');
+    document.body.style.cursor = 'grabbing';
+  }
+  document.querySelectorAll('.row[data-task-id]').forEach(r =>
+    r.classList.remove('drag-over-top','drag-over-bottom'));
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  const tgt = els.find(el =>
+    el.classList?.contains('row') &&
+    el.dataset?.taskId &&
+    el.dataset.taskId !== _mDragId &&
+    el.dataset.taskId !== 'new');
+  if(tgt){
+    const rect = tgt.getBoundingClientRect();
+    tgt.classList.add((e.clientY - rect.top) < rect.height/2 ? 'drag-over-top' : 'drag-over-bottom');
+  }
+}
+function _mDragUp(e){
+  document.removeEventListener('mousemove', _mDragMove, {capture:true});
+  document.body.style.cursor = '';
+  document.querySelectorAll('.row').forEach(r =>
+    r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+  if(!_mDragging){ _mDragId = null; _mDragEl = null; _mDragging = false; return; }
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  const tgt = els.find(el =>
+    el.classList?.contains('row') &&
+    el.dataset?.taskId &&
+    el.dataset.taskId !== _mDragId &&
+    el.dataset.taskId !== 'new');
+  if(tgt && _mDragId){
+    const fromIdx = TASKS.findIndex(t => t.id === _mDragId);
+    if(fromIdx >= 0){
+      const rect = tgt.getBoundingClientRect();
+      const isTop = (e.clientY - rect.top) < rect.height/2;
+      const [item] = TASKS.splice(fromIdx, 1);
+      const ins = TASKS.findIndex(t => t.id === tgt.dataset.taskId);
+      if(ins >= 0){
+        TASKS.splice(isTop ? ins : ins+1, 0, item);
+        const projTasks = TASKS.filter(t => t.proj === item.proj);
+        projTasks.forEach((t,i) => { t.uid = i+1; });
+        if(db?.ready){
+          projTasks.forEach((t,i) => {
+            if(t._cloud) db.tasks.update(t.id,{sort_order:i,position:i+1}).catch(()=>{});
+          });
+        }
+        render();
+      }
+    }
+  }
+  _mDragId = null; _mDragEl = null; _mDragging = false;
+}
+// Stub legacy HTML5 drag handlers (no longer wired to rows, kept to avoid errors)
+function onDragStart(){}
+function onDragEnd(){ dragTaskId = null; }
+function onDragOver(e){ e.preventDefault(); }
+function onDropTask(){}
+function onDragLeave(){}
 
 // ━━━ RESIZE HEIGHT ━━━
 function onResizeStart(e, taskId){
@@ -3507,7 +4089,9 @@ function openPresent(taskId){
   presentTask = t;
   presentIdx = 0;
   renderPresent();
-  document.getElementById('present').classList.add('on');
+  const presEl = document.getElementById('present');
+  presEl.style.display = '';
+  presEl.classList.add('on');
 }
 function closePresent(){
   // v0.1.39: ensure row's inline chat panel reflects messages added inside slideshow
@@ -3520,6 +4104,36 @@ function closePresent(){
 function presentNext(){if(presentIdx < presentSlides.length-1){presentIdx++;renderPresent();}}
 function presentPrev(){if(presentIdx > 0){presentIdx--;renderPresent();}}
 
+function presChecklistLinksHTML(t){
+  const cl = Array.isArray(t.checklist) ? t.checklist : [];
+  const lnks = Array.isArray(t.links) ? t.links : [];
+  if(!cl.length && !lnks.length) return '';
+  const clHTML = cl.length ? `<div class="pres-cl">
+    <div class="pres-cl-head">CHECKLIST <span class="cl-badge">${cl.filter(x=>x.done).length}/${cl.length}</span></div>
+    ${cl.map(it=>`<div class="cl-item${it.done?' done':''}">
+      <input type="checkbox" ${it.done?'checked':''} onclick="toggleClItem('${t.id}','${it.id}');renderPresent()">
+      <span class="cl-item-text">${(it.text||'').replace(/[<>]/g,'')}</span>
+    </div>`).join('')}
+    <div class="cl-add"><span style="color:var(--t4);font-size:15px;line-height:1;padding:0 2px">+</span>
+      <input type="text" placeholder="Add item…" onkeydown="if(event.key==='Enter'){addClItem('${t.id}',this);renderPresent()}">
+    </div></div>` : '';
+  const lnkHTML = lnks.length ? `<div class="pres-cl" style="border-top:1px solid var(--line)">
+    <div class="pres-cl-head">LINKS</div>
+    ${lnks.map(lnk=>`<div class="link-item">
+      <span class="link-item-ico">${gdriveFaviconHTML(lnk.url)}</span>
+      <a class="link-item-title" style="cursor:pointer" onclick="openLink('${lnk.url.replace(/'/g,"\\'")}')">
+        ${(lnk.title||lnk.url).replace(/[<>]/g,'')}
+      </a>
+    </div>`).join('')}
+    <div class="links-add"><span style="color:var(--t4);font-size:12px;font-family:var(--mono)">↗</span>
+      <input type="text" placeholder="Paste link…" onkeydown="if(event.key==='Enter'){addLink('${t.id}',this);renderPresent()}">
+    </div></div>` : `<div class="pres-cl">
+    <div class="pres-cl-head">LINKS</div>
+    <div class="links-add"><span style="color:var(--t4);font-size:12px;font-family:var(--mono)">↗</span>
+      <input type="text" placeholder="Paste Google Drive link…" onkeydown="if(event.key==='Enter'){addLink('${t.id}',this);renderPresent()}">
+    </div></div>`;
+  return clHTML + lnkHTML;
+}
 function renderPresent(){
   // v0.1.58 (A.5): split-view — chat LEFT (340px), pics side-by-side RIGHT.
   // Both BEFORE and AFTER are shown together; click either to open editor.
@@ -3571,6 +4185,7 @@ function renderPresent(){
       <aside class="pres-chat-col">
         <div class="pres-chat-h">Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
         <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
+        ${presChecklistLinksHTML(t)}
         <div class="pres-chat-foot">
           <input id="presChatInput" placeholder="Type a message and press Enter…" onkeydown="if(event.key==='Enter') sendPresChat()">
         </div>
@@ -4075,13 +4690,12 @@ async function assignShotToSlot(t, slot, dataUrl){
     try {
       const { url } = await db.storage.uploadShot(t.id, dataUrl);
       if(!url) return;
-      // Replace base64 with signed URL in-memory
-      const slotKey = slot === 0 ? 'shot1' : 'shot2';
+      // Keep base64 in-memory for display; persist URL to DB only.
+      // Replacing t[slotKey] with the cloud URL caused thumbnails to vanish
+      // if WKWebView couldn't load the signed URL immediately.
       const colKey  = slot === 0 ? 'shot1_url' : 'shot2_url';
-      t[slotKey] = url;
       await db.tasks.update(t.id, { [colKey]: url });
       auditLog('shot_upload', 'task', t.id, null, { slot: slot === 0 ? 'before' : 'after', url }, t.proj);
-      render();
       toast('✓ Screenshot uploaded');
     } catch(e){
       console.warn('[cloud] upload failed:', e.message);
@@ -4153,6 +4767,8 @@ document.addEventListener('keydown', e => {
     else if(document.getElementById('lightbox').classList.contains('on')) closeLightbox();
     else if(document.getElementById('present').classList.contains('on')) closePresent();
     else if(document.getElementById('newProjModal').classList.contains('on')) closeNewProjModal();
+    else if(document.getElementById('confirmModal').classList.contains('on')) closeConfirmModal();
+    else if(document.getElementById('renameProjModal').classList.contains('on')) closeRenameProjModal();
     else if(openStMenu) closeStMenu();
     else closeChat();
     return;
@@ -4208,6 +4824,9 @@ function setSection(sec){
     } else if(sec === 'profile'){
       document.getElementById('profileView').classList.add('on');
       renderProfileSection();
+    } else if(sec === 'recordings'){
+      document.getElementById('recordingsView').classList.add('on');
+      renderRecordingsSection();
     }
   }
 }
@@ -4484,6 +5103,7 @@ function renderProfileSection(){
     <div class="profile-card">
       <div class="profile-card-h">Account</div>
       <div class="profile-row"><span class="lbl">Email</span><span class="val">${email}</span></div>
+      <div class="profile-row"><span class="lbl">Role</span><span class="val">${isDemo?'—':getRoleLabel()}</span></div>
       <div class="profile-row"><span class="lbl">Plan</span><span class="val">${isDemo?'Demo':'Free'}</span></div>
       <div class="profile-row"><span class="lbl">Workspace</span><span class="val">EngiBoard Personal</span></div>
     </div>
@@ -4544,6 +5164,21 @@ function renderProfileSection(){
           <button class="profile-action" onclick="sendTestWebhook()">Send test</button>
           <button class="profile-action danger" onclick="setWebhookUrl('');document.getElementById('slackWebhookInp').value='';toast('Webhook cleared')">Clear</button>
         </div>
+      </div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-card-h">AI Assistant · Claude API</div>
+      <div style="font-size:11px;color:var(--t4);padding:4px 0 10px;line-height:1.5">
+        Enter your Anthropic API key to enable the AI assistant in task chats.
+        Stored locally only — never sent to our servers.
+      </div>
+      <input id="aiKeyInp" type="password" placeholder="sk-ant-api03-…"
+        value="${(localStorage.getItem('eb_ai_key')||'').replace(/"/g,'&quot;')}"
+        style="width:100%;border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1);box-sizing:border-box">
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="profile-action" onclick="saveAiKey()">Save key</button>
+        <button class="profile-action danger" onclick="clearAiKey()">Clear</button>
       </div>
     </div>
 
@@ -4619,13 +5254,20 @@ function renderProjPicker(){
     }
   }
 
-  list.innerHTML = items.map(it => `
-    <div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" onclick="selectProject('${it.id}')">
+  const listHtml = items.map(it => {
+    const actions = it.id !== 'all' ? `<div style="display:flex;gap:2px;margin-left:auto;opacity:0.75" onclick="event.stopPropagation()">
+      <button title="Rename" onclick="document.getElementById('projPicker').classList.remove('open');renameProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg></button>
+      <button title="Archive" onclick="document.getElementById('projPicker').classList.remove('open');archiveProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="14" height="11" rx="1.5"/><path d="M1 4l1.5-2.5h11L15 4"/><line x1="6" y1="9" x2="10" y2="9"/></svg></button>
+      <button title="Delete" onclick="document.getElementById('projPicker').classList.remove('open');deleteProject('${it.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
+    </div>` : '';
+    return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" onclick="selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
       <span class="ppi-name">${it.name}</span>
       ${it.code ? `<span class="ppi-code">${it.code}</span>` : ''}
       <span class="ppi-meta">${it.count}</span>
-    </div>
-  `).join('') || '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
+      ${actions}
+    </div>`;
+  }).join('') || '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
+  list.innerHTML = listHtml + `<div class="pm-add" onclick="document.getElementById('projPicker').classList.remove('open');openNewProjModal()">+ New project</div>`;
 }
 
 function updateProjPickerLabel(){
@@ -5001,27 +5643,28 @@ function bulkSetStatus(s){
 
 function bulkDelete(){
   if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
-  if(!confirm(`Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? This cannot be undone.`)) return;
-  const before = TASKS.length;
-  // v0.1.63: also delete in cloud for tasks marked _cloud
-  if(db && db.ready){
-    const toDelete = TASKS.filter(t => selectedTaskIds.has(t.id) && t._cloud);
-    toDelete.forEach(t => {
-      db.tasks.delete(t.id).then(({error}) => {
-        if(error) console.warn('[cloud] delete failed:', t.id, error.message);
-        else auditLog('delete', 'task', t.id, { title: t.title }, null, t.proj);
+  openConfirmModal('Delete tasks', `Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? This cannot be undone.`, 'Delete', () => {
+    const before = TASKS.length;
+    // v0.1.63: also delete in cloud for tasks marked _cloud
+    if(db && db.ready){
+      const toDelete = TASKS.filter(t => selectedTaskIds.has(t.id) && t._cloud);
+      toDelete.forEach(t => {
+        db.tasks.delete(t.id).then(({error}) => {
+          if(error) console.warn('[cloud] delete failed:', t.id, error.message);
+          else auditLog('delete', 'task', t.id, { title: t.title }, null, t.proj);
+        });
       });
-    });
-  }
-  TASKS = TASKS.filter(t => !selectedTaskIds.has(t.id));
-  const n = before - TASKS.length;
-  toast(`✓ ${n} task${n===1?'':'s'} deleted`);
-  selectedTaskIds.clear();
-  selectMode = false;
-  document.body.classList.remove('select-mode');
-  if(typeof saveTimers === 'function') saveTimers();  // clean up orphaned timer entries
-  render();
-  updateHeader();
+    }
+    TASKS = TASKS.filter(t => !selectedTaskIds.has(t.id));
+    const n = before - TASKS.length;
+    toast(`✓ ${n} task${n===1?'':'s'} deleted`);
+    selectedTaskIds.clear();
+    selectMode = false;
+    document.body.classList.remove('select-mode');
+    if(typeof saveTimers === 'function') saveTimers();
+    render();
+    updateHeader();
+  });
 }
 
 // ━━━ P2-2 · CUSTOMIZABLE KEYBOARD SHORTCUTS ━━━
@@ -5617,6 +6260,688 @@ async function renderTaskPDFPage(doc, t, ctx){
   doc.setFontSize(7);
   doc.setTextColor(160);
   doc.text(`Page ${doc.internal.getNumberOfPages()}`, pageW - margin, pageH - 8);
+}
+
+// ━━━ RECORDINGS — Stage 4.2 + 4.3 ━━━
+let RECORDINGS = [];
+let _draftModalRecId = null;
+let TEMPLATES = JSON.parse(localStorage.getItem('eb_templates') || '[]');
+
+function renderRecordingsSection(){
+  const view = document.getElementById('recordingsView');
+  const whisperKey = localStorage.getItem('eb_openai_key') || '';
+  const claudeKey  = localStorage.getItem('eb_ai_key') || '';
+
+  const queueHTML = RECORDINGS.length === 0
+    ? `<div class="rec-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="margin:0 auto 12px;display:block;color:var(--t4)"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        Upload a meeting recording (.mp3, .mp4, .wav, .m4a…)<br>
+        <span style="font-size:11px">Whisper will transcribe it · Claude will extract draft tasks</span>
+      </div>`
+    : RECORDINGS.map(r => recItemHTML(r)).join('');
+
+  view.innerHTML = `<div class="rec-page">
+    <div class="rec-header">
+      <div>
+        <div class="rec-title">AI Recordings</div>
+        <div class="rec-subtitle">Transcribe meetings · Auto-extract tasks</div>
+      </div>
+      <button class="rec-upload-btn" onclick="document.getElementById('recFileInp').click()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 5 5 12"/></svg>
+        Upload recording
+      </button>
+    </div>
+
+    <div class="rec-keys">
+      <div class="rec-keys-h">API Keys</div>
+      <div class="rec-key-row">
+        <span class="rec-key-lbl">OpenAI (Whisper)</span>
+        <input class="rec-key-inp" id="recOpenaiKey" type="password" placeholder="sk-…" value="${whisperKey.replace(/"/g,'&quot;')}">
+        <button class="rec-key-save" onclick="saveRecKey('openai')">Save</button>
+      </div>
+      <div class="rec-key-row">
+        <span class="rec-key-lbl">Anthropic (Claude)</span>
+        <input class="rec-key-inp" id="recClaudeKey" type="password" placeholder="sk-ant-…" value="${claudeKey.replace(/"/g,'&quot;')}">
+        <button class="rec-key-save" onclick="saveRecKey('claude')">Save</button>
+      </div>
+    </div>
+
+    <div class="rec-queue" id="recQueue">${queueHTML}</div>
+  </div>`;
+}
+
+function saveRecKey(type){
+  if(type === 'openai'){
+    const v = document.getElementById('recOpenaiKey')?.value.trim();
+    if(!v){ toast('Enter OpenAI key first'); return; }
+    localStorage.setItem('eb_openai_key', v);
+    toast('✓ OpenAI key saved');
+  } else {
+    const v = document.getElementById('recClaudeKey')?.value.trim();
+    if(!v){ toast('Enter Anthropic key first'); return; }
+    localStorage.setItem('eb_ai_key', v);
+    toast('✓ Anthropic key saved');
+  }
+}
+
+function recItemHTML(r){
+  const pillCls = `rec-pill rec-pill-${r.status}`;
+  const pillLabel = {
+    queued:'QUEUED', transcribing:'TRANSCRIBING…', transcribed:'TRANSCRIBED',
+    extracting:'EXTRACTING…', done:'DONE', error:'ERROR'
+  }[r.status] || r.status.toUpperCase();
+
+  const sizeMB = r.size ? (r.size / 1048576).toFixed(1) + ' MB' : '';
+  const durationStr = r.duration ? ` · ${r.duration}` : '';
+
+  let btns = '';
+  if(r.status === 'queued'){
+    btns = `<button class="rec-btn ok" onclick="transcribeRecording('${r.id}')">Transcribe</button>`;
+  } else if(r.status === 'transcribed'){
+    btns = `<button class="rec-btn ok" onclick="extractTasksFromRecording('${r.id}')">Extract tasks</button>
+            <button class="rec-btn" onclick="toggleRecTranscript('${r.id}')">Transcript</button>`;
+  } else if(r.status === 'done'){
+    btns = `<button class="rec-btn ok" onclick="showDraftTasksModal('${r.id}')">Review tasks</button>
+            <button class="rec-btn" onclick="toggleRecTranscript('${r.id}')">Transcript</button>`;
+  } else if(r.status === 'error'){
+    btns = `<button class="rec-btn" onclick="transcribeRecording('${r.id}')">Retry</button>`;
+  }
+  btns += `<button class="rec-btn del" onclick="deleteRecording('${r.id}')">✕</button>`;
+
+  const transcriptBlock = (r.transcript && (r.status === 'transcribed' || r.status === 'done'))
+    ? `<div class="rec-transcript" id="recTr-${r.id}">
+         <div class="rec-transcript-text">${(r.transcript||'').replace(/[<>]/g,'')}</div>
+       </div>` : '';
+
+  const progressBar = (r.status === 'transcribing' || r.status === 'extracting')
+    ? `<div class="rec-progress"><div class="rec-progress-bar" style="width:${r._progress||30}%" id="recProg-${r.id}"></div></div>` : '';
+
+  return `<div class="rec-item" id="recItem-${r.id}">
+    <div class="rec-item-head">
+      <div class="rec-item-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+      </div>
+      <div class="rec-item-info">
+        <div class="rec-item-name" title="${r.name}">${r.name}</div>
+        <div class="rec-item-meta">${sizeMB}${durationStr}${r.error ? ' · ' + r.error : ''}</div>
+      </div>
+      <span class="${pillCls}">${pillLabel}</span>
+      <div class="rec-item-btns">${btns}</div>
+    </div>
+    ${progressBar}
+    ${transcriptBlock}
+  </div>`;
+}
+
+function handleRecordingUpload(e){
+  const files = Array.from(e.target.files || []);
+  files.forEach(f => {
+    RECORDINGS.push({
+      id: 'rec' + Date.now() + Math.random().toString(36).slice(2,6),
+      name: f.name,
+      size: f.size,
+      file: f,
+      status: 'queued',
+      transcript: null,
+      drafts: [],
+      _progress: 0
+    });
+  });
+  e.target.value = '';
+  updateRecBadge();
+  renderRecordingsSection();
+}
+
+function deleteRecording(id){
+  RECORDINGS = RECORDINGS.filter(r => r.id !== id);
+  updateRecBadge();
+  renderRecordingsSection();
+}
+
+function toggleRecTranscript(id){
+  const el = document.getElementById('recTr-' + id);
+  if(el) el.classList.toggle('open');
+}
+
+function updateRecBadge(){
+  const badge = document.getElementById('sbRecCount');
+  if(!badge) return;
+  const n = RECORDINGS.length;
+  badge.textContent = n;
+  badge.style.display = n > 0 ? '' : 'none';
+}
+
+async function transcribeRecording(id){
+  const r = RECORDINGS.find(x => x.id === id);
+  if(!r) return;
+  const apiKey = localStorage.getItem('eb_openai_key');
+  if(!apiKey){
+    toast('Set your OpenAI key in Recordings → API Keys');
+    return;
+  }
+  if(!r.file){
+    toast('File reference lost — please re-upload');
+    return;
+  }
+  if(r.file.size > 25 * 1024 * 1024){
+    toast('File exceeds 25 MB Whisper limit — please trim or compress', 3000);
+    return;
+  }
+
+  r.status = 'transcribing';
+  r._progress = 20;
+  renderRecordingsSection();
+
+  // Animate progress bar
+  const progInterval = setInterval(() => {
+    r._progress = Math.min(r._progress + 5, 85);
+    const bar = document.getElementById('recProg-' + id);
+    if(bar) bar.style.width = r._progress + '%';
+  }, 800);
+
+  try {
+    const fd = new FormData();
+    fd.append('file', r.file, r.name);
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'ru'); // auto-detect if omitted
+
+    const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey },
+      body: fd
+    });
+    const json = await resp.json();
+    clearInterval(progInterval);
+
+    if(json.error) throw new Error(json.error.message);
+    r.transcript = json.text || '';
+    r.status = 'transcribed';
+    r._progress = 100;
+    toast('✓ Transcription done — click "Extract tasks"');
+  } catch(e){
+    clearInterval(progInterval);
+    r.status = 'error';
+    r.error = e.message;
+    toast('Transcription error: ' + e.message, 3500);
+  }
+  renderRecordingsSection();
+}
+
+async function extractTasksFromRecording(id){
+  const r = RECORDINGS.find(x => x.id === id);
+  if(!r || !r.transcript) return;
+  const apiKey = localStorage.getItem('eb_ai_key');
+  if(!apiKey){
+    toast('Set your Anthropic (Claude) key in Recordings → API Keys');
+    return;
+  }
+
+  r.status = 'extracting';
+  r._progress = 25;
+  renderRecordingsSection();
+
+  const progInterval = setInterval(() => {
+    r._progress = Math.min(r._progress + 8, 85);
+    const bar = document.getElementById('recProg-' + id);
+    if(bar) bar.style.width = r._progress + '%';
+  }, 600);
+
+  const prompt = `You are an engineering project manager. Analyze this meeting transcript and extract actionable engineering tasks.
+
+Transcript:
+"""
+${r.transcript.slice(0, 6000)}
+"""
+
+Extract up to 10 concrete tasks. For each task return a JSON array (no markdown, just raw JSON):
+[
+  {
+    "title": "Short action title (max 80 chars)",
+    "detail": "Brief context or acceptance criteria (1-2 sentences)",
+    "status": "todo" | "in_progress" | "review" | "problem"
+  }
+]
+Return ONLY the JSON array, nothing else.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const json = await resp.json();
+    clearInterval(progInterval);
+    if(json.error) throw new Error(json.error.message);
+
+    let text = json.content?.[0]?.text || '[]';
+    // Strip possible markdown code fences
+    text = text.replace(/```json?\n?/g,'').replace(/```/g,'').trim();
+    const drafts = JSON.parse(text);
+    r.drafts = drafts.map((d, i) => ({
+      id: 'draft' + id + i,
+      title: d.title || 'Untitled task',
+      detail: d.detail || '',
+      status: d.status || 'todo',
+      state: 'pending'
+    }));
+    r.status = 'done';
+    r._progress = 100;
+    toast(`✓ ${r.drafts.length} task${r.drafts.length===1?'':'s'} extracted — review them now`);
+    renderRecordingsSection();
+    showDraftTasksModal(id);
+  } catch(e){
+    clearInterval(progInterval);
+    r.status = 'error';
+    r.error = e.message;
+    toast('Extraction error: ' + e.message, 3500);
+    renderRecordingsSection();
+  }
+}
+
+// ━━━ DRAFT TASKS MODAL (Stage 4.3) ━━━
+function showDraftTasksModal(recId){
+  _draftModalRecId = recId;
+  const r = RECORDINGS.find(x => x.id === recId);
+  if(!r || !r.drafts?.length){
+    toast('No draft tasks for this recording');
+    return;
+  }
+  closeDraftModal(); // remove any existing
+
+  const total = r.drafts.length;
+  const accepted = r.drafts.filter(d => d.state === 'accepted').length;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'draft-overlay';
+  overlay.id = 'draftOverlay';
+  overlay.onclick = e => { if(e.target === overlay) closeDraftModal(); };
+
+  overlay.innerHTML = `<div class="draft-modal">
+    <div class="draft-modal-h">
+      <div>
+        <div class="draft-modal-title">Draft tasks · ${r.name}</div>
+        <div class="draft-modal-sub">${total} tasks extracted from transcript</div>
+      </div>
+      <button class="draft-modal-x" onclick="closeDraftModal()">×</button>
+    </div>
+    <div class="draft-list" id="draftList">
+      ${r.drafts.map(d => draftTaskHTML(d, recId)).join('')}
+    </div>
+    <div class="draft-modal-foot">
+      <span class="draft-modal-foot-ct" id="draftFtCt">${accepted} of ${total} accepted</span>
+      <div style="display:flex;gap:8px">
+        <button class="rec-btn" onclick="acceptAllDrafts('${recId}')">Accept all</button>
+        <button class="rec-btn ok" onclick="addAcceptedToProject('${recId}');closeDraftModal()">Add accepted to project</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+function draftTaskHTML(d, recId){
+  const stLabel = {todo:'To do',in_progress:'In progress',review:'Review',problem:'Problem'}[d.status] || d.status;
+  return `<div class="draft-task${d.state==='accepted'?' accepted':''}${d.state==='rejected'?' rejected':''}" id="draftTask-${d.id}">
+    <div class="draft-task-top">
+      <div class="draft-task-title">${d.title.replace(/[<>]/g,'')}</div>
+      <span class="draft-task-st">${stLabel}</span>
+    </div>
+    ${d.detail ? `<div class="draft-task-detail">${d.detail.replace(/[<>]/g,'')}</div>` : ''}
+    <div class="draft-task-acts">
+      <button class="draft-task-accept" onclick="acceptDraft('${d.id}','${recId}')">${d.state==='accepted'?'✓ Accepted':'Accept'}</button>
+      <button class="draft-task-reject" onclick="rejectDraft('${d.id}','${recId}')">Reject</button>
+    </div>
+  </div>`;
+}
+
+function acceptDraft(draftId, recId){
+  const r = RECORDINGS.find(x => x.id === recId);
+  const d = r?.drafts?.find(x => x.id === draftId);
+  if(!d) return;
+  d.state = d.state === 'accepted' ? 'pending' : 'accepted';
+  refreshDraftModal(recId);
+}
+
+function rejectDraft(draftId, recId){
+  const r = RECORDINGS.find(x => x.id === recId);
+  const d = r?.drafts?.find(x => x.id === draftId);
+  if(!d) return;
+  d.state = 'rejected';
+  refreshDraftModal(recId);
+}
+
+function acceptAllDrafts(recId){
+  const r = RECORDINGS.find(x => x.id === recId);
+  if(!r) return;
+  r.drafts.forEach(d => { if(d.state !== 'rejected') d.state = 'accepted'; });
+  refreshDraftModal(recId);
+}
+
+function refreshDraftModal(recId){
+  const r = RECORDINGS.find(x => x.id === recId);
+  if(!r) return;
+  const list = document.getElementById('draftList');
+  const ct = document.getElementById('draftFtCt');
+  if(list) list.innerHTML = r.drafts.map(d => draftTaskHTML(d, recId)).join('');
+  if(ct){
+    const acc = r.drafts.filter(d => d.state === 'accepted').length;
+    ct.textContent = `${acc} of ${r.drafts.length} accepted`;
+  }
+}
+
+function addAcceptedToProject(recId){
+  const r = RECORDINGS.find(x => x.id === recId);
+  if(!r) return;
+  const accepted = r.drafts.filter(d => d.state === 'accepted');
+  if(!accepted.length){ toast('No tasks accepted'); return; }
+
+  const projId = (typeof currentProject !== 'undefined' && currentProject) || (PROJECTS[0]?.id);
+  const weekStr = TASKS[0]?.w || '26W17';
+  const STATUS_MAP = { todo:7, in_progress:6, review:3, problem:5 };
+
+  accepted.forEach(d => {
+    TASKS.unshift({
+      id: 't' + Date.now() + Math.random().toString(36).slice(2,5),
+      proj: projId,
+      w: weekStr,
+      s: STATUS_MAP[d.status] ?? 7,
+      n: d.title,
+      chat: d.detail ? [{ a:'AI', ts: new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false}), text: d.detail }] : []
+    });
+  });
+
+  toast(`✓ ${accepted.length} task${accepted.length===1?'':'s'} added to ${PROJECTS.find(p=>p.id===projId)?.name || 'project'}`);
+  if(typeof render === 'function') render();
+}
+
+function closeDraftModal(){
+  const el = document.getElementById('draftOverlay');
+  if(el) el.remove();
+  _draftModalRecId = null;
+}
+
+// ━━━ TASK TEMPLATES ━━━
+function openTmplMenu(taskId){
+  closeTmplMenu();
+  const btn = document.getElementById('tmplBtn_' + taskId);
+  if(!btn) return;
+  const t = TASKS.find(x => x.id === taskId);
+  const hasCL = t && Array.isArray(t.checklist) && t.checklist.length > 0;
+
+  const menu = document.createElement('div');
+  menu.id = 'tmplMenu';
+  menu.className = 'tmpl-picker';
+
+  // Save section
+  if(hasCL){
+    menu.innerHTML += `<div class="tmpl-picker-head">Save as template</div>
+      <div class="tmpl-save-row">
+        <input class="tmpl-save-inp" id="tmplSaveInp" placeholder="Template name…"
+          value="${((t.title||t.n||'').replace(/"/g,'&quot;'))}"
+          onkeydown="if(event.key==='Enter')commitSaveTemplate('${taskId}',this.value)"
+          onclick="event.stopPropagation()">
+        <div class="tmpl-save-btns">
+          <button class="tmpl-save-ok" onclick="event.stopPropagation();commitSaveTemplate('${taskId}',document.getElementById('tmplSaveInp').value)">Save</button>
+          <button class="tmpl-save-cancel" onclick="event.stopPropagation();closeTmplMenu()">Cancel</button>
+        </div>
+      </div>`;
+  } else {
+    menu.innerHTML += `<div class="tmpl-picker-head">Save as template</div>
+      <div class="tmpl-empty" style="padding-bottom:4px">Add checklist items first,<br>then save as template.</div>`;
+  }
+
+  // Apply section
+  if(TEMPLATES.length > 0){
+    menu.innerHTML += `<div class="tmpl-sep"></div>
+      <div class="tmpl-picker-head">Apply template</div>` +
+      TEMPLATES.map(tmpl => `
+        <div class="tmpl-item">
+          <span class="tmpl-item-name" onclick="event.stopPropagation();applyTemplate('${tmpl.id}','${taskId}')">${(tmpl.name||'').replace(/[<>]/g,'')}</span>
+          <span class="tmpl-item-ct">${tmpl.checklist.length}✓</span>
+          <button class="tmpl-item-del" onclick="event.stopPropagation();deleteTmpl('${tmpl.id}')" title="Delete">✕</button>
+        </div>`).join('');
+  } else {
+    menu.innerHTML += `<div class="tmpl-sep"></div>
+      <div class="tmpl-empty">No templates yet</div>`;
+  }
+
+  btn.appendChild(menu);
+  setTimeout(() => {
+    const inp = document.getElementById('tmplSaveInp');
+    if(inp){ inp.select(); inp.focus(); }
+    document.addEventListener('click', closeTmplMenu, {once:true, capture:true});
+  }, 20);
+}
+
+function closeTmplMenu(){
+  const m = document.getElementById('tmplMenu');
+  if(m) m.remove();
+}
+
+function commitSaveTemplate(taskId, name){
+  if(!name?.trim()){ toast('Enter a template name'); return; }
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const cl = Array.isArray(t.checklist) ? t.checklist : [];
+  if(!cl.length){ toast('Add checklist items first'); return; }
+  const tmpl = {
+    id: 'tmpl_' + Date.now(),
+    name: name.trim(),
+    checklist: cl.map(c => ({ id: 'cli_' + Date.now() + '_' + Math.random().toString(36).slice(2), text: c.text||'', done: false }))
+  };
+  TEMPLATES.push(tmpl);
+  localStorage.setItem('eb_templates', JSON.stringify(TEMPLATES));
+  closeTmplMenu();
+  toast('✓ Template "' + tmpl.name + '" saved · ' + cl.length + ' items');
+}
+
+function applyTemplate(tmplId, taskId){
+  const tmpl = TEMPLATES.find(x => x.id === tmplId);
+  if(!tmpl) return;
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if(!Array.isArray(t.checklist)) t.checklist = [];
+  const newItems = tmpl.checklist.map(c => ({
+    id: 'cli_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+    text: c.text, done: false
+  }));
+  t.checklist = [...t.checklist, ...newItems];
+  expandedChecklists.add(taskId);
+  closeTmplMenu();
+  render();
+  toast('✓ Applied "' + tmpl.name + '" · ' + newItems.length + ' items added');
+}
+
+function deleteTmpl(tmplId){
+  TEMPLATES = TEMPLATES.filter(x => x.id !== tmplId);
+  localStorage.setItem('eb_templates', JSON.stringify(TEMPLATES));
+  // Re-render the open menu if visible — find its taskId from the button
+  const menu = document.getElementById('tmplMenu');
+  if(menu){
+    const btn = menu.closest('[id^="tmplBtn_"]');
+    const tid = btn ? btn.id.replace('tmplBtn_','') : null;
+    if(tid){ menu.remove(); openTmplMenu(tid); }
+  }
+  toast('Template deleted');
+}
+
+// ━━━ AI KEY ━━━
+function saveAiKey(){
+  const val = (document.getElementById('aiKeyInp')?.value || '').trim();
+  if(!val){ toast('Enter your API key first'); return; }
+  localStorage.setItem('eb_ai_key', val);
+  toast('✓ API key saved');
+}
+function clearAiKey(){
+  localStorage.removeItem('eb_ai_key');
+  const inp = document.getElementById('aiKeyInp');
+  if(inp) inp.value = '';
+  toast('API key cleared');
+}
+
+// ━━━ AI ASSISTANT (Stage 5.1) ━━━
+async function askAI(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const apiKey = localStorage.getItem('eb_ai_key');
+  if(!apiKey){
+    toast('Set your Claude API key in Profile → AI Assistant');
+    return;
+  }
+  if(!Array.isArray(t.chat)) t.chat = [];
+  const ts = new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false});
+  const loadingMsg = { a:'AI', ts, text:'⏳ Thinking…', _pending:true };
+  t.chat.push(loadingMsg);
+  const panel = document.getElementById('ntChat-' + taskId);
+  const refreshPanel = () => {
+    if(!panel) return;
+    panel.innerHTML = t.chat.slice(-8).map(m => {
+      const init = (m.a||'?').slice(0,2).toUpperCase();
+      return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+        <span class="av ${init}">${init}</span>
+        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span></div>`;
+    }).join('');
+    panel.scrollTop = panel.scrollHeight;
+  };
+  refreshPanel();
+
+  const chatCtx = (t.chat || []).slice(0,-1).map(m => `${m.a}: ${m.text}`).join('\n');
+  const clCtx = (t.checklist || []).map(c => `- [${c.done?'x':' '}] ${c.text}`).join('\n');
+  const prompt = `You are a concise engineering assistant. Help with this manufacturing task.\nTask: "${t.n}"\nStatus: ${STATUSES[t.s]?.l||'unknown'}  Week: ${t.w||'—'}${clCtx ? '\nChecklist:\n'+clCtx : ''}${chatCtx ? '\nDiscussion:\n'+chatCtx : ''}\n\nGive a brief practical suggestion (2-3 sentences max).`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:300,
+        messages:[{role:'user', content:prompt}]
+      })
+    });
+    const json = await resp.json();
+    if(json.error) throw new Error(json.error.message || 'API error');
+    const text = json.content?.[0]?.text || 'No response';
+    const idx = t.chat.indexOf(loadingMsg);
+    if(idx >= 0) t.chat[idx] = { a:'AI', ts, text };
+  } catch(e){
+    const idx = t.chat.indexOf(loadingMsg);
+    if(idx >= 0) t.chat.splice(idx, 1);
+    toast('AI error: ' + e.message);
+  }
+  refreshPanel();
+}
+
+// ━━━ WEEKLY SUMMARY PDF (Stage 5.2) ━━━
+async function exportWeeklySummaryPDF(){
+  if(!window.jspdf?.jsPDF){ toast('PDF library not loaded (offline?)'); return; }
+  const { jsPDF } = window.jspdf;
+  const projId = (typeof currentProject !== 'undefined' && currentProject) ? currentProject : null;
+  const proj = projId ? PROJECTS.find(p => p.id === projId) : null;
+  const allTasks = projId ? TASKS.filter(t => t.proj === projId) : [...TASKS];
+  if(allTasks.length === 0){ toast('No tasks to export'); return; }
+
+  const tasksByWeek = {};
+  allTasks.forEach(t => {
+    const w = t.w || 'No week';
+    if(!tasksByWeek[w]) tasksByWeek[w] = [];
+    tasksByWeek[w].push(t);
+  });
+  const weeks = Object.keys(tasksByWeek).sort();
+  toast(`Generating weekly summary (${weeks.length} week${weeks.length===1?'':'s'})…`, 3000);
+
+  const doc = new jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 15;
+
+  // Cover
+  doc.setFillColor(14,165,233);
+  doc.rect(0,0,pageW,6,'F');
+  doc.setFontSize(22); doc.setFont(undefined,'bold'); doc.setTextColor(15,23,42);
+  doc.text('Weekly Summary', margin, 30);
+  doc.setFontSize(11); doc.setFont(undefined,'normal'); doc.setTextColor(100,116,139);
+  doc.text(proj ? `${proj.name}${proj.code?' · '+proj.code:''}` : 'All Projects', margin, 40);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 47);
+  doc.text(`Weeks: ${weeks.length}  ·  Tasks: ${allTasks.length}`, margin, 54);
+
+  // Status summary on cover
+  const counts = {};
+  STATUSES.forEach((_,i) => counts[i]=0);
+  allTasks.forEach(t => { counts[t.s] = (counts[t.s]||0)+1; });
+  let y = 68;
+  doc.setFontSize(11); doc.setFont(undefined,'bold'); doc.setTextColor(15,23,42);
+  doc.text('Status Breakdown', margin, y); y += 7;
+  doc.setFontSize(9); doc.setFont(undefined,'normal');
+  STATUSES.forEach((s,i) => {
+    if(!counts[i]) return;
+    doc.setFillColor(...hexToRgb(s.c));
+    doc.rect(margin, y-3, 3, 3.5, 'F');
+    doc.setTextColor(15,23,42);
+    doc.text(`${s.l}: ${counts[i]}`, margin+6, y);
+    y += 6;
+  });
+
+  // Per-week pages
+  for(const week of weeks){
+    const wTasks = tasksByWeek[week];
+    doc.addPage();
+    doc.setFillColor(14,165,233);
+    doc.rect(0,0,pageW,9,'F');
+    doc.setFontSize(13); doc.setFont(undefined,'bold'); doc.setTextColor(255);
+    doc.text(`Week ${week}`, margin, 6.2);
+    const ctTxt = `${wTasks.length} task${wTasks.length===1?'':'s'}`;
+    doc.setFontSize(9); doc.setFont(undefined,'normal');
+    doc.text(ctTxt, pageW-margin-doc.getTextWidth(ctTxt), 6.2);
+
+    let curY = 18;
+    for(const t of wTasks){
+      const st = STATUSES[t.s] || STATUSES[0];
+      if(curY + 8 > pageH - margin){ doc.addPage(); curY = margin; }
+      doc.setFillColor(...hexToRgb(st.c));
+      doc.circle(margin+1.5, curY-1.5, 1.5, 'F');
+      doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(15,23,42);
+      const titleLine = doc.splitTextToSize(t.n||'(untitled)', pageW-2*margin-28)[0];
+      doc.text(titleLine, margin+5, curY);
+      doc.setFontSize(7.5); doc.setTextColor(100,116,139);
+      doc.text(st.l, pageW-margin-doc.getTextWidth(st.l), curY);
+      curY += 6;
+      if(Array.isArray(t.checklist) && t.checklist.length){
+        doc.setFontSize(7.5); doc.setFont(undefined,'normal');
+        for(const item of t.checklist){
+          if(curY+5 > pageH-margin){ doc.addPage(); curY = margin; }
+          doc.setTextColor(item.done ? 140 : 50);
+          doc.text(`      ${item.done?'[x]':'[ ]'} ${item.text}`, margin+5, curY);
+          curY += 4.5;
+        }
+      }
+      if(curY+2 < pageH-margin){
+        doc.setDrawColor(226,232,240);
+        doc.line(margin, curY, pageW-margin, curY);
+        curY += 3;
+      }
+    }
+    doc.setFontSize(7); doc.setTextColor(160);
+    doc.text(`Page ${doc.internal.getNumberOfPages()}  ·  EngiBoard`, pageW-margin, pageH-6);
+  }
+
+  const fname = `engiboard-weekly-${new Date().toISOString().slice(0,10)}.pdf`;
+  doc.save(fname);
+  toast(`✓ Saved: ${fname}`);
 }
 
 // ━━━ TOAST ━━━
