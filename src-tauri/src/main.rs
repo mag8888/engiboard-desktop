@@ -11,9 +11,10 @@ use std::time::SystemTime;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-// v0.1.84: pull-based image loading. The editor fetches its data via this
-// global stash on load — fixes blank editor on Windows where large base64
-// dataUrls hit WebView2 IPC payload limits via events.
+// v0.1.93: write screenshot to a temp file and pass only the path through IPC.
+// Previous attempts to send the base64 dataUrl via events or invoke responses
+// were failing silently on Windows WebView2 (large payloads). A file path is
+// ~100 bytes — guaranteed to round-trip.
 static EDITOR_PENDING: OnceLock<Mutex<Option<serde_json::Value>>> = OnceLock::new();
 fn editor_pending() -> &'static Mutex<Option<serde_json::Value>> {
     EDITOR_PENDING.get_or_init(|| Mutex::new(None))
@@ -23,6 +24,69 @@ fn editor_pending() -> &'static Mutex<Option<serde_json::Value>> {
 fn get_pending_editor_data() -> Option<serde_json::Value> {
     // Returns and clears the pending payload so retries don't re-fire it.
     editor_pending().lock().ok().and_then(|mut g| g.take())
+}
+
+// Decode the base64 portion of a `data:image/...;base64,XXX` URL into bytes.
+fn data_url_to_bytes(data_url: &str) -> Option<Vec<u8>> {
+    let comma = data_url.find(",")?;
+    let b64 = &data_url[comma + 1..];
+    base64_decode(b64).ok()
+}
+
+// Tiny base64 decoder (RFC 4648), no external crate dependency.
+fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
+    fn val(c: u8) -> Option<u8> {
+        match c {
+            b'A'..=b'Z' => Some(c - b'A'),
+            b'a'..=b'z' => Some(c - b'a' + 26),
+            b'0'..=b'9' => Some(c - b'0' + 52),
+            b'+' => Some(62),
+            b'/' => Some(63),
+            _ => None,
+        }
+    }
+    let bytes: Vec<u8> = s
+        .bytes()
+        .filter(|&b| b != b'\n' && b != b'\r' && b != b' ' && b != b'\t')
+        .collect();
+    let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
+    let mut i = 0;
+    while i < bytes.len() {
+        let b0 = val(bytes[i]).ok_or_else(|| format!("invalid base64 char at {}", i))?;
+        let b1 = val(*bytes.get(i + 1).unwrap_or(&b'A')).unwrap_or(0);
+        out.push((b0 << 2) | (b1 >> 4));
+        if let Some(&c) = bytes.get(i + 2) {
+            if c != b'=' {
+                let b2 = val(c).unwrap_or(0);
+                out.push((b1 << 4) | (b2 >> 2));
+                if let Some(&d) = bytes.get(i + 3) {
+                    if d != b'=' {
+                        let b3 = val(d).unwrap_or(0);
+                        out.push((b2 << 6) | b3);
+                    }
+                }
+            }
+        }
+        i += 4;
+    }
+    Ok(out)
+}
+
+// Write screenshot bytes to a temp file and return its absolute path.
+fn write_temp_screenshot(data_url: &str) -> Option<std::path::PathBuf> {
+    let bytes = data_url_to_bytes(data_url)?;
+    if bytes.is_empty() { return None; }
+    let mime_is_jpeg = data_url.contains("image/jpeg") || data_url.contains("image/jpg");
+    let ext = if mime_is_jpeg { "jpg" } else { "png" };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let mut path = std::env::temp_dir();
+    path.push(format!("engiboard_editor_{}.{}", now, ext));
+    std::fs::write(&path, &bytes).ok()?;
+    eprintln!("write_temp_screenshot: wrote {} bytes to {:?}", bytes.len(), path);
+    Some(path)
 }
 
 // v0.1.86: open any URL (http/https/mailto/etc) via the OS default handler.
@@ -67,11 +131,18 @@ fn open_editor_with_image(
         "comments":    comments.clone().unwrap_or(serde_json::json!([])),
     });
 
-    // v0.1.84: stash full payload so editor can pull it via invoke on load.
-    // Avoids event-emit race conditions and IPC payload size limits (large
-    // base64 dataUrls were causing blank editor windows on Windows WebView2).
+    // v0.1.93: write screenshot to a temp file. The editor will load it via
+    // convertFileSrc → asset protocol — bypasses IPC payload size limits
+    // entirely (only the short file path crosses the IPC boundary).
+    let temp_path = write_temp_screenshot(&data_url);
+    let temp_path_str = temp_path
+        .as_ref()
+        .and_then(|p| p.to_str())
+        .map(|s| s.to_string());
     if let Ok(mut g) = editor_pending().lock() {
         *g = Some(serde_json::json!({
+            "filePath": temp_path_str,
+            // Still include dataUrl as a fallback for older editor builds
             "dataUrl": data_url.clone(),
             "annotations": annotations.unwrap_or(serde_json::json!([])),
             "comments": comments.unwrap_or(serde_json::json!([])),

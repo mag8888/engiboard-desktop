@@ -785,14 +785,32 @@ function loadScreenshotAsBg(dataUrl){
     };
   }, 3500);
 
-  const applyPayload = (dataUrl, annotations, comments) => {
-    dbg(`applyPayload: dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annotations?.length||0} com=${comments?.length||0}`);
-    if(dataUrl){
-      const h = hash(dataUrl);
+  // v0.1.93: prefer filePath (small string via IPC) over dataUrl (large base64
+  // payload that fails on Windows WebView2). filePath is converted to an
+  // asset:// URL via Tauri's convertFileSrc — no IPC payload at all.
+  const applyPayload = (dataUrl, annotations, comments, filePath) => {
+    dbg(`applyPayload: filePath=${filePath?'set':'null'} dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annotations?.length||0} com=${comments?.length||0}`);
+    let resolvedSrc = null;
+    if(filePath){
+      try {
+        const conv = window.__TAURI__?.core?.convertFileSrc || window.__TAURI__?.convertFileSrc || window.__TAURI__?.tauri?.convertFileSrc;
+        if(conv){
+          resolvedSrc = conv(filePath);
+          dbg(`convertFileSrc → ${resolvedSrc}`);
+        } else {
+          // Fallback to a manual asset URL
+          resolvedSrc = `asset://localhost/${filePath.replace(/\\/g,'/')}`;
+          dbg(`manual asset URL → ${resolvedSrc}`);
+        }
+      } catch(e){ dbg(`convertFileSrc threw: ${e.message}`); }
+    }
+    if(!resolvedSrc && dataUrl) resolvedSrc = dataUrl;
+    if(resolvedSrc){
+      const h = hash(resolvedSrc);
       if(h !== _loadedHash){
         _loadedHash = h;
         _loaded = true;
-        loadScreenshotAsBg(dataUrl);
+        loadScreenshotAsBg(resolvedSrc);
       }
     }
     try {
@@ -822,9 +840,9 @@ function loadScreenshotAsBg(dataUrl){
     try {
       dbg('calling get_pending_editor_data...');
       const data = await invoke('get_pending_editor_data');
-      dbg(`get_pending_editor_data returned: ${data ? 'data (dataUrl='+(data.dataUrl?'len='+data.dataUrl.length:'null')+')' : 'null/undefined'}`);
+      dbg(`get_pending_editor_data returned: ${data ? 'data (filePath='+(data.filePath||'null')+' dataUrl='+(data.dataUrl?'len='+data.dataUrl.length:'null')+')' : 'null/undefined'}`);
       if(data){
-        applyPayload(data.dataUrl, data.annotations, data.comments);
+        applyPayload(data.dataUrl, data.annotations, data.comments, data.filePath);
       }
     } catch(err){
       dbg(`get_pending_editor_data threw: ${err?.message || err}`);
@@ -847,7 +865,7 @@ function loadScreenshotAsBg(dataUrl){
   await window.__TAURI__.event.listen('load-annotations', e => {
     try {
       const p = e.payload || {};
-      applyPayload(null, p.annotations, p.comments);
+      applyPayload(null, p.annotations, p.comments, null);
     } catch(err){ console.warn('load-annotations failed:', err); }
   });
 })();

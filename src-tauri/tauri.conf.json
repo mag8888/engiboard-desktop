@@ -1,6 +1,6 @@
 {
   "productName": "EngiBoard",
-  "version": "0.1.92",
+  "version": "0.1.93",
   "identifier": "com.engiboard.desktop",
   "build": {
     "frontendDist": "../dist"
@@ -28,7 +28,11 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     }
   },
   "bundle": {
