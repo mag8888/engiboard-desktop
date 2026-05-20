@@ -25,6 +25,20 @@ fn get_pending_editor_data() -> Option<serde_json::Value> {
     editor_pending().lock().ok().and_then(|mut g| g.take())
 }
 
+// v0.1.86: open any URL (http/https/mailto/etc) via the OS default handler.
+// Used by the email-invite flow to launch the user's mail client.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    eprintln!("open_url: {}", url);
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(&url).spawn();
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("cmd").args(["/C", "start", "", &url]).spawn();
+    #[cfg(target_os = "linux")]
+    let result = std::process::Command::new("xdg-open").arg(&url).spawn();
+    result.map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn show_main(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -656,7 +670,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data
+            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url
         ])
         .run(tauri::generate_context!())
         .expect("error");

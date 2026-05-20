@@ -2914,10 +2914,55 @@ async function inviteByEmail(){
     toast('Error: ' + error.message); return;
   }
   const link = `engiboard://invite/${token}`;
+  const project = PROJECTS.find(p => p.id === currentProject);
+  const inviterName = u.user_metadata?.full_name || u.email || 'Your teammate';
+  // v0.1.86: open mail client with prefilled invitation
+  await sendInviteEmail(email, inviterName, project?.name || 'EngiBoard project', link);
   try { await navigator.clipboard.writeText(link); } catch(_){}
   inp.value = '';
-  toast('✓ Invited ' + email + ' — link copied');
+  toast('✓ Invited ' + email + ' — email draft opened, link copied');
   loadPendingInvites();
+}
+
+// Opens the user's default mail client with a prefilled invite message.
+// Works on both macOS and Windows — no backend / API key required.
+async function sendInviteEmail(toEmail, inviterName, projectName, link){
+  const subject = `${inviterName} invited you to "${projectName}" on EngiBoard`;
+  const body = [
+    `Hi,`,
+    ``,
+    `${inviterName} invited you to join the project "${projectName}" on EngiBoard.`,
+    ``,
+    `To accept, open this link in your EngiBoard app:`,
+    link,
+    ``,
+    `If you don't have EngiBoard yet, download it here:`,
+    `https://github.com/mag8888/engiboard-desktop/releases/latest`,
+    ``,
+    `This invite expires in 7 days.`,
+    ``,
+    `— EngiBoard`,
+  ].join('\n');
+  const mailto = `mailto:${encodeURIComponent(toEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  try {
+    if(window.__TAURI__){
+      const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+      // Try Tauri's open_url command first (uses OS default handler)
+      if(invoke){
+        await invoke('open_url', { url: mailto }).catch(async () => {
+          if(window.__TAURI__.shell?.open){
+            await window.__TAURI__.shell.open(mailto);
+          } else { window.location.href = mailto; }
+        });
+      } else if(window.__TAURI__.shell?.open){
+        await window.__TAURI__.shell.open(mailto);
+      } else { window.location.href = mailto; }
+    } else {
+      window.location.href = mailto;
+    }
+  } catch(e){
+    console.warn('[invite] mailto open failed:', e.message);
+  }
 }
 async function generateInviteLink(){
   const statusEl = document.getElementById('inviteLinkStatus');
