@@ -1,6 +1,6 @@
 {
   "name": "engiboard-desktop",
-  "version": "0.1.89",
+  "version": "0.1.90",
   "description": "EngiBoard Desktop – test runner",
   "private": true,
   "scripts": {

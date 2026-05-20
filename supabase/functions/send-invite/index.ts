@@ -91,12 +91,18 @@ function json(obj: unknown, status = 200): Response {
 }
 
 function renderText(p: { inviter_name: string; project_name: string; link: string }): string {
+  const tokenMatch = p.link.match(/invite\/([^/?#]+)/);
+  const token = tokenMatch ? tokenMatch[1] : "";
+  const webLink = `https://mag8888.github.io/engiboard-desktop/invite.html?token=${encodeURIComponent(token)}`;
   return [
     `Hi,`,
     ``,
     `${p.inviter_name || "A teammate"} invited you to join "${p.project_name || "an EngiBoard project"}".`,
     ``,
-    `To accept, open this link in your EngiBoard app:`,
+    `Accept the invitation:`,
+    webLink,
+    ``,
+    `Or paste this directly into EngiBoard:`,
     p.link,
     ``,
     `If you don't have EngiBoard yet, download it from:`,
@@ -111,7 +117,13 @@ function renderText(p: { inviter_name: string; project_name: string; link: strin
 function renderHtml(p: { inviter_name: string; project_name: string; link: string }): string {
   const inviter = escapeHtml(p.inviter_name || "A teammate");
   const project = escapeHtml(p.project_name || "an EngiBoard project");
-  const link = escapeHtml(p.link);
+  const deepLink = escapeHtml(p.link);
+  // Extract token from engiboard://invite/<token> and build an HTTPS landing
+  // page URL. Gmail strips clicks on non-http(s) schemes, so the button must
+  // point to an HTTPS page that then redirects to the engiboard:// link.
+  const tokenMatch = p.link.match(/invite\/([^/?#]+)/);
+  const token = tokenMatch ? tokenMatch[1] : "";
+  const webLink = `https://mag8888.github.io/engiboard-desktop/invite.html?token=${encodeURIComponent(token)}`;
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>EngiBoard invitation</title></head>
 <body style="margin:0;padding:0;background:#F8FAFC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0F172A;">
@@ -131,13 +143,17 @@ function renderHtml(p: { inviter_name: string; project_name: string; link: strin
           <b>${inviter}</b> invited you to collaborate on the engineering project <b>"${project}"</b> in EngiBoard — a desktop app for tracking tasks with annotated screenshots.
         </td></tr>
         <tr><td style="padding-top:24px;">
-          <a href="${link}" style="display:inline-block;background:#0EA5E9;color:#FFFFFF;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:8px;">
+          <a href="${webLink}" style="display:inline-block;background:#0EA5E9;color:#FFFFFF;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:8px;">
             Accept invitation
           </a>
         </td></tr>
         <tr><td style="padding-top:18px;font-size:12px;color:#64748B;line-height:1.5;">
-          Or copy this link into the app:<br>
-          <code style="background:#F1F5F9;padding:4px 8px;border-radius:4px;font-size:11px;word-break:break-all;display:inline-block;margin-top:4px;">${link}</code>
+          Button not working? Open this link in your browser:<br>
+          <a href="${webLink}" style="color:#0EA5E9;word-break:break-all;">${webLink}</a>
+        </td></tr>
+        <tr><td style="padding-top:14px;font-size:12px;color:#64748B;line-height:1.5;">
+          Or paste this directly into EngiBoard:<br>
+          <code style="background:#F1F5F9;padding:4px 8px;border-radius:4px;font-size:11px;word-break:break-all;display:inline-block;margin-top:4px;">${deepLink}</code>
         </td></tr>
         <tr><td style="padding-top:24px;border-top:1px solid #E2E8F0;font-size:12px;color:#64748B;line-height:1.5;">
           Don't have EngiBoard yet? <a href="https://github.com/mag8888/engiboard-desktop/releases/latest" style="color:#0EA5E9;text-decoration:none;">Download for Mac or Windows →</a><br>
