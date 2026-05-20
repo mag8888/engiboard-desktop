@@ -748,37 +748,63 @@ function loadScreenshotAsBg(dataUrl){
 }
 (async function(){
   if(!window.__TAURI__) return;
-  // v0.1.39: backend retries load-image up to 3 times to avoid blank-window race.
-  // Dedupe here so user-edited canvas isn't reset by late retries.
   let _loadedHash = null;
   const hash = (s) => { let h=0; for(let i=0;i<Math.min(s.length,512);i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h; };
+
+  const applyPayload = (dataUrl, annotations, comments) => {
+    if(dataUrl){
+      const h = hash(dataUrl);
+      if(h !== _loadedHash){
+        _loadedHash = h;
+        loadScreenshotAsBg(dataUrl);
+      }
+    }
+    try {
+      if(Array.isArray(annotations) && annotations.length){
+        window.annotations = annotations;
+        if(typeof undoStack !== 'undefined'){ undoStack = []; redoStack = []; }
+        if(typeof renderAll === 'function') renderAll();
+        if(typeof updateList === 'function') updateList();
+        if(typeof updateCount === 'function') updateCount();
+      }
+      if(Array.isArray(comments) && comments.length){
+        window.comments = comments;
+        window.commentCount = comments.length;
+        if(typeof renderAll === 'function') renderAll();
+        if(typeof updateList === 'function') updateList();
+        if(typeof updateCount === 'function') updateCount();
+      }
+      const total = (annotations?.length||0) + (comments?.length||0);
+      if(total) notify(`Restored ${total} annotations`);
+    } catch(err){ console.warn('apply annotations failed:', err); }
+  };
+
+  // v0.1.84: PRIMARY load path — pull from Rust state via invoke. This works
+  // reliably on Windows WebView2 where large base64 dataUrls in event payloads
+  // were silently dropped, leaving the editor blank.
+  const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  if(invoke){
+    try {
+      const data = await invoke('get_pending_editor_data');
+      if(data){
+        applyPayload(data.dataUrl, data.annotations, data.comments);
+      }
+    } catch(err){ console.warn('get_pending_editor_data failed:', err); }
+  }
+
+  // v0.1.39: FALLBACK — backend also emits load-image via events for backward
+  // compat. If invoke succeeded, the hash dedupe will skip these.
   await window.__TAURI__.event.listen('load-image', e => {
     if(!e.payload) return;
     const h = hash(e.payload);
-    if(h === _loadedHash) return; // already loaded same image — ignore
+    if(h === _loadedHash) return;
     _loadedHash = h;
     loadScreenshotAsBg(e.payload);
   });
-  // v0.1.62 (Phase C #3): restore previously-saved annotations + comments
-  // so re-opening a screenshot resumes the edit session instead of starting
-  // from scratch.
   await window.__TAURI__.event.listen('load-annotations', e => {
     try {
       const p = e.payload || {};
-      if(Array.isArray(p.annotations)){
-        annotations = p.annotations;
-        undoStack = [];     // fresh session, no parent history to undo into
-        redoStack = [];
-        renderAll(); updateList(); updateCount();
-      }
-      if(Array.isArray(p.comments)){
-        comments = p.comments;
-        commentCount = comments.length;
-        renderAll(); updateList(); updateCount();
-      }
-      if(annotations.length || comments.length){
-        notify(`Restored ${annotations.length+comments.length} annotations`);
-      }
+      applyPayload(null, p.annotations, p.comments);
     } catch(err){ console.warn('load-annotations failed:', err); }
   });
 })();

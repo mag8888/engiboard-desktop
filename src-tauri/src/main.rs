@@ -9,7 +9,21 @@ use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut,
 use tauri_plugin_deep_link::DeepLinkExt;
 use std::time::SystemTime;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+
+// v0.1.84: pull-based image loading. The editor fetches its data via this
+// global stash on load — fixes blank editor on Windows where large base64
+// dataUrls hit WebView2 IPC payload limits via events.
+static EDITOR_PENDING: OnceLock<Mutex<Option<serde_json::Value>>> = OnceLock::new();
+fn editor_pending() -> &'static Mutex<Option<serde_json::Value>> {
+    EDITOR_PENDING.get_or_init(|| Mutex::new(None))
+}
+
+#[tauri::command]
+fn get_pending_editor_data() -> Option<serde_json::Value> {
+    // Returns and clears the pending payload so retries don't re-fire it.
+    editor_pending().lock().ok().and_then(|mut g| g.take())
+}
 
 #[tauri::command]
 fn show_main(app: tauri::AppHandle) {
@@ -35,9 +49,20 @@ fn open_editor_with_image(
     );
     let d = data_url.clone();
     let ann_payload = serde_json::json!({
-        "annotations": annotations.unwrap_or(serde_json::json!([])),
-        "comments":    comments.unwrap_or(serde_json::json!([])),
+        "annotations": annotations.clone().unwrap_or(serde_json::json!([])),
+        "comments":    comments.clone().unwrap_or(serde_json::json!([])),
     });
+
+    // v0.1.84: stash full payload so editor can pull it via invoke on load.
+    // Avoids event-emit race conditions and IPC payload size limits (large
+    // base64 dataUrls were causing blank editor windows on Windows WebView2).
+    if let Ok(mut g) = editor_pending().lock() {
+        *g = Some(serde_json::json!({
+            "dataUrl": data_url.clone(),
+            "annotations": annotations.unwrap_or(serde_json::json!([])),
+            "comments": comments.unwrap_or(serde_json::json!([])),
+        }));
+    }
 
     // v0.1.39 fix: client reported "пустое окно EngiBoard Annotate" — happens when
     // a stale editor window is reused but its webview is in broken/half-loaded state.
@@ -631,7 +656,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings
+            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data
         ])
         .run(tauri::generate_context!())
         .expect("error");
