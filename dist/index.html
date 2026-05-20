@@ -2901,6 +2901,13 @@ async function inviteByEmail(){
   if(!email || !email.includes('@')){ toast('Enter a valid email'); return; }
   if(!db || !db.ready){ toast('Cloud not connected'); return; }
   if(currentProject === 'all'){ toast('Select a specific project first'); return; }
+  // v0.1.87: only cloud projects can be invited to (Supabase uses UUIDs;
+  // demo/local projects have string IDs like 'p1' which fail UUID validation)
+  const project = PROJECTS.find(p => p.id === currentProject);
+  if(!project?._cloud){
+    toast('Switch to a cloud project first — demo projects can\'t be shared');
+    return;
+  }
   // v0.1.85 fix: RLS policy on project_invites requires invited_by = auth.uid()
   const u = await db.auth.user();
   if(!u){ toast('Not signed in'); return; }
@@ -2914,14 +2921,43 @@ async function inviteByEmail(){
     toast('Error: ' + error.message); return;
   }
   const link = `engiboard://invite/${token}`;
-  const project = PROJECTS.find(p => p.id === currentProject);
   const inviterName = u.user_metadata?.full_name || u.email || 'Your teammate';
-  // v0.1.86: open mail client with prefilled invitation
-  await sendInviteEmail(email, inviterName, project?.name || 'EngiBoard project', link);
+
+  // v0.1.88: send via Resend through Supabase Edge Function (from a tech domain),
+  // so the recipient gets a real email without needing a local mail client.
+  // Falls back to mailto: only if the server send fails.
+  const sent = await sendInviteViaServer(email, inviterName, project.name, link);
+  if(!sent){
+    await sendInviteEmail(email, inviterName, project.name, link);  // mailto fallback
+  }
   try { await navigator.clipboard.writeText(link); } catch(_){}
   inp.value = '';
-  toast('✓ Invited ' + email + ' — email draft opened, link copied');
+  toast(sent ? `✓ Email sent to ${email}` : `✓ Invite created — mail draft opened, link copied`);
   loadPendingInvites();
+}
+
+// v0.1.88: server-side email send via Supabase Edge Function `send-invite`.
+// Returns true on success, false if the function isn't deployed or fails.
+async function sendInviteViaServer(toEmail, inviterName, projectName, link){
+  if(!db || !db.ready || !sb?.functions?.invoke) return false;
+  try {
+    const { data, error } = await sb.functions.invoke('send-invite', {
+      body: {
+        to: toEmail,
+        inviter_name: inviterName,
+        project_name: projectName,
+        link
+      }
+    });
+    if(error){
+      console.warn('[invite] server send failed:', error.message || error);
+      return false;
+    }
+    return !!(data?.ok);
+  } catch(e){
+    console.warn('[invite] server send threw:', e.message);
+    return false;
+  }
 }
 
 // Opens the user's default mail client with a prefilled invite message.
@@ -2968,6 +3004,12 @@ async function generateInviteLink(){
   const statusEl = document.getElementById('inviteLinkStatus');
   if(!db || !db.ready){ toast('Cloud not connected'); return; }
   if(currentProject === 'all'){ toast('Select a specific project first'); return; }
+  // v0.1.87: only cloud projects can be invited to
+  const project = PROJECTS.find(p => p.id === currentProject);
+  if(!project?._cloud){
+    toast('Switch to a cloud project first — demo projects can\'t be shared');
+    return;
+  }
   // v0.1.85 fix: RLS policy requires invited_by = auth.uid()
   const u = await db.auth.user();
   if(!u){ toast('Not signed in'); return; }
@@ -5645,40 +5687,8 @@ function renderProjMembers(){
   }).join('');
 }
 
-function inviteByEmail(){
-  const inp = document.getElementById('ppInviteEmail');
-  const email = (inp?.value || '').trim().toLowerCase();
-  if(!email){ toast('Type an email first'); inp?.focus(); return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    toast('Invalid email format'); inp?.focus(); return;
-  }
-  const proj = getCurrentProjectMembers();
-  if(!proj){ toast('Pick a project first (not All)'); return; }
-  if(!Array.isArray(proj.members)) proj.members = [];
-  if(proj.members.includes(email)){ toast(`${email} already invited`); return; }
-  proj.members.push(email);
-  inp.value = '';
-  renderProjMembers();
-  toast(`✓ ${email} invited to ${proj.name}`, 2200);
-
-  // v1: open mailto: with prepared invite text. Real email delivery deferred to S4.
-  const subject = encodeURIComponent(`You're invited to ${proj.name} on EngiBoard`);
-  const body = encodeURIComponent(
-    `You've been invited to collaborate on the engineering project "${proj.name}" (${proj.code || ''}).\n\n` +
-    `EngiBoard is a desktop app for tracking engineering tasks with screenshots and annotations.\n\n` +
-    `Download for Mac/Windows: https://github.com/mag8888/engiboard-desktop/releases/latest\n\n` +
-    `After install, sign in with this email (${email}) and the project will appear once cloud sync is enabled (Sprint S4).\n\n` +
-    `— ${localStorage.getItem('eb_account') || 'EngiBoard team'}`
-  );
-  setTimeout(() => {
-    if(window.__TAURI__){
-      const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
-      try { window.__TAURI__.shell.open(`mailto:${email}?subject=${subject}&body=${body}`); } catch(_){}
-    } else {
-      window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-    }
-  }, 200);
-}
+// v0.1.87: old local-only inviteByEmail removed — was shadowing the cloud
+// version at line ~2891 and using a stale 'ppInviteEmail' input ID.
 
 function removeProjMember(email){
   const proj = getCurrentProjectMembers();
