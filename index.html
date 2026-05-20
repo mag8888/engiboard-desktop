@@ -2821,7 +2821,11 @@ async function loadProjectMembers(){
     const { data, error } = await sb.from('project_members')
       .select('user_id, role, joined_at, user:profiles(email, full_name, avatar_url)')
       .eq('project_id', currentProject);
-    if(error){ el.innerHTML = `<div style="color:var(--t4)">Cannot load: ${error.message}</div>`; return; }
+    if(error){
+      console.warn('[members] load error:', error.message);
+      el.innerHTML = '<div style="color:var(--t4);padding:8px 0">No members yet.</div>';
+      return;
+    }
     if(!data?.length){ el.innerHTML = '<div style="color:var(--t4);padding:8px 0">No members yet.</div>'; return; }
     const me = await db.auth.user();
     const myUid = me?.id;
@@ -2865,7 +2869,12 @@ async function loadPendingInvites(){
       .eq('project_id', currentProject)
       .is('accepted_at', null)
       .order('created_at', { ascending: false });
-    if(error){ el.innerHTML = `<div style="color:var(--t4)">Cannot load: ${error.message}</div>`; return; }
+    if(error){
+      // RLS may block listing if user isn't owner — show nothing rather than scary error
+      console.warn('[invites] load error:', error.message);
+      el.innerHTML = '<div style="color:var(--t4);padding:8px 0;font-style:italic">No pending invites.</div>';
+      return;
+    }
     if(!data?.length){ el.innerHTML = '<div style="color:var(--t4);padding:8px 0;font-style:italic">No pending invites.</div>'; return; }
     el.innerHTML = data.map(i => {
       const exp = new Date(i.expires_at);
@@ -2892,12 +2901,18 @@ async function inviteByEmail(){
   if(!email || !email.includes('@')){ toast('Enter a valid email'); return; }
   if(!db || !db.ready){ toast('Cloud not connected'); return; }
   if(currentProject === 'all'){ toast('Select a specific project first'); return; }
+  // v0.1.85 fix: RLS policy on project_invites requires invited_by = auth.uid()
+  const u = await db.auth.user();
+  if(!u){ toast('Not signed in'); return; }
   const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
   const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
   const { error } = await sb.from('project_invites').insert({
-    project_id: currentProject, email, role: 'engineer', token, expires_at: expires
+    project_id: currentProject, email, role: 'engineer', token, expires_at: expires, invited_by: u.id
   });
-  if(error){ toast('Error: ' + error.message); return; }
+  if(error){
+    if(error.code === '23505'){ toast(email + ' already invited'); return; }
+    toast('Error: ' + error.message); return;
+  }
   const link = `engiboard://invite/${token}`;
   try { await navigator.clipboard.writeText(link); } catch(_){}
   inp.value = '';
@@ -2908,10 +2923,13 @@ async function generateInviteLink(){
   const statusEl = document.getElementById('inviteLinkStatus');
   if(!db || !db.ready){ toast('Cloud not connected'); return; }
   if(currentProject === 'all'){ toast('Select a specific project first'); return; }
+  // v0.1.85 fix: RLS policy requires invited_by = auth.uid()
+  const u = await db.auth.user();
+  if(!u){ toast('Not signed in'); return; }
   const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
   const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
   const { error } = await sb.from('project_invites').insert({
-    project_id: currentProject, email: null, role: 'engineer', token, expires_at: expires
+    project_id: currentProject, email: null, role: 'engineer', token, expires_at: expires, invited_by: u.id
   });
   if(error){ toast('Error: ' + error.message); return; }
   const link = `engiboard://invite/${token}`;
