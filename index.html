@@ -886,9 +886,12 @@ body.select-mode .bulk-bar{display:flex}
   background:#0F172A;color:#fff;padding:10px 20px;border-radius:8px;
   font-size:12px;font-weight:500;
   box-shadow:0 8px 32px rgba(0,0,0,.3);
-  pointer-events:none;opacity:0;transition:.2s;z-index:9999
+  pointer-events:none;opacity:0;transition:.15s;z-index:9999
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+/* Subtle variant for the repaint-trigger toast (single "✓") */
+.toast.tiny{padding:6px 12px;font-size:11px;opacity:0;background:rgba(15,23,42,.85)}
+.toast.tiny.show{opacity:.85}
 
 /* ━━━ STAGE-1 OUT-OF-SCOPE MODAL (v0.1.40) ━━━
    Functions outside Stage 1 deliverables are kept in the UI but, when clicked,
@@ -3538,17 +3541,15 @@ function replaceListWith(html){
 
 let _repaintTick = 0;
 function forceCompositorRepaint(){
-  // WKWebView only repaints when forced through the animation pipeline.
-  // Triggering a CSS animation on the body for one frame guarantees that
-  // the browser schedules at least one paint cycle, even when nothing else
-  // changed visually. The animation moves opacity from 0.9999 → 1 (imperceptible).
+  // Empirically: only a visibly-changing in-viewport element flushes the
+  // WKWebView GPU compositor cache. The existing toast() function works
+  // (actions that show toast update visually, those that don't, don't).
+  // Show a brief, subtle "✓" toast on every render — it's both useful UX
+  // feedback and the proven repaint trigger.
   _repaintTick++;
-  const body = document.body;
-  if(!body) return;
-  // Remove + reflow + reapply so the animation re-triggers on every call
-  body.classList.remove('_eb-repaint-flash');
-  void body.offsetWidth;
-  body.classList.add('_eb-repaint-flash');
+  if(typeof toast === 'function'){
+    toast('✓', 600);
+  }
 }
 
 function render(){
