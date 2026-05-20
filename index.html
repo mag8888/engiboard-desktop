@@ -1,4 +1,24 @@
 <!DOCTYPE html>
+<!--
+  EngiBoard — Engineering Task Tracker
+  ────────────────────────────────────
+  v0.1.83 (2026-05-20)
+  • Fix: drag reorder — pointer-only with setPointerCapture, no duplicate listeners
+  v0.1.82 (2026-05-19)
+  • Fix: screenshot thumbnails invisible in task list (sandbox SVG src stripping)
+  • Fix: compare-modal images hidden after src assignment (sandbox display:none)
+  • Fix: presentation BEFORE image hidden (same sandbox issue)
+  • Fix: lightbox image hidden — removed inline onerror, replaced with smart JS handler
+  • Fix: presentNext/Prev were dead code — now navigate between tasks (← →)
+  • Add: Prev/Next task buttons in presentation footer with task X/N counter
+  • Fix: 4 success toasts missing ✓ checkmark (webhook cleared, member removed,
+         template deleted, API key cleared)
+
+  v0.1.81 (2026-05-18)
+  • Fix: row resize handle drag (clamps 80–400px, saves to task.h)
+  • Fix: filter chip counts for all 8 status values
+  • UI: dark mode toggle, all-projects accordion, empty states verified
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -94,7 +114,6 @@ img[src=""], img:not([src]) { display: none }
 .pres-body-grid      { padding: 4vh 6vw !important; }
 
 /* HARD size cap on every image inside any image viewer */
-#lightbox .lb-img-wrap,
 .pres-pic,
 .cmp-img-wrap,
 .lb-stage img,
@@ -508,8 +527,10 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   display:grid;grid-template-columns:24px 320px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
-  transition:all .12s;position:relative;min-height:90px
+  transition:all .12s;position:relative;min-height:90px;
+  -webkit-user-select:none;user-select:none /* prevent text selection during drag */
 }
+.row input,.row textarea,.row [contenteditable]{-webkit-user-select:text;user-select:text}
 .row:hover{border-color:rgba(14,165,233,.3);box-shadow:0 4px 14px rgba(14,165,233,.08)}
 .row.selected{border-color:var(--acc) !important;box-shadow:0 0 0 2px rgba(14,165,233,.25),0 4px 14px rgba(14,165,233,.18)}
 body.select-mode .row{cursor:pointer}
@@ -519,8 +540,10 @@ body.select-mode .row{cursor:pointer}
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
-  font-size:14px;opacity:.5;transition:opacity .12s,color .12s;user-select:none;
-  letter-spacing:-1px
+  font-size:14px;opacity:.35;transition:opacity .12s,color .12s;
+  -webkit-user-select:none;user-select:none;
+  -webkit-user-drag:none;
+  letter-spacing:-1px;touch-action:none;min-width:20px;padding:0 4px
 }
 .row:hover .drag-handle{opacity:1;color:var(--acc)}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
@@ -637,7 +660,11 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.05)}
 
 .chat-col .chat-row-actions{
-  display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap
+  display:flex;flex-direction:column;gap:3px;flex-shrink:0
+}
+.chat-col .chat-row-actions-r1,
+.chat-col .chat-row-actions-r2{
+  display:flex;align-items:center;gap:4px;flex-wrap:nowrap;min-height:26px
 }
 .chat-col .chat-row-actions .ic-btn{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -963,9 +990,9 @@ body.dark-mode .oos-actions button{background:rgba(255,255,255,.04);border-color
   position:relative;min-width:0
 }
 #lightbox .lb-img-wrap{
-  position:relative;max-width:100%;max-height:100%;display:inline-block;cursor:crosshair
+  position:relative;display:inline-block;cursor:crosshair;line-height:0
 }
-#lightbox img{max-width:100%;max-height:calc(100vh - 96px);object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5);display:block}
+#lightbox img{max-width:70vw;max-height:70vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5);display:inline-block;vertical-align:top}
 #lightbox .close{
   position:absolute;top:18px;right:24px;color:#fff;font-size:28px;cursor:pointer;
   background:rgba(0,0,0,.5);border:none;font-weight:300;line-height:1;
@@ -1401,7 +1428,7 @@ body.sb-collapsed #chatPop{left:54px}
 
 /* ━━━ APP BODY layout (sidebar + main) ━━━ */
 .app-body{display:flex;flex:1;overflow:hidden;min-height:0}
-.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;position:relative}
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
 /* Sidebar */
 .sb{
@@ -1419,7 +1446,7 @@ body.sb-collapsed #chatPop{left:54px}
 .sb-i.on{background:var(--surf);color:var(--t1);box-shadow:0 1px 3px rgba(15,23,42,.06)}
 .sb-i.on svg{color:var(--acc)}
 .sb-i svg{width:16px;height:16px;color:var(--t3);flex-shrink:0}
-.sb-i span{flex:1}
+.sb-i span:not(.sb-ct){flex:1}
 .sb-ct{
   font-family:var(--mono);font-size:10px;color:var(--t3);
   background:rgba(15,23,42,.04);padding:1px 7px;border-radius:10px;font-weight:500
@@ -1438,7 +1465,7 @@ body.sb-collapsed #chatPop{left:54px}
 .proj-group-head{
   display:flex;align-items:center;gap:10px;padding:9px 28px;background:var(--surf);
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  cursor:pointer;user-select:none;transition:.12s;position:sticky;top:0;z-index:2
+  cursor:pointer;user-select:none;transition:.12s
 }
 .proj-group-head:hover{background:var(--bg)}
 .proj-group-tri{font-size:9px;color:var(--t3);transition:transform .15s;width:10px;flex-shrink:0}
@@ -1637,6 +1664,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 .tmpl-save-btns{display:flex;gap:5px;margin-top:6px}
 .tmpl-save-ok{flex:1;padding:6px;border-radius:7px;border:none;background:var(--acc);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
 .tmpl-save-cancel{padding:6px 10px;border-radius:7px;border:1px solid var(--line-2);background:none;color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit}
+.tmpl-from-cur{padding:6px 8px;border-radius:7px;border:1px solid var(--line-2);background:none;color:var(--t2);font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tmpl-from-cur:hover{background:var(--bg);color:var(--t1)}
 /* Draft tasks modal */
 .draft-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px}
 .draft-modal{background:var(--surf);border:1px solid var(--line);border-radius:14px;width:580px;max-width:100%;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(15,23,42,.2)}
@@ -1738,7 +1767,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div>EngiBoard<span style="font-size:9px;color:var(--t3);font-family:var(--mono);margin-left:6px;letter-spacing:.04em" id="brandVer">v0.1.81</span></div>
+    <div class="brand"><div class="mark">E</div><span style="margin-left:8px">EngiBoard</span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -1776,9 +1805,6 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </div>
       </div>
       <div class="prm-divider"></div>
-      <div class="prm-row" onclick="toast('Settings — coming soon')">⚙️  Settings</div>
-      <div class="prm-row" onclick="toast('Workspace — coming soon')">🏢  Workspace</div>
-      <div class="prm-divider"></div>
       <div class="prm-row danger" onclick="logout()">↗  Logout</div>
     </div>
   </div>
@@ -1802,7 +1828,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
           <span data-t="sb.shortcuts">Shortcuts</span>
         </div>
-        <div class="sb-i" data-sec="recordings" data-label="Recordings" onclick="setSection('recordings')">
+        <div class="sb-i" data-sec="recordings" data-label="Recordings" onclick="setSection('recordings')" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           <span>Recordings</span>
           <span class="sb-ct" id="sbRecCount" style="display:none">0</span>
@@ -1901,8 +1927,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="close" onclick="closeLightbox()" style="position:static">×</button>
     </div>
     <div class="lb-img-wrap" id="lbImgWrap">
-      <img id="lightboxImg" alt=""
-           onerror="this.style.display='none';document.getElementById('lbBrokenMsg').style.display='flex'">
+      <img id="lightboxImg" alt="">
       <div id="lbBrokenMsg" style="display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;opacity:.7;font-family:var(--font);position:absolute;inset:0">
         <div style="font-size:48px;opacity:.4">—</div>
         <div style="font-size:14px;font-weight:500">Screenshot data is missing or corrupted</div>
@@ -2011,14 +2036,14 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <script>
 // ━━━ DEMO PICS ━━━
 const DEMO_PICS = {
-  conveyor: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#38BDF8" stroke-width="0.4" opacity="0.2"><path d="M0 50h400M0 100h400M0 150h400M0 200h400"/><path d="M50 0v250M100 0v250M150 0v250M200 0v250M250 0v250M300 0v250M350 0v250"/></g><g stroke="#38BDF8" stroke-width="1.5" fill="none"><rect x="50" y="100" width="300" height="40" rx="2"/><circle cx="70" cy="120" r="14"/><circle cx="330" cy="120" r="14"/><rect x="60" y="80" width="280" height="6"/><rect x="60" y="154" width="280" height="6"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">CONVEYOR_12.dwg</text></svg>`),
-  bearing: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g transform="translate(200,125)"><circle r="80" fill="none" stroke="#38BDF8" stroke-width="1.5"/><circle r="60" fill="none" stroke="#38BDF8" stroke-width="1.5"/><circle r="35" fill="none" stroke="#38BDF8" stroke-width="1.5"/><circle r="20" fill="none" stroke="#38BDF8" stroke-width="2"/><g stroke="#22D3EE" stroke-width="1" fill="#0F172A"><circle cx="0" cy="-47" r="6"/><circle cx="33" cy="-33" r="6"/><circle cx="47" cy="0" r="6"/><circle cx="33" cy="33" r="6"/><circle cx="0" cy="47" r="6"/><circle cx="-33" cy="33" r="6"/><circle cx="-47" cy="0" r="6"/><circle cx="-33" cy="-33" r="6"/></g></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">BEARING_7.dwg</text></svg>`),
-  defect: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#7C2D12"/><path d="M50 100 Q200 95 350 105 L350 145 Q200 155 50 150 Z" fill="#374151" stroke="#0F172A"/><path d="M150 110 L155 130 L165 140 L175 125 L190 145 L200 130 L215 140 L230 125 L240 138" stroke="#0F172A" stroke-width="2" fill="none"/><circle cx="190" cy="125" r="35" fill="none" stroke="#FCD34D" stroke-width="2.5"/><text x="20" y="30" fill="#FCD34D" font-family="monospace" font-size="11" font-weight="bold">CRACK DETECTED</text></svg>`),
-  servo: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#1E293B"/><rect x="120" y="60" width="160" height="130" rx="6" fill="#475569" stroke="#0F172A" stroke-width="2"/><rect x="135" y="75" width="130" height="100" rx="3" fill="#334155"/><circle cx="200" cy="125" r="32" fill="#1E293B" stroke="#64748B" stroke-width="2"/><circle cx="200" cy="125" r="22" fill="#0F172A"/><g fill="#22C55E"><circle cx="155" cy="170" r="2"/><circle cx="165" cy="170" r="2"/><circle cx="175" cy="170" r="2"/></g><text x="155" y="100" fill="#94A3B8" font-family="monospace" font-size="7">SERVO-04</text></svg>`),
-  weld: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#38BDF8" stroke-width="1.5" fill="none"><polygon points="80,80 320,80 320,120 200,120 200,170 80,170"/></g><g stroke="#EF4444" stroke-width="2" fill="none"><circle cx="200" cy="120" r="18"/><line x1="180" y1="100" x2="220" y2="140"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">FRAME_WELD.dwg</text><text x="20" y="240" fill="#EF4444" font-family="monospace" font-size="10" font-weight="bold">DEFECT @ A3</text></svg>`),
-  belt: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#1E293B"/><rect x="0" y="180" width="400" height="70" fill="#334155"/><circle cx="80" cy="140" r="35" fill="#94A3B8" stroke="#0F172A" stroke-width="2"/><circle cx="320" cy="140" r="35" fill="#94A3B8" stroke="#0F172A" stroke-width="2"/><rect x="80" y="115" width="240" height="50" fill="#1E293B"/><g fill="#94A3B8"><rect x="90" y="120" width="220" height="3"/><rect x="90" y="128" width="220" height="3"/><rect x="90" y="136" width="220" height="3"/><rect x="90" y="144" width="220" height="3"/><rect x="90" y="152" width="220" height="3"/><rect x="90" y="160" width="220" height="3"/></g><text x="20" y="240" fill="#FCD34D" font-family="monospace" font-size="10">V-belt installed</text></svg>`),
-  robot: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#38BDF8" stroke-width="2" fill="none"><circle cx="200" cy="200" r="18"/><line x1="200" y1="200" x2="200" y2="160"/><circle cx="200" cy="155" r="8"/><line x1="200" y1="150" x2="160" y2="100"/><circle cx="158" cy="98" r="6"/><line x1="156" y1="95" x2="120" y2="65"/><circle cx="118" cy="63" r="5"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">ROBOT_ARM.dwg</text></svg>`),
-  after: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#22C55E" stroke-width="1.5" fill="none"><rect x="50" y="100" width="300" height="40" rx="2"/><circle cx="70" cy="120" r="14"/><circle cx="330" cy="120" r="14"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">CONVEYOR_v2.dwg</text><text x="20" y="240" fill="#22C55E" font-family="monospace" font-size="10" font-weight="bold">ALIGNED OK</text></svg>`)
+  conveyor: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#38BDF8" stroke-width="0.4" opacity="0.2"><path d="M0 50h400M0 100h400M0 150h400M0 200h400"/><path d="M50 0v250M100 0v250M150 0v250M200 0v250M250 0v250M300 0v250M350 0v250"/></g><g stroke="#38BDF8" stroke-width="1.5" fill="none"><rect x="50" y="100" width="300" height="40" rx="2"/><circle cx="70" cy="120" r="14"/><circle cx="330" cy="120" r="14"/><rect x="60" y="80" width="280" height="6"/><rect x="60" y="154" width="280" height="6"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">CONVEYOR_12.dwg</text></svg>`),
+  bearing: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g transform="translate(200,125)"><circle r="80" fill="none" stroke="#38BDF8" stroke-width="1.5"/><circle r="60" fill="none" stroke="#38BDF8" stroke-width="1.5"/><circle r="35" fill="none" stroke="#38BDF8" stroke-width="1.5"/><circle r="20" fill="none" stroke="#38BDF8" stroke-width="2"/><g stroke="#22D3EE" stroke-width="1" fill="#0F172A"><circle cx="0" cy="-47" r="6"/><circle cx="33" cy="-33" r="6"/><circle cx="47" cy="0" r="6"/><circle cx="33" cy="33" r="6"/><circle cx="0" cy="47" r="6"/><circle cx="-33" cy="33" r="6"/><circle cx="-47" cy="0" r="6"/><circle cx="-33" cy="-33" r="6"/></g></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">BEARING_7.dwg</text></svg>`),
+  defect: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#7C2D12"/><path d="M50 100 Q200 95 350 105 L350 145 Q200 155 50 150 Z" fill="#374151" stroke="#0F172A"/><path d="M150 110 L155 130 L165 140 L175 125 L190 145 L200 130 L215 140 L230 125 L240 138" stroke="#0F172A" stroke-width="2" fill="none"/><circle cx="190" cy="125" r="35" fill="none" stroke="#FCD34D" stroke-width="2.5"/><text x="20" y="30" fill="#FCD34D" font-family="monospace" font-size="11" font-weight="bold">CRACK DETECTED</text></svg>`),
+  servo: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#1E293B"/><rect x="120" y="60" width="160" height="130" rx="6" fill="#475569" stroke="#0F172A" stroke-width="2"/><rect x="135" y="75" width="130" height="100" rx="3" fill="#334155"/><circle cx="200" cy="125" r="32" fill="#1E293B" stroke="#64748B" stroke-width="2"/><circle cx="200" cy="125" r="22" fill="#0F172A"/><g fill="#22C55E"><circle cx="155" cy="170" r="2"/><circle cx="165" cy="170" r="2"/><circle cx="175" cy="170" r="2"/></g><text x="155" y="100" fill="#94A3B8" font-family="monospace" font-size="7">SERVO-04</text></svg>`),
+  weld: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#38BDF8" stroke-width="1.5" fill="none"><polygon points="80,80 320,80 320,120 200,120 200,170 80,170"/></g><g stroke="#EF4444" stroke-width="2" fill="none"><circle cx="200" cy="120" r="18"/><line x1="180" y1="100" x2="220" y2="140"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">FRAME_WELD.dwg</text><text x="20" y="240" fill="#EF4444" font-family="monospace" font-size="10" font-weight="bold">DEFECT @ A3</text></svg>`),
+  belt: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#1E293B"/><rect x="0" y="180" width="400" height="70" fill="#334155"/><circle cx="80" cy="140" r="35" fill="#94A3B8" stroke="#0F172A" stroke-width="2"/><circle cx="320" cy="140" r="35" fill="#94A3B8" stroke="#0F172A" stroke-width="2"/><rect x="80" y="115" width="240" height="50" fill="#1E293B"/><g fill="#94A3B8"><rect x="90" y="120" width="220" height="3"/><rect x="90" y="128" width="220" height="3"/><rect x="90" y="136" width="220" height="3"/><rect x="90" y="144" width="220" height="3"/><rect x="90" y="152" width="220" height="3"/><rect x="90" y="160" width="220" height="3"/></g><text x="20" y="240" fill="#FCD34D" font-family="monospace" font-size="10">V-belt installed</text></svg>`),
+  robot: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#38BDF8" stroke-width="2" fill="none"><circle cx="200" cy="200" r="18"/><line x1="200" y1="200" x2="200" y2="160"/><circle cx="200" cy="155" r="8"/><line x1="200" y1="150" x2="160" y2="100"/><circle cx="158" cy="98" r="6"/><line x1="156" y1="95" x2="120" y2="65"/><circle cx="118" cy="63" r="5"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">ROBOT_ARM.dwg</text></svg>`),
+  after: `data:image/svg+xml;utf8,` + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250"><rect width="400" height="250" fill="#0F172A"/><g stroke="#22C55E" stroke-width="1.5" fill="none"><rect x="50" y="100" width="300" height="40" rx="2"/><circle cx="70" cy="120" r="14"/><circle cx="330" cy="120" r="14"/></g><text x="20" y="20" fill="#94A3B8" font-family="monospace" font-size="9">CONVEYOR_v2.dwg</text><text x="20" y="240" fill="#22C55E" font-family="monospace" font-size="10" font-weight="bold">ALIGNED OK</text></svg>`)
 };
 
 // ━━━ STATUSES ━━━
@@ -2127,6 +2152,16 @@ const STATUSES = [
 for(let i = 0; i < STATUSES.length; i++){
   if(I18N[currentLang] && I18N[currentLang]['st.' + i]) STATUSES[i].l = I18N[currentLang]['st.' + i];
 }
+// Apply admin custom overrides (saved in Profile → Edit Statuses)
+(function(){
+  try {
+    const saved = JSON.parse(localStorage.getItem('eb_custom_statuses') || '{}');
+    for(const [idStr, data] of Object.entries(saved)){
+      const s = STATUSES.find(x => x.id === +idStr);
+      if(s){ if(data.l) s.l = data.l; if(data.c) s.c = data.c; }
+    }
+  } catch(e){}
+})();
 
 // ━━━ SUPABASE CLIENT (S2 P0-3, deferred — see supabase/ARCHITECTURE_DECISION.md) ━━━
 // Client initialized for future sync; runtime falls back to localStorage if any call fails.
@@ -2271,13 +2306,11 @@ let curSearch = '';
 let activeChatTaskId = null;
 let pendingScreenshot = null;
 let pasteMode = false;
-let presentIdx = -1;
-let presentSlides = [];
 let presentTask = null;
 let openStMenu = null;
 let dragTaskId = null; // legacy — HTML5 drag (file drops only)
 // v0.1.75: mouse-based row reorder (replaces unreliable HTML5 drag in WKWebView)
-let _mDragId = null, _mDragEl = null;
+let _mDragId = null, _mDragEl = null, _mDragLastTgt = null;
 const expandedChecklists = new Set();
 let collapsedProjects = (() => {
   try { return new Set(JSON.parse(localStorage.getItem('eb_collapsed_projects') || '[]')); }
@@ -2394,6 +2427,34 @@ async function signUpEmail(email, password, role){
 function getRoleLabel(){
   const r = localStorage.getItem('eb_user_role') || 'engineer';
   return { engineer:'Engineer', lead:'Lead', admin:'Admin' }[r] || 'Engineer';
+}
+function saveCustomStatuses(){
+  const saved = {};
+  STATUSES.forEach(s => {
+    const lEl = document.getElementById('slabel_'+s.id);
+    const cEl = document.getElementById('scolor_'+s.id);
+    if(!lEl || !cEl) return;
+    const l = lEl.value.trim() || s.l;
+    const c = cEl.value;
+    saved[s.id] = {l, c};
+    s.l = l; s.c = c;
+  });
+  localStorage.setItem('eb_custom_statuses', JSON.stringify(saved));
+  render();
+  toast('Statuses saved');
+}
+function resetCustomStatuses(){
+  localStorage.removeItem('eb_custom_statuses');
+  // Restore defaults
+  const defaults = [
+    {id:0,l:'Info',c:'#94A3B8'},{id:1,l:'Done',c:'#22C55E'},{id:2,l:'Not Relevant',c:'#94A3B8'},
+    {id:3,l:'Review',c:'#A78BFA'},{id:4,l:'Info Required',c:'#0EA5E9'},{id:5,l:'Problem',c:'#EF4444'},
+    {id:6,l:'In Progress',c:'#F97316'},{id:7,l:'Upcoming',c:'#0EA5E9'}
+  ];
+  defaults.forEach(d => { const s = STATUSES.find(x=>x.id===d.id); if(s){s.l=d.l;s.c=d.c;} });
+  render();
+  renderProfileSection();
+  toast('Statuses reset to default');
 }
 
 // Listen for deep links — both OAuth callback (engiboard://oauth/callback?...)
@@ -2825,6 +2886,42 @@ async function copyInviteLink(token){
   try { await navigator.clipboard.writeText(link); toast('✓ Invite link copied'); }
   catch(_){ toast(link, 4000); }
 }
+async function inviteByEmail(){
+  const inp = document.getElementById('inviteEmailInp');
+  const email = (inp?.value || '').trim().toLowerCase();
+  if(!email || !email.includes('@')){ toast('Enter a valid email'); return; }
+  if(!db || !db.ready){ toast('Cloud not connected'); return; }
+  if(currentProject === 'all'){ toast('Select a specific project first'); return; }
+  const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
+  const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
+  const { error } = await sb.from('project_invites').insert({
+    project_id: currentProject, email, role: 'engineer', token, expires_at: expires
+  });
+  if(error){ toast('Error: ' + error.message); return; }
+  const link = `engiboard://invite/${token}`;
+  try { await navigator.clipboard.writeText(link); } catch(_){}
+  inp.value = '';
+  toast('✓ Invited ' + email + ' — link copied');
+  loadPendingInvites();
+}
+async function generateInviteLink(){
+  const statusEl = document.getElementById('inviteLinkStatus');
+  if(!db || !db.ready){ toast('Cloud not connected'); return; }
+  if(currentProject === 'all'){ toast('Select a specific project first'); return; }
+  const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
+  const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
+  const { error } = await sb.from('project_invites').insert({
+    project_id: currentProject, email: null, role: 'engineer', token, expires_at: expires
+  });
+  if(error){ toast('Error: ' + error.message); return; }
+  const link = `engiboard://invite/${token}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    if(statusEl) statusEl.textContent = '✓ Copied! Valid 7 days';
+    setTimeout(()=>{ if(statusEl) statusEl.textContent = ''; }, 3000);
+  } catch(_){ toast(link, 5000); }
+  loadPendingInvites();
+}
 async function revokeInvite(id){
   if(!confirm('Revoke this invite?')) return;
   const { error } = await sb.from('project_invites').delete().eq('id', id);
@@ -2944,6 +3041,11 @@ async function showApp(){
 }
 
 window.addEventListener('load', () => {
+  // Hide recordings sidebar item and remove Settings/Workspace from dropdown
+  document.querySelectorAll('[data-sec="recordings"]').forEach(el => el.remove());
+  document.querySelectorAll('#profileMenu .prm-row:not(.danger)').forEach(el => el.remove());
+  document.querySelectorAll('#profileMenu .prm-divider:first-of-type').forEach(el => el.remove());
+
   // Restore sidebar state
   if(localStorage.getItem('eb_sb_collapsed')) document.body.classList.add('sb-collapsed');
 
@@ -3289,6 +3391,39 @@ function clearFilters(){
 }
 
 // ━━━ RENDER ━━━
+// Security sandbox strips data:image/svg+xml src from innerHTML-rendered imgs.
+// After each innerHTML flush, re-assign src via JS property to bypass this.
+function patchGuardedImages(){
+  document.querySelectorAll('.pi.has-img').forEach(pi => {
+    const img = pi.querySelector('img');
+    if (!img || img.getAttribute('src')) return;
+    const t = TASKS.find(x => x.id === pi.dataset.taskId);
+    if (!t) return;
+    const src = pi.dataset.slot === 'before' ? t.shot1 : t.shot2;
+    if (!src) return;
+    // onerror fired during innerHTML parse (sandbox stripped SVG src) → clear its side effects
+    img.style.display = '';
+    pi.classList.remove('pi-broken');
+    img.src = src; // direct property assignment bypasses sandbox restriction
+  });
+}
+
+
+function replaceListWith(html){
+  // Layer-promoting CSS (position:sticky on .proj-group-head, position:relative
+  // on .main-area) was removed — the list no longer gets stuck on a cached
+  // GPU compositor layer, so plain innerHTML is enough.
+  const list = document.getElementById('list');
+  if(!list) return null;
+  list.innerHTML = html;
+  return list;
+}
+
+function forceCompositorRepaint(){
+  // No-op — replaceListWith() now handles compositor invalidation directly.
+  // Kept as a stub so other callers (e.g. refreshClPanel) don't break.
+}
+
 function render(){
   const list = document.getElementById('list');
   // Update picker label every render (counts may change)
@@ -3348,8 +3483,10 @@ function render(){
     // Просто плоский список задач в порядке их создания.
     allTasks.forEach(t => { html += renderRow(t); });
     html += renderEmptyRowForProject(proj.id);
-    list.innerHTML = html;
+    replaceListWith(html);
     wireUpEmptyInput();
+    setTimeout(patchGuardedImages, 0);
+    forceCompositorRepaint();
     return;
   }
 
@@ -3365,8 +3502,10 @@ function render(){
   });
 
   // (Empty input rows are inside each project group now, no global one)
-  list.innerHTML = html;
+  replaceListWith(html);
   wireUpEmptyInput();
+  setTimeout(patchGuardedImages, 0);
+  forceCompositorRepaint();
 }
 
 function renderProjGroup(proj, tasks){
@@ -3461,7 +3600,7 @@ function renderRow(t){
   // v0.1.75: drag handle fires mouse-based reorder (HTML5 drag removed from row)
   const firstCell = selectMode
     ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
-    : `<div class="drag-handle" onmousedown="event.stopPropagation();dragHandleDown(event,'${t.id}')">⋮⋮</div>`;
+    : `<div class="drag-handle" draggable="false" onmousedown="event.stopPropagation();event.preventDefault();dragHandleDown(event,'${t.id}')" onclick="event.stopPropagation()">⋮⋮</div>`;
   // Checklist badge
   const cl = Array.isArray(t.checklist) ? t.checklist : [];
   const clDone = cl.filter(x => x.done).length;
@@ -3473,7 +3612,7 @@ function renderRow(t){
   const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="min-height:${height}px"
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="min-height:${height}px" draggable="false"
     onmousedown="${selectMode ? '' : `rowDragDown(event,'${t.id}')`}"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${firstCell}
@@ -3484,16 +3623,20 @@ function renderRow(t){
         <input type="text" placeholder="Type a message and press Enter…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
       </div>
       <div class="chat-row-actions">
-        <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
-          <span class="pip"></span>${st.l}
-        </span>
-        <span class="ic-btn time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking">${timerLabel}</span>
-        <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-        ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}: BEFORE vs AFTER side-by-side with wipe slider">${ICON('swap')} ${compareLabel}</span>` : ''}
-        <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
-        <span class="ic-btn lnk-ic${lnkActive}" onclick="event.stopPropagation();toggleLinksPanel('${t.id}')" title="Links">${LNK_ICON}${lnkBadge}</span>
-        <span class="ic-btn" onclick="event.stopPropagation();askAI('${t.id}')" title="Ask AI assistant"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> AI</span>
-        <span class="ic-btn" id="tmplBtn_${t.id}" style="position:relative" onclick="event.stopPropagation();openTmplMenu('${t.id}')" title="Task templates"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Tmpl</span>
+        <div class="chat-row-actions-r1">
+          <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
+            <span class="pip"></span>${st.l}
+          </span>
+          <span class="ic-btn time-ic ${isTimerRunning?'running':''}" onclick="event.stopPropagation();toggleTimer('${t.id}')" title="Time tracking" style="display:none">${timerLabel}</span>
+          <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+          ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}">${ICON('swap')} ${compareLabel}</span>` : ''}
+        </div>
+        <div class="chat-row-actions-r2">
+          <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
+          <span class="ic-btn lnk-ic${lnkActive}" onclick="event.stopPropagation();toggleLinksPanel('${t.id}')" title="Links">${LNK_ICON}${lnkBadge}</span>
+          <span class="ic-btn" onclick="event.stopPropagation();askAI('${t.id}')" title="Ask AI assistant" style="display:none"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> AI</span>
+          <span class="ic-btn" id="tmplBtn_${t.id}" style="position:relative" onclick="event.stopPropagation();openTmplMenu('${t.id}')" title="Task templates"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Tmpl</span>
+        </div>
       </div>
     </div>
     <div class="pc">${piBefore}</div>
@@ -3662,7 +3805,7 @@ function renderEmptyRowForProject(projId){
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"
-        onkeydown="if(event.key==='Enter'&&this.value.trim()){const v=this.value.trim();this.value='';createTaskFor('${projId}',v,(PROJECTS.find(p=>p.id==='${projId}')||{})._cloud).then(()=>toast('✓ Task created'));}"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){const v=this.value.trim();this.value='';createTaskFor('${projId}',v,(PROJECTS.find(p=>p.id==='${projId}')||{})._cloud,v).then(()=>toast('✓ Task created'));}"
         style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -3680,7 +3823,7 @@ function renderZero(){
       <div></div>
       <div class="chat-col" style="padding:10px 8px;justify-content:center">
         <input id="newInpZero" placeholder="What needs to be done?" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)"
-          onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'26W17',s:0,title:txt,n:txt});this.value='';render();updateHeader();toast('✓ Task created');}">
+          onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'26W17',s:0,title:txt,n:txt,chat:[{a:'AS',text:txt,ts:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false})}]});this.value='';render();updateHeader();toast('✓ Task created');}">
       </div>
       <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
       <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -3711,23 +3854,35 @@ function wireUpEmptyInput(){
 
 // v0.1.61: shared helper — create a task, cloud-first if the parent project
 // is a cloud project (i.e. came from Supabase). Falls back to local insert.
-async function createTaskFor(projectId, title, cloudParent){
+async function createTaskFor(projectId, title, cloudParent, initialChatText){
+  const makeInitialMsg = (initials) => initialChatText ? [{
+    a: initials || 'AS',
+    text: initialChatText,
+    ts: new Date().toLocaleTimeString('en', {hour:'2-digit', minute:'2-digit', hour12:false})
+  }] : [];
+
   if(cloudParent && db && db.ready){
     try {
       const u = await db.auth.user();
       if(u){
+        const myInitials = initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name });
         const { data, error } = await db.tasks.create({
           title, project_id: projectId, desktop_status: 7,
           priority: 'medium', created_by: u.id, position: nextTaskUid(projectId)
         });
         if(!error && data){
+          const chatArr = makeInitialMsg(myInitials);
           TASKS.push({
             id: data.id, proj: projectId, uid: data.position || 0,
             n: data.title, title: data.title,
             s: (typeof data.desktop_status === 'number') ? data.desktop_status : 7,
-            w: '', chat: [], shot1: null, shot2: null, shots: [],
+            w: '', chat: chatArr, shot1: null, shot2: null, shots: [],
             _cloud: true
           });
+          // persist initial message to cloud if any
+          if(initialChatText){
+            db.taskComments.create({ task_id: data.id, body: initialChatText, author_id: u.id }).catch(()=>{});
+          }
           auditLog('create', 'task', data.id, null, { title: data.title }, projectId);
           render(); updateHeader();
           return;
@@ -3739,7 +3894,7 @@ async function createTaskFor(projectId, title, cloudParent){
   // Local fallback
   TASKS.push({
     id: 't' + Date.now(), proj: projectId, uid: nextTaskUid(projectId),
-    w: '26W17', s: 0, title, n: title
+    w: '26W17', s: 0, title, n: title, chat: makeInitialMsg('AS')
   });
   render(); updateHeader();
 }
@@ -3821,18 +3976,33 @@ function changeStatus(taskId, sid){
 
 let _mDragStartX = 0, _mDragStartY = 0, _mDragging = false;
 
+let _suppressNextRowClick = false;
 function dragHandleDown(e, taskId){
-  if(selectMode || e.button !== 0) return;
-  e.preventDefault();
+  // Clean up any stale drag state (e.g. mouse left window mid-drag) instead of blocking
+  if(_mDragId){
+    document.removeEventListener('mousemove', _mDragMove, {capture:true});
+    document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
+    document.querySelectorAll('.row').forEach(r =>
+      r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+    document.body.style.cursor = '';
+    _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
+  }
+  if(selectMode) return;
+  if(e.button !== 0) return;
+  // Don't preventDefault on mousedown — would block click events
+  // CSS -webkit-user-select:none handles text-selection prevention
+  e.stopPropagation();
   _mDragId = taskId;
   _mDragEl = document.querySelector(`.row[data-task-id="${taskId}"]`);
   _mDragStartX = e.clientX; _mDragStartY = e.clientY;
   _mDragging = false;
+  // Classic mouse events — reliable on macOS WKWebView desktop
   document.addEventListener('mousemove', _mDragMove, {capture:true});
   document.addEventListener('mouseup',   _mDragUp,   {capture:true, once:true});
 }
 function rowDragDown(e, taskId){
-  if(selectMode || e.button !== 0) return;
+  if(selectMode) return;
+  if(e.button !== 0) return;
   const SKIP = 'input,textarea,button,.play-ic,.time-ic,.pi,.st-wrap,.tc-status,.st,.st-menu,.drag-handle,.resize-h,[contenteditable],.nt-chat,.nt-chat-input,.chat-row-actions,.nt-chat-msg,.cl-panel,.links-panel';
   if(e.target.closest(SKIP)) return;
   dragHandleDown(e, taskId);
@@ -3932,7 +4102,7 @@ function addClItem(taskId, input){
   t.checklist.push({id:'cl'+Date.now(), text, done:false});
   input.value = '';
   if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
-  render();
+  refreshClPanel(taskId);
 }
 function toggleClItem(taskId, itemId){
   const t = TASKS.find(x => x.id === taskId);
@@ -3940,14 +4110,14 @@ function toggleClItem(taskId, itemId){
   const item = t.checklist.find(x => x.id === itemId);
   if(item) item.done = !item.done;
   if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
-  render();
+  refreshClPanel(taskId);
 }
 function deleteClItem(taskId, itemId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !Array.isArray(t.checklist)) return;
   t.checklist = t.checklist.filter(x => x.id !== itemId);
   if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
-  render();
+  refreshClPanel(taskId);
 }
 function updateClItemText(taskId, itemId, input){
   const t = TASKS.find(x => x.id === taskId);
@@ -3967,7 +4137,7 @@ function renderClPanel(t){
       onclick="event.stopPropagation()">
     <button class="cl-item-del" onclick="event.stopPropagation();deleteClItem('${t.id}','${it.id}')">×</button>
   </div>`).join('');
-  return `<div class="cl-panel${isOpen?' open':''}" onclick="event.stopPropagation()">
+  return `<div class="cl-panel${isOpen?' open':''}" id="cl-panel-${t.id}" onclick="event.stopPropagation()">
     ${items}
     <div class="cl-add">
       <span style="color:var(--t4);font-size:15px;line-height:1;padding:0 2px">+</span>
@@ -3977,45 +4147,92 @@ function renderClPanel(t){
     </div>
   </div>`;
 }
+// Targeted cl-panel refresh — same display-toggle trick as replaceListWith
+function refreshClPanel(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const panel = document.getElementById('cl-panel-'+taskId);
+  if(!panel){ render(); return; }           // panel not in DOM → fall back to full render
+  const cl = Array.isArray(t.checklist) ? t.checklist : [];
+  const items = cl.map(it => `<div class="cl-item${it.done?' done':''}">
+    <input type="checkbox" ${it.done?'checked':''} onclick="event.stopPropagation();toggleClItem('${t.id}','${it.id}')">
+    <input class="cl-item-text" type="text" value="${(it.text||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}"
+      onblur="event.stopPropagation();updateClItemText('${t.id}','${it.id}',this)"
+      onkeydown="if(event.key==='Enter'){this.blur();}event.stopPropagation()"
+      onclick="event.stopPropagation()">
+    <button class="cl-item-del" onclick="event.stopPropagation();deleteClItem('${t.id}','${it.id}')">×</button>
+  </div>`).join('');
+  panel.innerHTML = items + `<div class="cl-add">
+    <span style="color:var(--t4);font-size:15px;line-height:1;padding:0 2px">+</span>
+    <input type="text" placeholder="Add item…"
+      onkeydown="if(event.key==='Enter'){event.stopPropagation();addClItem('${t.id}',this)}"
+      onclick="event.stopPropagation()">
+  </div>`;
+  // Update badge in row toolbar
+  const doneCount = cl.filter(x=>x.done).length;
+  const badge = document.querySelector(`.row[data-task-id="${taskId}"] .cl-badge`);
+  if(badge) badge.textContent = `${doneCount}/${cl.length}`;
+  // Focus the add input so user can keep typing immediately
+  panel.querySelector('.cl-add input')?.focus();
+}
+// Find closest .row to a point — first try elementsFromPoint (full stack),
+// then fall back to elementFromPoint + closest() for WKWebView compatibility.
+function _rowAtPoint(x, y, excludeId){
+  const stack = document.elementsFromPoint(x, y);
+  let tgt = stack.find(el =>
+    el.classList?.contains('row') &&
+    el.dataset?.taskId &&
+    el.dataset.taskId !== excludeId &&
+    el.dataset.taskId !== 'new');
+  if(!tgt){
+    const el = document.elementFromPoint(x, y);
+    const row = el?.closest?.('.row[data-task-id]');
+    if(row && row.dataset.taskId !== excludeId && row.dataset.taskId !== 'new') tgt = row;
+  }
+  return tgt || null;
+}
 function _mDragMove(e){
   if(!_mDragId) return;
+  e.preventDefault(); // prevent text selection / scroll while dragging
   if(!_mDragging){
     const dx = e.clientX - _mDragStartX, dy = e.clientY - _mDragStartY;
-    if(Math.abs(dx) + Math.abs(dy) < 5) return;
+    if(Math.abs(dx) + Math.abs(dy) < 4) return;
     _mDragging = true;
     if(_mDragEl) _mDragEl.classList.add('dragging');
     document.body.style.cursor = 'grabbing';
   }
   document.querySelectorAll('.row[data-task-id]').forEach(r =>
     r.classList.remove('drag-over-top','drag-over-bottom'));
-  const els = document.elementsFromPoint(e.clientX, e.clientY);
-  const tgt = els.find(el =>
-    el.classList?.contains('row') &&
-    el.dataset?.taskId &&
-    el.dataset.taskId !== _mDragId &&
-    el.dataset.taskId !== 'new');
+  const tgt = _rowAtPoint(e.clientX, e.clientY, _mDragId);
   if(tgt){
     const rect = tgt.getBoundingClientRect();
-    tgt.classList.add((e.clientY - rect.top) < rect.height/2 ? 'drag-over-top' : 'drag-over-bottom');
+    const isTop = (e.clientY - rect.top) < rect.height / 2;
+    _mDragLastTgt = {id: tgt.dataset.taskId, isTop};  // remember last valid drop target
+    tgt.classList.add(isTop ? 'drag-over-top' : 'drag-over-bottom');
   }
 }
 function _mDragUp(e){
   document.removeEventListener('mousemove', _mDragMove, {capture:true});
+  document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
   document.body.style.cursor = '';
   document.querySelectorAll('.row').forEach(r =>
     r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
-  if(!_mDragging){ _mDragId = null; _mDragEl = null; _mDragging = false; return; }
-  const els = document.elementsFromPoint(e.clientX, e.clientY);
-  const tgt = els.find(el =>
-    el.classList?.contains('row') &&
-    el.dataset?.taskId &&
-    el.dataset.taskId !== _mDragId &&
-    el.dataset.taskId !== 'new');
+  if(!_mDragging){ _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null; return; }
+  // Use exact drop position or fall back to last known valid target (handles gap between rows)
+  let dropTgt = _rowAtPoint(e.clientX, e.clientY, _mDragId);
+  let dropIsTop;
+  if(dropTgt){
+    const rect = dropTgt.getBoundingClientRect();
+    dropIsTop = (e.clientY - rect.top) < rect.height / 2;
+  } else if(_mDragLastTgt){
+    dropTgt = document.querySelector(`.row[data-task-id="${_mDragLastTgt.id}"]`);
+    dropIsTop = _mDragLastTgt.isTop;
+  }
+  const tgt = dropTgt;
   if(tgt && _mDragId){
     const fromIdx = TASKS.findIndex(t => t.id === _mDragId);
     if(fromIdx >= 0){
-      const rect = tgt.getBoundingClientRect();
-      const isTop = (e.clientY - rect.top) < rect.height/2;
+      const isTop = dropIsTop;
       const [item] = TASKS.splice(fromIdx, 1);
       const ins = TASKS.findIndex(t => t.id === tgt.dataset.taskId);
       if(ins >= 0){
@@ -4028,10 +4245,13 @@ function _mDragUp(e){
           });
         }
         render();
+        // Suppress the click that fires immediately after mouseup on the dragged row
+        _suppressNextRowClick = true;
+        setTimeout(() => { _suppressNextRowClick = false; }, 200);
       }
     }
   }
-  _mDragId = null; _mDragEl = null; _mDragging = false;
+  _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
 }
 // Stub legacy HTML5 drag handlers (no longer wired to rows, kept to avoid errors)
 function onDragStart(){}
@@ -4063,6 +4283,7 @@ function onResizeStart(e, taskId){
 
 // ━━━ ROW CLICK → present ━━━
 function onRowClick(e, taskId){
+  if(_suppressNextRowClick){ _suppressNextRowClick = false; return; }
   if(taskId === 'new') return;
   if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .tc-status, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
   if(pasteMode) return;
@@ -4074,20 +4295,11 @@ function openPresent(taskId){
   // v0.1.43: режим презентации вернули — это спринт 1.4 ТЗ.
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  // Build slides: shot1 (before), shot2 (after), then any extras in t.shots[]
-  const slides = [];
-  if(t.shot1) slides.push({label:'BEFORE', src:t.shot1});
-  if(t.shot2) slides.push({label:'AFTER', src:t.shot2});
-  if(Array.isArray(t.shots)){
-    t.shots.forEach((s,i) => slides.push({label:`SHOT ${i+3}`, src:s}));
-  }
-  if(slides.length === 0){
+  if(!t.shot1 && !t.shot2 && !(Array.isArray(t.shots) && t.shots.length)){
     toast('No screenshots in this task');
     return;
   }
-  presentSlides = slides;
   presentTask = t;
-  presentIdx = 0;
   renderPresent();
   const presEl = document.getElementById('present');
   presEl.style.display = '';
@@ -4099,10 +4311,18 @@ function closePresent(){
   // stale chat history.
   if(presentTask && presentTask.id) syncTaskRowChat(presentTask.id);
   document.getElementById('present').classList.remove('on');
-  presentIdx = -1;
+  presentTask = null;
 }
-function presentNext(){if(presentIdx < presentSlides.length-1){presentIdx++;renderPresent();}}
-function presentPrev(){if(presentIdx > 0){presentIdx--;renderPresent();}}
+function presentNext(){
+  const tasks = getFilteredTasks();
+  const idx = tasks.findIndex(x => x.id === presentTask?.id);
+  if(idx >= 0 && idx < tasks.length - 1) openPresent(tasks[idx + 1].id);
+}
+function presentPrev(){
+  const tasks = getFilteredTasks();
+  const idx = tasks.findIndex(x => x.id === presentTask?.id);
+  if(idx > 0) openPresent(tasks[idx - 1].id);
+}
 
 function presChecklistLinksHTML(t){
   const cl = Array.isArray(t.checklist) ? t.checklist : [];
@@ -4139,6 +4359,12 @@ function renderPresent(){
   // Both BEFORE and AFTER are shown together; click either to open editor.
   const t = presentTask;
   if(!t) return;
+  const allTasks = getFilteredTasks();
+  const taskIdx = allTasks.findIndex(x => x.id === t.id);
+  const taskNum = taskIdx >= 0 ? taskIdx + 1 : '?';
+  const taskTotal = allTasks.length;
+  const hasPrev = taskIdx > 0;
+  const hasNext = taskIdx >= 0 && taskIdx < taskTotal - 1;
 
   // Build a side-by-side pair from t.shot1 / t.shot2 if both exist.
   // For extras (t.shots[]) the pair is (slide[i], slide[i+1] || slide[i]).
@@ -4196,12 +4422,22 @@ function renderPresent(){
       </div>
     </div>
     <div class="pres-nav">
-      <div class="pres-counter">BEFORE / AFTER pair</div>
+      <button onclick="presentPrev()" ${hasPrev?'':'disabled'} style="opacity:${hasPrev?1:.3};min-width:80px">← Prev</button>
+      <div class="pres-counter">${taskNum} / ${taskTotal}</div>
+      <button onclick="presentNext()" ${hasNext?'':'disabled'} style="opacity:${hasNext?1:.3};min-width:80px">Next →</button>
       <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:auto">+ Add screenshot</button>
     </div>`;
   // Auto-scroll chat to bottom
   const msgsEl = document.getElementById('presChatMsgs');
   if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+  // Patch SVG srcs stripped by security sandbox (defer so onerror fires first)
+  const shots = [t.shot1, t.shot2];
+  setTimeout(() => {
+    document.querySelectorAll('#presCard .pres-pic img').forEach((img, i) => {
+      if (img.getAttribute('src')) return;
+      if (shots[i]) { img.src = shots[i]; img.style.display = ''; }
+    });
+  }, 0);
 }
 
 function sendPresChat(){
@@ -4256,9 +4492,31 @@ function openLightbox(dataUrl, taskId, slotIdx){
     img.style.display = 'none';
     if(broken) broken.style.display = 'flex';
   } else {
-    img.style.display = '';
     if(broken) broken.style.display = 'none';
+    img.style.width = '';
+    img.style.height = '';
+    // onerror fires for sandbox-stripped src even when image actually loads — only hide if truly broken
+    img.onerror = () => {
+      if(img.naturalWidth === 0){
+        img.style.display = 'none';
+        if(broken) broken.style.display = 'flex';
+      }
+    };
     img.src = dataUrl;
+    img.style.display = ''; // clear sandbox-set display:none immediately after src assignment
+    const setImgSize = () => {
+      img.style.display = ''; // ensure visible after load
+      if(img.offsetWidth === 0 && img.naturalWidth > 0){
+        const maxW = Math.round(window.innerWidth * 0.7);
+        const maxH = Math.round(window.innerHeight * 0.7);
+        const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+        img.style.width = Math.round(img.naturalWidth * scale) + 'px';
+        img.style.height = Math.round(img.naturalHeight * scale) + 'px';
+      }
+    };
+    img.onload = setImgSize;
+    if(img.complete && img.naturalWidth > 0) setImgSize();
+    setTimeout(() => { if(img.naturalWidth > 0) img.style.display = ''; }, 50);
   }
   // Build a key for this image: taskId + slot index (so each screenshot has its own comments)
   lbCurrentImageKey = (taskId || 'unknown') + ':' + (slotIdx !== undefined ? slotIdx : 0);
@@ -4709,9 +4967,6 @@ function addShotToPresentTask(dataUrl){
   if(!presentTask || !dataUrl) return;
   if(!Array.isArray(presentTask.shots)) presentTask.shots = [];
   presentTask.shots.push(dataUrl);
-  // Update slideshow state + jump to new slide
-  presentSlides.push({label:`SHOT ${presentSlides.length+1}`, src:dataUrl});
-  presentIdx = presentSlides.length - 1;
   renderPresent();
   toast('✓ Screenshot added to task');
 }
@@ -5104,8 +5359,6 @@ function renderProfileSection(){
       <div class="profile-card-h">Account</div>
       <div class="profile-row"><span class="lbl">Email</span><span class="val">${email}</span></div>
       <div class="profile-row"><span class="lbl">Role</span><span class="val">${isDemo?'—':getRoleLabel()}</span></div>
-      <div class="profile-row"><span class="lbl">Plan</span><span class="val">${isDemo?'Demo':'Free'}</span></div>
-      <div class="profile-row"><span class="lbl">Workspace</span><span class="val">EngiBoard Personal</span></div>
     </div>
 
     <div class="profile-card">
@@ -5122,14 +5375,19 @@ function renderProfileSection(){
 
     <div class="profile-card">
       <div class="profile-card-h">Team · current project</div>
-      <div id="projectMembersList" style="font-size:12px;padding:4px 0">
+      <div id="projectMembersList" style="font-size:12px;padding:4px 0 8px">
         <div style="color:var(--t4);font-style:italic">Loading members…</div>
       </div>
-    </div>
-
-    <div class="profile-card">
-      <div class="profile-card-h">Pending invites</div>
-      <div id="pendingInvitesList" style="font-size:12px;padding:4px 0">
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input id="inviteEmailInp" type="email" placeholder="colleague@company.com"
+          style="flex:1;border:1px solid var(--line-2);border-radius:8px;padding:7px 12px;font-size:13px;background:var(--surf);color:var(--t1);outline:none">
+        <button class="profile-action" onclick="inviteByEmail()">Add</button>
+      </div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+        <button class="profile-action" onclick="generateInviteLink()" style="white-space:nowrap">Copy invite link</button>
+        <span id="inviteLinkStatus" style="font-size:11px;color:var(--t4)"></span>
+      </div>
+      <div id="pendingInvitesList" style="font-size:12px;padding:8px 0 0">
         <div style="color:var(--t4);font-style:italic">Loading invites…</div>
       </div>
     </div>
@@ -5141,6 +5399,25 @@ function renderProfileSection(){
       </div>
     </div>
 
+    ${localStorage.getItem('eb_user_role') === 'admin' ? `
+    <div class="profile-card">
+      <div class="profile-card-h">Statuses · Admin</div>
+      <div style="font-size:11px;color:var(--t4);margin-bottom:10px">Edit status names and colors. Changes apply immediately after Save.</div>
+      <div id="statusEditorRows" style="display:flex;flex-direction:column;gap:6px">
+        ${STATUSES.map(s => `
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="color" value="${s.c}" id="scolor_${s.id}"
+              style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0">
+            <input type="text" value="${s.l}" id="slabel_${s.id}"
+              style="flex:1;border:1px solid var(--line-2);border-radius:6px;padding:5px 10px;font-size:13px;background:var(--surf);color:var(--t1);outline:none">
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="profile-action" onclick="saveCustomStatuses()">Save</button>
+        <button class="profile-action" onclick="resetCustomStatuses()">Reset to default</button>
+      </div>
+    </div>` : ''}
+
     <div class="profile-card">
       <div class="profile-card-h">Statistics</div>
       <div class="profile-row"><span class="lbl">Projects</span><span class="val">${PROJECTS.length}</span></div>
@@ -5150,42 +5427,7 @@ function renderProfileSection(){
     </div>
 
     <div class="profile-card">
-      <div class="profile-card-h">Integrations · Slack webhook</div>
-      <div style="padding:10px 0;display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:11px;color:var(--t4);line-height:1.5">
-          Notifications fire when a task switches to <b>Done</b> or <b>Problem</b>.
-          Get the URL from Slack: <i>Apps → Incoming Webhooks → Add to Slack</i>.
-        </div>
-        <input id="slackWebhookInp" type="url" placeholder="https://hooks.slack.com/services/T.../B.../..."
-          value="${(localStorage.getItem('eb_slack_webhook')||'').replace(/"/g,'&quot;')}"
-          style="border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1)">
-        <div style="display:flex;gap:8px">
-          <button class="profile-action" onclick="setWebhookUrl(document.getElementById('slackWebhookInp').value);toast('✓ Webhook saved')">Save</button>
-          <button class="profile-action" onclick="sendTestWebhook()">Send test</button>
-          <button class="profile-action danger" onclick="setWebhookUrl('');document.getElementById('slackWebhookInp').value='';toast('Webhook cleared')">Clear</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="profile-card">
-      <div class="profile-card-h">AI Assistant · Claude API</div>
-      <div style="font-size:11px;color:var(--t4);padding:4px 0 10px;line-height:1.5">
-        Enter your Anthropic API key to enable the AI assistant in task chats.
-        Stored locally only — never sent to our servers.
-      </div>
-      <input id="aiKeyInp" type="password" placeholder="sk-ant-api03-…"
-        value="${(localStorage.getItem('eb_ai_key')||'').replace(/"/g,'&quot;')}"
-        style="width:100%;border:1px solid var(--line-2);border-radius:8px;padding:8px 12px;font-size:12px;font-family:var(--mono);outline:none;background:var(--surf);color:var(--t1);box-sizing:border-box">
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="profile-action" onclick="saveAiKey()">Save key</button>
-        <button class="profile-action danger" onclick="clearAiKey()">Clear</button>
-      </div>
-    </div>
-
-    <div class="profile-card">
       <div class="profile-card-h">Actions</div>
-      <div class="profile-row"><span class="lbl">Settings</span><button class="profile-action" onclick="toast('Settings — coming soon')">Open</button></div>
-      <div class="profile-row"><span class="lbl">Workspace</span><button class="profile-action" onclick="toast('Workspace — coming soon')">Manage</button></div>
       <div class="profile-row"><span class="lbl">Sign out</span><button class="profile-action danger" onclick="logout()">Logout</button></div>
     </div>
   </div>`;
@@ -5380,7 +5622,7 @@ function removeProjMember(email){
   if(!proj || !Array.isArray(proj.members)) return;
   proj.members = proj.members.filter(e => e !== email);
   renderProjMembers();
-  toast(`Removed ${email}`);
+  toast(`✓ Removed ${email}`);
 }
 
 function selectProject(id){
@@ -5459,8 +5701,10 @@ function openCompare(taskId){
     return;
   }
   document.getElementById('cmpTitle').textContent = t.title || t.n || 'Compare';
-  document.getElementById('ciBefore').src = t.shot1;
-  document.getElementById('ciAfter').src = t.shot2;
+  const ciBefore = document.getElementById('ciBefore');
+  const ciAfter  = document.getElementById('ciAfter');
+  ciBefore.src = t.shot1; ciBefore.style.display = '';
+  ciAfter.src  = t.shot2; ciAfter.style.display  = '';
   // Sync clip width with stage width: after image renders the same size as before, then we clip
   setTimeout(() => {
     const stage = document.getElementById('cmpStage');
@@ -6670,43 +6914,45 @@ function closeDraftModal(){
 }
 
 // ━━━ TASK TEMPLATES ━━━
+// Templates are independent of task checklists. You can create empty templates,
+// add items to them inside the editor, apply them to any task, or delete them
+// at any time — no dependency on the current task's state.
 function openTmplMenu(taskId){
   closeTmplMenu();
   const btn = document.getElementById('tmplBtn_' + taskId);
   if(!btn) return;
   const t = TASKS.find(x => x.id === taskId);
-  const hasCL = t && Array.isArray(t.checklist) && t.checklist.length > 0;
 
   const menu = document.createElement('div');
   menu.id = 'tmplMenu';
   menu.className = 'tmpl-picker';
 
-  // Save section
-  if(hasCL){
-    menu.innerHTML += `<div class="tmpl-picker-head">Save as template</div>
-      <div class="tmpl-save-row">
-        <input class="tmpl-save-inp" id="tmplSaveInp" placeholder="Template name…"
-          value="${((t.title||t.n||'').replace(/"/g,'&quot;'))}"
-          onkeydown="if(event.key==='Enter')commitSaveTemplate('${taskId}',this.value)"
-          onclick="event.stopPropagation()">
-        <div class="tmpl-save-btns">
-          <button class="tmpl-save-ok" onclick="event.stopPropagation();commitSaveTemplate('${taskId}',document.getElementById('tmplSaveInp').value)">Save</button>
-          <button class="tmpl-save-cancel" onclick="event.stopPropagation();closeTmplMenu()">Cancel</button>
-        </div>
-      </div>`;
-  } else {
-    menu.innerHTML += `<div class="tmpl-picker-head">Save as template</div>
-      <div class="tmpl-empty" style="padding-bottom:4px">Add checklist items first,<br>then save as template.</div>`;
-  }
+  // Save section — always available, optionally pre-fills from current task's checklist
+  const cl = (t && Array.isArray(t.checklist)) ? t.checklist : [];
+  const fromCurrentHint = cl.length > 0
+    ? `<button class="tmpl-from-cur" onclick="event.stopPropagation();saveTemplateFromTask('${taskId}',this.closest('.tmpl-save-row').querySelector('.tmpl-save-inp').value)" title="Save current task's checklist as template">↓ from current (${cl.length})</button>`
+    : '';
+  menu.innerHTML += `<div class="tmpl-picker-head">Create template</div>
+    <div class="tmpl-save-row">
+      <input class="tmpl-save-inp" id="tmplSaveInp" placeholder="Template name…"
+        value="${((t?.title||t?.n||'').replace(/"/g,'&quot;'))}"
+        onkeydown="if(event.key==='Enter')commitSaveTemplate('${taskId}',this.value)"
+        onclick="event.stopPropagation()">
+      <div class="tmpl-save-btns">
+        ${fromCurrentHint}
+        <button class="tmpl-save-ok" onclick="event.stopPropagation();commitSaveTemplate('${taskId}',this.closest('.tmpl-save-row').querySelector('.tmpl-save-inp').value)">Create</button>
+        <button class="tmpl-save-cancel" onclick="event.stopPropagation();closeTmplMenu()">Cancel</button>
+      </div>
+    </div>`;
 
-  // Apply section
+  // Apply section — always shown
   if(TEMPLATES.length > 0){
     menu.innerHTML += `<div class="tmpl-sep"></div>
       <div class="tmpl-picker-head">Apply template</div>` +
       TEMPLATES.map(tmpl => `
         <div class="tmpl-item">
           <span class="tmpl-item-name" onclick="event.stopPropagation();applyTemplate('${tmpl.id}','${taskId}')">${(tmpl.name||'').replace(/[<>]/g,'')}</span>
-          <span class="tmpl-item-ct">${tmpl.checklist.length}✓</span>
+          <span class="tmpl-item-ct">${(tmpl.checklist||[]).length}✓</span>
           <button class="tmpl-item-del" onclick="event.stopPropagation();deleteTmpl('${tmpl.id}')" title="Delete">✕</button>
         </div>`).join('');
   } else {
@@ -6718,7 +6964,9 @@ function openTmplMenu(taskId){
   setTimeout(() => {
     const inp = document.getElementById('tmplSaveInp');
     if(inp){ inp.select(); inp.focus(); }
-    document.addEventListener('click', closeTmplMenu, {once:true, capture:true});
+    document.addEventListener('click', (e) => {
+      if(!menu.contains(e.target)) closeTmplMenu();
+    }, {once:true});
   }, 20);
 }
 
@@ -6727,12 +6975,26 @@ function closeTmplMenu(){
   if(m) m.remove();
 }
 
+// Create empty template — no checklist requirement
 function commitSaveTemplate(taskId, name){
   if(!name?.trim()){ toast('Enter a template name'); return; }
+  const tmpl = {
+    id: 'tmpl_' + Date.now(),
+    name: name.trim(),
+    checklist: []
+  };
+  TEMPLATES.push(tmpl);
+  localStorage.setItem('eb_templates', JSON.stringify(TEMPLATES));
+  closeTmplMenu();
+  toast('✓ Template "' + tmpl.name + '" created');
+}
+
+// Save template using current task's checklist as a starting point
+function saveTemplateFromTask(taskId, name){
+  if(!name?.trim()){ toast('Enter a template name'); return; }
   const t = TASKS.find(x => x.id === taskId);
-  if(!t) return;
-  const cl = Array.isArray(t.checklist) ? t.checklist : [];
-  if(!cl.length){ toast('Add checklist items first'); return; }
+  const cl = (t && Array.isArray(t.checklist)) ? t.checklist : [];
+  if(!cl.length){ toast('No checklist items to copy'); return; }
   const tmpl = {
     id: 'tmpl_' + Date.now(),
     name: name.trim(),
@@ -6771,7 +7033,7 @@ function deleteTmpl(tmplId){
     const tid = btn ? btn.id.replace('tmplBtn_','') : null;
     if(tid){ menu.remove(); openTmplMenu(tid); }
   }
-  toast('Template deleted');
+  toast('✓ Template deleted');
 }
 
 // ━━━ AI KEY ━━━
@@ -6785,7 +7047,7 @@ function clearAiKey(){
   localStorage.removeItem('eb_ai_key');
   const inp = document.getElementById('aiKeyInp');
   if(inp) inp.value = '';
-  toast('API key cleared');
+  toast('✓ API key cleared');
 }
 
 // ━━━ AI ASSISTANT (Stage 5.1) ━━━

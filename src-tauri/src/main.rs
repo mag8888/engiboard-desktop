@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 #[tauri::command]
 fn show_main(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
     }

@@ -686,6 +686,7 @@ document.addEventListener('keydown',e=>{
   if((e.metaKey||e.ctrlKey)&&e.shiftKey&&k==='z'){e.preventDefault();redoNext();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undoLast();return;}
   if((e.metaKey||e.ctrlKey)&&k==='y'){e.preventDefault();redoNext();return;}
+  if((e.metaKey||e.ctrlKey)&&k==='w'){e.preventDefault();forceCloseEditor();return;}
   if(k==='delete'||k==='backspace'){if(selId) delAnn(selId);}
 });
 
@@ -700,18 +701,28 @@ let _autosaveSkip = false;
   if(!window.__TAURI__ || !window.__TAURI__.window) return;
   try {
     const { getCurrentWindow } = window.__TAURI__.window;
-    await getCurrentWindow().onCloseRequested(() => {
-      if(_autosaveSkip) return;                            // Done/Discard handled it
-      if(!annotations.length && !comments.length) return;  // nothing to save
-      // Fire-and-forget: emit the current vector state so the task keeps it.
-      // We do NOT preventDefault — the window closes right away.
-      try {
-        window.__TAURI__.event.emit('screenshot-ready', {
-          dataUrl: null,
-          annotations: JSON.parse(JSON.stringify(annotations)),
-          comments: JSON.parse(JSON.stringify(comments))
-        });
-      } catch(e){ console.error('close autosave emit failed', e); }
+    const win = getCurrentWindow();
+    await win.onCloseRequested(async (event) => {
+      // Fires ONLY for OS red-X. Done/Discard use Rust destroy() → skips this handler.
+      event.preventDefault(); // Take full control; Rust close_editor handles actual close
+
+      const invoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
+
+      // Autosave annotations if any unsaved work
+      if(annotations.length + comments.length > 0){
+        try {
+          window.__TAURI__.event.emit('screenshot-ready', {
+            dataUrl: null,
+            annotations: JSON.parse(JSON.stringify(annotations)),
+            comments: JSON.parse(JSON.stringify(comments))
+          });
+        } catch(e){ console.error('close autosave emit failed', e); }
+      }
+
+      // Rust close_editor: w.destroy() + show_main in one atomic call
+      if(invoke){
+        try { await invoke('close_editor'); } catch(e){ console.error('close_editor failed', e); }
+      }
     });
   } catch(e) { console.error('cannot install close handler', e); }
 })();

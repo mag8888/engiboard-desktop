@@ -1,13 +1,14 @@
 {
   "name": "engiboard-desktop",
-  "version": "0.1.81",
+  "version": "0.1.84",
   "description": "EngiBoard Desktop – test runner",
   "private": true,
   "scripts": {
     "start": "npx serve -s dist -p ${PORT:-3000}",
     "sync-dist": "cp index.html dist/index.html && cp editor.html dist/editor.html && cp sniper.html dist/sniper.html 2>/dev/null; echo 'dist synced'",
     "prebuild": "npm run sync-dist",
-    "build": "npm run sync-dist && cargo tauri build",
+    "build": "npm run sync-dist && cargo tauri build && npm run install-app",
+    "install-app": "rm -rf /Applications/EngiBoard.app && cp -R src-tauri/target/release/bundle/macos/EngiBoard.app /Applications/ && rm -rf src-tauri/target/release/bundle/macos/EngiBoard.app && defaults write com.apple.dock ResetLaunchPad -bool true && killall Dock && echo '✓ Installed & Launchpad reset'",
     "test:unit": "node tests/unit.test.js",
     "test:e2e": "npx playwright test tests/e2e.test.js --reporter=list",
     "test": "npm run test:unit && npm run test:e2e"
