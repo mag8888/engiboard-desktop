@@ -3531,9 +3531,41 @@ function replaceListWith(html){
   return list;
 }
 
+let _repaintTick = 0;
 function forceCompositorRepaint(){
-  // No-op — replaceListWith() now handles compositor invalidation directly.
-  // Kept as a stub so other callers (e.g. refreshClPanel) don't break.
+  // WKWebView caches GPU compositor layers and only flushes on real user input
+  // (mouse/keyboard/focus). We synthesize an input cycle to force a flush
+  // without any visible UI element. Combination is empirically reliable:
+  // 1) Dispatch a synthetic mousemove on document — WKWebView flushes
+  //    pending renders when processing input events.
+  // 2) Focus an offscreen probe input then restore focus — focus changes
+  //    invalidate the active region's compositor layer.
+  // 3) Touch a CSS custom property on <html> — forces full style recalc.
+  _repaintTick++;
+  try {
+    document.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: false, cancelable: true, clientX: 0, clientY: 0
+    }));
+  } catch(_){}
+  document.documentElement.style.setProperty('--rp', String(_repaintTick));
+  let probe = document.getElementById('_eb_probe');
+  if(!probe){
+    probe = document.createElement('input');
+    probe.id = '_eb_probe';
+    probe.type = 'text';
+    probe.setAttribute('tabindex', '-1');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:fixed;top:-100px;left:-100px;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(probe);
+  }
+  const prev = document.activeElement;
+  try { probe.focus({preventScroll: true}); } catch(_){}
+  requestAnimationFrame(() => {
+    try { probe.blur(); } catch(_){}
+    if(prev && prev !== document.body && typeof prev.focus === 'function'){
+      try { prev.focus({preventScroll: true}); } catch(_){}
+    }
+  });
 }
 
 function render(){
