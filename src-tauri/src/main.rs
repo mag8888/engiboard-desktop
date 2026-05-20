@@ -26,6 +26,15 @@ fn get_pending_editor_data() -> Option<serde_json::Value> {
     editor_pending().lock().ok().and_then(|mut g| g.take())
 }
 
+// v0.1.99: read raw bytes of any file path. Used by the editor to bypass
+// asset:// protocol URL issues on Windows — JS makes a Blob from these
+// bytes and an object URL, then assigns to img.src.
+#[tauri::command]
+fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+    eprintln!("read_file_bytes: {}", path);
+    std::fs::read(&path).map_err(|e| format!("{}: {}", path, e))
+}
+
 // Decode the base64 portion of a `data:image/...;base64,XXX` URL into bytes.
 fn data_url_to_bytes(data_url: &str) -> Option<Vec<u8>> {
     let comma = data_url.find(",")?;
@@ -741,7 +750,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url
+            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url, read_file_bytes
         ])
         .run(tauri::generate_context!())
         .expect("error");
