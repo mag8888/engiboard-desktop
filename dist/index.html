@@ -2879,9 +2879,12 @@ async function loadPendingInvites(){
     el.innerHTML = data.map(i => {
       const exp = new Date(i.expires_at);
       const expired = exp < new Date();
+      // v0.1.89: link-only invites have placeholder email like link-xxx@invite.local
+      const isLinkOnly = typeof i.email === 'string' && i.email.endsWith('@invite.local');
+      const displayLabel = isLinkOnly ? '🔗 Shared link' : i.email;
       return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
         <div style="flex:1;min-width:0">
-          <div style="color:var(--t1)">${i.email} <span style="color:var(--t4);font-size:10px">· ${i.role}</span></div>
+          <div style="color:var(--t1)">${displayLabel} <span style="color:var(--t4);font-size:10px">· ${i.role}</span></div>
           <div style="color:${expired?'#EF4444':'var(--t4)'};font-size:10px;font-family:var(--mono)">${expired?'expired':'expires '+exp.toLocaleDateString()}</div>
         </div>
         <button onclick="copyInviteLink('${i.token}')" style="background:none;border:1px solid var(--line-2);color:var(--t2);padding:4px 8px;border-radius:5px;cursor:pointer;font-size:10px">Copy link</button>
@@ -3015,8 +3018,12 @@ async function generateInviteLink(){
   if(!u){ toast('Not signed in'); return; }
   const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
   const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
+  // v0.1.89: email is NOT NULL in the schema — use a unique placeholder for
+  // "copy link" (no specific recipient). The link-shaped address makes these
+  // easy to distinguish in pending invites later if we ever filter them out.
+  const placeholder = `link-${token.slice(0,8)}@invite.local`;
   const { error } = await sb.from('project_invites').insert({
-    project_id: currentProject, email: null, role: 'engineer', token, expires_at: expires, invited_by: u.id
+    project_id: currentProject, email: placeholder, role: 'engineer', token, expires_at: expires, invited_by: u.id
   });
   if(error){ toast('Error: ' + error.message); return; }
   const link = `engiboard://invite/${token}`;
