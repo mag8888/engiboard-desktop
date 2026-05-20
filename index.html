@@ -101,6 +101,11 @@ body.dark-mode .col-hdr{background:var(--bg)}
 
 html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--surf);color:var(--t1)}
 
+/* WKWebView compositor invalidation hack: a 1-frame animation forces a paint
+   cycle on every render(). Imperceptible opacity change (0.9999 → 1). */
+@keyframes _eb-rp { from { opacity: 0.9999 } to { opacity: 1 } }
+body._eb-repaint-flash { animation: _eb-rp 0.001s linear }
+
 /* v0.1.53: ACTUAL FIX. Versions 0.1.47–0.1.52 chased a non-existent broken
    image bug. The "huge icons" Roman saw were the CONTENTS of legitimate
    screenshots (Figma mockups whose subject was iconography) rendered at
@@ -3533,39 +3538,17 @@ function replaceListWith(html){
 
 let _repaintTick = 0;
 function forceCompositorRepaint(){
-  // WKWebView caches GPU compositor layers and only flushes on real user input
-  // (mouse/keyboard/focus). We synthesize an input cycle to force a flush
-  // without any visible UI element. Combination is empirically reliable:
-  // 1) Dispatch a synthetic mousemove on document — WKWebView flushes
-  //    pending renders when processing input events.
-  // 2) Focus an offscreen probe input then restore focus — focus changes
-  //    invalidate the active region's compositor layer.
-  // 3) Touch a CSS custom property on <html> — forces full style recalc.
+  // WKWebView only repaints when forced through the animation pipeline.
+  // Triggering a CSS animation on the body for one frame guarantees that
+  // the browser schedules at least one paint cycle, even when nothing else
+  // changed visually. The animation moves opacity from 0.9999 → 1 (imperceptible).
   _repaintTick++;
-  try {
-    document.dispatchEvent(new MouseEvent('mousemove', {
-      bubbles: false, cancelable: true, clientX: 0, clientY: 0
-    }));
-  } catch(_){}
-  document.documentElement.style.setProperty('--rp', String(_repaintTick));
-  let probe = document.getElementById('_eb_probe');
-  if(!probe){
-    probe = document.createElement('input');
-    probe.id = '_eb_probe';
-    probe.type = 'text';
-    probe.setAttribute('tabindex', '-1');
-    probe.setAttribute('aria-hidden', 'true');
-    probe.style.cssText = 'position:fixed;top:-100px;left:-100px;width:1px;height:1px;opacity:0;pointer-events:none';
-    document.body.appendChild(probe);
-  }
-  const prev = document.activeElement;
-  try { probe.focus({preventScroll: true}); } catch(_){}
-  requestAnimationFrame(() => {
-    try { probe.blur(); } catch(_){}
-    if(prev && prev !== document.body && typeof prev.focus === 'function'){
-      try { prev.focus({preventScroll: true}); } catch(_){}
-    }
-  });
+  const body = document.body;
+  if(!body) return;
+  // Remove + reflow + reapply so the animation re-triggers on every call
+  body.classList.remove('_eb-repaint-flash');
+  void body.offsetWidth;
+  body.classList.add('_eb-repaint-flash');
 }
 
 function render(){
