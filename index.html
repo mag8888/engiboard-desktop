@@ -309,7 +309,7 @@ body.sb-collapsed .brand{width:auto;padding-right:18px}
 .prm-row.danger:hover{background:#FEF2F2}
 
 /* ━━━ MAIN BODY (тэбы + контент) ━━━ */
-.body{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.body{flex:1;display:flex;flex-direction:column;min-height:0}
 
 /* Filter row + search */
 /* v0.1.46: project picker is now embedded in .tbar (no .proj-bar row).
@@ -516,7 +516,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   text-transform:uppercase;letter-spacing:.1em;flex-shrink:0
 }
 
-.list{flex:1;overflow:auto;padding:4px 0 60px;background:var(--bg)}
+.list{flex:1;overflow:auto;padding:4px 0 60px;background:var(--bg);contain:layout paint}
 
 .wk-h{
   font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;
@@ -1436,7 +1436,7 @@ body.sb-collapsed #chatPop{left:54px}
 
 /* ━━━ APP BODY layout (sidebar + main) ━━━ */
 .app-body{display:flex;flex:1;overflow:hidden;min-height:0}
-.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.main-area{flex:1;display:flex;flex-direction:column;min-height:0}
 
 /* Sidebar */
 .sb{
@@ -3541,15 +3541,24 @@ function replaceListWith(html){
 
 let _repaintTick = 0;
 function forceCompositorRepaint(){
-  // Empirically: only a visibly-changing in-viewport element flushes the
-  // WKWebView GPU compositor cache. The existing toast() function works
-  // (actions that show toast update visually, those that don't, don't).
-  // Show a brief, subtle "✓" toast on every render — it's both useful UX
-  // feedback and the proven repaint trigger.
   _repaintTick++;
-  if(typeof toast === 'function'){
-    toast('✓', 600);
+  // 1. Visible toast — proven repaint trigger
+  if(typeof toast === 'function') toast('✓', 600);
+
+  // 2. Window resize event — WKWebView re-layouts the whole page on resize
+  try { window.dispatchEvent(new Event('resize')); } catch(_){}
+
+  // 3. Force a 1-px scroll jitter on the list container
+  const list = document.getElementById('list');
+  if(list){
+    const s = list.scrollTop;
+    list.scrollTop = s + 1;
+    list.scrollTop = s;
   }
+
+  // 4. Toggle a class on document.body to force style recalc cascade
+  document.body.classList.add('_eb-rp');
+  requestAnimationFrame(() => document.body.classList.remove('_eb-rp'));
 }
 
 function render(){
@@ -4302,6 +4311,7 @@ function refreshClPanel(taskId){
   if(badge) badge.textContent = `${doneCount}/${cl.length}`;
   // Focus the add input so user can keep typing immediately
   panel.querySelector('.cl-add input')?.focus();
+  forceCompositorRepaint();
 }
 // Find closest .row to a point — first try elementsFromPoint (full stack),
 // then fall back to elementFromPoint + closest() for WKWebView compatibility.
