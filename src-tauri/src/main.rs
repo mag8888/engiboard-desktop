@@ -20,6 +20,14 @@ fn editor_pending() -> &'static Mutex<Option<serde_json::Value>> {
     EDITOR_PENDING.get_or_init(|| Mutex::new(None))
 }
 
+// v0.1.100: holds the raw bytes of the current pending screenshot so the
+// custom URI scheme `eb-shot://current` can serve them as HTTP image content.
+// Bypasses IPC entirely — the WebView loads the image like any HTTP image.
+static EDITOR_SHOT_BYTES: OnceLock<Mutex<Vec<u8>>> = OnceLock::new();
+fn editor_shot_bytes() -> &'static Mutex<Vec<u8>> {
+    EDITOR_SHOT_BYTES.get_or_init(|| Mutex::new(Vec::new()))
+}
+
 #[tauri::command]
 fn get_pending_editor_data() -> Option<serde_json::Value> {
     // Returns and clears the pending payload so retries don't re-fire it.
@@ -140,18 +148,28 @@ fn open_editor_with_image(
         "comments":    comments.clone().unwrap_or(serde_json::json!([])),
     });
 
-    // v0.1.93: write screenshot to a temp file. The editor will load it via
-    // convertFileSrc → asset protocol — bypasses IPC payload size limits
-    // entirely (only the short file path crosses the IPC boundary).
+    // v0.1.100: stash both filePath (legacy) AND raw bytes (for custom URI scheme).
+    // Editor will prefer eb-shot://current which serves the bytes via HTTP.
     let temp_path = write_temp_screenshot(&data_url);
     let temp_path_str = temp_path
         .as_ref()
         .and_then(|p| p.to_str())
         .map(|s| s.to_string());
+
+    // Stash bytes for the custom URI scheme
+    if let Some(bytes) = data_url_to_bytes(&data_url) {
+        if let Ok(mut g) = editor_shot_bytes().lock() {
+            *g = bytes;
+            eprintln!("editor_shot_bytes: {} bytes stashed", g.len());
+        }
+    } else {
+        eprintln!("editor_shot_bytes: data_url couldn't be decoded");
+    }
+
     if let Ok(mut g) = editor_pending().lock() {
         *g = Some(serde_json::json!({
+            "shotUrl": "eb-shot://current",
             "filePath": temp_path_str,
-            // Still include dataUrl as a fallback for older editor builds
             "dataUrl": data_url.clone(),
             "annotations": annotations.unwrap_or(serde_json::json!([])),
             "comments": comments.unwrap_or(serde_json::json!([])),
@@ -653,6 +671,21 @@ fn check_screen_capture_permission() -> bool {
 
 fn main() {
     tauri::Builder::default()
+        // v0.1.100: custom URI scheme `eb-shot://current` serves the current
+        // pending screenshot as HTTP image content — bypasses IPC payload
+        // limits entirely (WebView loads it as a normal image URL).
+        .register_uri_scheme_protocol("eb-shot", |_app, _request| {
+            let bytes = editor_shot_bytes().lock().map(|g| g.clone()).unwrap_or_default();
+            let is_jpeg = bytes.starts_with(&[0xFF, 0xD8, 0xFF]);
+            let mime = if is_jpeg { "image/jpeg" } else { "image/png" };
+            tauri::http::Response::builder()
+                .status(if bytes.is_empty() { 404 } else { 200 })
+                .header("Content-Type", mime)
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Cache-Control", "no-store")
+                .body(bytes)
+                .unwrap_or_else(|_| tauri::http::Response::new(Vec::new()))
+        })
         .plugin(tauri_plugin_global_shortcut::Builder::new()
             .with_handler(|app, shortcut, event| {
                 if event.state() != ShortcutState::Pressed { return; }

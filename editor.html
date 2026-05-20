@@ -785,31 +785,18 @@ function loadScreenshotAsBg(dataUrl){
     };
   }, 3500);
 
-  // v0.1.99: read file bytes via invoke → create Blob URL. Bypasses both
-  // IPC payload limits (binary instead of base64 string) AND asset://
-  // protocol URL issues on Windows. The img.src ends up being a blob:
-  // URL which the WebView always loads from in-memory bytes.
-  const applyPayload = async (dataUrl, annotations, comments, filePath) => {
-    dbg(`applyPayload: filePath=${filePath?'set':'null'} dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annotations?.length||0} com=${comments?.length||0}`);
+  // v0.1.100: load screenshot via custom URI scheme `eb-shot://current`.
+  // Rust registered this scheme as an HTTP-style handler that returns the
+  // image bytes. The WebView loads it like any normal image URL — no IPC
+  // payload size limits, no asset:// URL construction headaches.
+  const applyPayload = async (dataUrl, annotations, comments, filePath, shotUrl) => {
+    dbg(`applyPayload: shotUrl=${shotUrl||'null'} filePath=${filePath?'set':'null'} dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annotations?.length||0} com=${comments?.length||0}`);
     let resolvedSrc = null;
-    const invokeFn = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
-    if(filePath && invokeFn){
-      try {
-        dbg('calling read_file_bytes...');
-        // Tauri 2 returns Vec<u8> as a regular Array<number> in JS
-        const bytes = await invokeFn('read_file_bytes', { path: filePath });
-        if(bytes && bytes.length){
-          const uint8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-          const ext = filePath.toLowerCase().endsWith('.jpg') || filePath.toLowerCase().endsWith('.jpeg') ? 'jpeg' : 'png';
-          const blob = new Blob([uint8], { type: 'image/' + ext });
-          resolvedSrc = URL.createObjectURL(blob);
-          dbg(`blob URL ready (${uint8.length} bytes) → ${resolvedSrc.slice(0,40)}...`);
-        } else {
-          dbg('read_file_bytes returned empty');
-        }
-      } catch(e){ dbg(`read_file_bytes threw: ${e?.message || e}`); }
-    }
-    if(!resolvedSrc && dataUrl){
+    if(shotUrl){
+      // Add a cache-buster so repeat opens don't reuse a stale image
+      resolvedSrc = shotUrl + '?t=' + Date.now();
+      dbg(`using shotUrl: ${resolvedSrc}`);
+    } else if(dataUrl){
       resolvedSrc = dataUrl;
       dbg('falling back to dataUrl');
     }
@@ -850,7 +837,7 @@ function loadScreenshotAsBg(dataUrl){
       const data = await invoke('get_pending_editor_data');
       dbg(`get_pending_editor_data returned: ${data ? 'data (filePath='+(data.filePath||'null')+' dataUrl='+(data.dataUrl?'len='+data.dataUrl.length:'null')+')' : 'null/undefined'}`);
       if(data){
-        await applyPayload(data.dataUrl, data.annotations, data.comments, data.filePath);
+        await applyPayload(data.dataUrl, data.annotations, data.comments, data.filePath, data.shotUrl);
       }
     } catch(err){
       dbg(`get_pending_editor_data threw: ${err?.message || err}`);
@@ -873,7 +860,7 @@ function loadScreenshotAsBg(dataUrl){
   await window.__TAURI__.event.listen('load-annotations', e => {
     try {
       const p = e.payload || {};
-      applyPayload(null, p.annotations, p.comments, null).catch(()=>{});
+      applyPayload(null, p.annotations, p.comments, null, null).catch(()=>{});
     } catch(err){ console.warn('load-annotations failed:', err); }
   });
 })();
