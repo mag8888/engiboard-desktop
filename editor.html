@@ -748,33 +748,45 @@ function loadScreenshotAsBg(dataUrl){
   if(!window.__TAURI__) return;
   let _loadedHash = null;
   let _loaded = false;
+  const _dbg = [];
+  const dbg = (msg) => { _dbg.push(`[${Date.now()%100000}] ${msg}`); };
+  dbg('boot: __TAURI__ keys=' + Object.keys(window.__TAURI__).join(','));
   const hash = (s) => { let h=0; for(let i=0;i<Math.min(s.length,512);i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h; };
 
-  // v0.1.90: if image still hasn't loaded after 3.5s, show an explicit error
-  // overlay instead of a blank white window (root cause was usually an IPC
-  // payload size issue on Windows WebView2).
+  // v0.1.92: detailed diagnostic overlay if image doesn't load in 3.5s
   setTimeout(() => {
     if(_loaded) return;
-    const paper = document.getElementById('paper');
-    if(!paper) return;
+    dbg(`timeout: still not loaded`);
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#F8FAFC;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0F172A;padding:40px;';
+    overlay.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#F8FAFC;z-index:9999;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0F172A;padding:30px;overflow:auto';
+    const log = _dbg.join('\n');
     overlay.innerHTML = `
-      <div style="max-width:480px;text-align:center">
-        <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-        <h2 style="margin:0 0 12px;font-size:20px;font-weight:600">Couldn't load the screenshot</h2>
-        <p style="margin:0 0 24px;font-size:14px;color:#64748B;line-height:1.6">
-          The image data didn't reach the editor.<br>
-          This is a known timing issue on Windows WebView2.
+      <div style="max-width:640px;width:100%">
+        <div style="font-size:40px;margin-bottom:12px;text-align:center">⚠️</div>
+        <h2 style="margin:0 0 8px;font-size:18px;font-weight:600;text-align:center">Couldn't load the screenshot</h2>
+        <p style="margin:0 0 16px;font-size:13px;color:#64748B;line-height:1.5;text-align:center">
+          Diagnostic log — copy this and send to support so we can fix the issue.
         </p>
-        <button onclick="forceCloseEditor()" style="background:#0EA5E9;color:#fff;border:none;font-weight:600;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit">
-          Close editor
-        </button>
+        <textarea id="_dbgLog" readonly style="width:100%;height:200px;font-family:ui-monospace,SFMono-Regular,monospace;font-size:11px;padding:10px;border:1px solid #E2E8F0;border-radius:8px;background:#F8FAFC;color:#0F172A;resize:vertical;line-height:1.5">${log.replace(/[<>]/g,'')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button id="_dbgCopy" style="flex:1;background:#0EA5E9;color:#fff;border:none;font-weight:600;padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit">Copy log</button>
+          <button onclick="forceCloseEditor()" style="flex:1;background:#fff;border:1px solid #E2E8F0;color:#0F172A;font-weight:600;padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit">Close editor</button>
+        </div>
       </div>`;
     document.body.appendChild(overlay);
+    const copyBtn = document.getElementById('_dbgCopy');
+    if(copyBtn) copyBtn.onclick = async () => {
+      try {
+        const ta = document.getElementById('_dbgLog');
+        if(navigator.clipboard) await navigator.clipboard.writeText(ta.value);
+        else { ta.select(); document.execCommand('copy'); }
+        copyBtn.textContent = '✓ Copied';
+      } catch(e){ copyBtn.textContent = 'Copy failed: ' + e.message; }
+    };
   }, 3500);
 
   const applyPayload = (dataUrl, annotations, comments) => {
+    dbg(`applyPayload: dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annotations?.length||0} com=${comments?.length||0}`);
     if(dataUrl){
       const h = hash(dataUrl);
       if(h !== _loadedHash){
@@ -803,29 +815,35 @@ function loadScreenshotAsBg(dataUrl){
     } catch(err){ console.warn('apply annotations failed:', err); }
   };
 
-  // v0.1.84: PRIMARY load path — pull from Rust state via invoke. This works
-  // reliably on Windows WebView2 where large base64 dataUrls in event payloads
-  // were silently dropped, leaving the editor blank.
+  // v0.1.84: PRIMARY load path — pull from Rust state via invoke.
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
+  dbg(`invoke available: ${!!invoke}`);
   if(invoke){
     try {
+      dbg('calling get_pending_editor_data...');
       const data = await invoke('get_pending_editor_data');
+      dbg(`get_pending_editor_data returned: ${data ? 'data (dataUrl='+(data.dataUrl?'len='+data.dataUrl.length:'null')+')' : 'null/undefined'}`);
       if(data){
         applyPayload(data.dataUrl, data.annotations, data.comments);
       }
-    } catch(err){ console.warn('get_pending_editor_data failed:', err); }
+    } catch(err){
+      dbg(`get_pending_editor_data threw: ${err?.message || err}`);
+      console.warn('get_pending_editor_data failed:', err);
+    }
   }
 
-  // v0.1.39: FALLBACK — backend also emits load-image via events for backward
-  // compat. If invoke succeeded, the hash dedupe will skip these.
+  // v0.1.39: FALLBACK — backend also emits load-image via events for backward compat.
+  dbg('registering load-image listener');
   await window.__TAURI__.event.listen('load-image', e => {
+    dbg(`load-image event: payload=${e.payload ? 'len='+e.payload.length : 'null'}`);
     if(!e.payload) return;
     const h = hash(e.payload);
-    if(h === _loadedHash) return;
+    if(h === _loadedHash){ dbg('  → dedupe (same hash)'); return; }
     _loadedHash = h;
     _loaded = true;
     loadScreenshotAsBg(e.payload);
   });
+  dbg('load-image listener registered');
   await window.__TAURI__.event.listen('load-annotations', e => {
     try {
       const p = e.payload || {};
