@@ -2912,62 +2912,89 @@ async function inviteByEmail(){
   if(!email || !email.includes('@')){ toast('Enter a valid email'); return; }
   if(!db || !db.ready){ toast('Cloud not connected'); return; }
   if(currentProject === 'all'){ toast('Select a specific project first'); return; }
-  // v0.1.87: only cloud projects can be invited to (Supabase uses UUIDs;
-  // demo/local projects have string IDs like 'p1' which fail UUID validation)
+  // v0.1.87: only cloud projects can be invited to
   const project = PROJECTS.find(p => p.id === currentProject);
   if(!project?._cloud){
     toast('Switch to a cloud project first — demo projects can\'t be shared');
     return;
   }
-  // v0.1.85 fix: RLS policy on project_invites requires invited_by = auth.uid()
   const u = await db.auth.user();
   if(!u){ toast('Not signed in'); return; }
-  const token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
-  const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
-  const { error } = await sb.from('project_invites').insert({
-    project_id: currentProject, email, role: 'engineer', token, expires_at: expires, invited_by: u.id
-  });
-  if(error){
-    if(error.code === '23505'){ toast(email + ' already invited'); return; }
-    toast('Error: ' + error.message); return;
+
+  // v0.1.102: if there's already a pending invite for this email, reuse its
+  // token instead of failing with "already invited" — just resend the email.
+  let token = null;
+  try {
+    const { data: existing } = await sb.from('project_invites')
+      .select('id, token, accepted_at, expires_at')
+      .eq('project_id', currentProject)
+      .eq('email', email)
+      .is('accepted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if(existing && new Date(existing.expires_at) > new Date()){
+      token = existing.token;
+    }
+  } catch(_){}
+
+  if(!token){
+    token = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now().toString(36);
+    const expires = new Date(Date.now() + 7*24*3600*1000).toISOString();
+    const { error } = await sb.from('project_invites').insert({
+      project_id: currentProject, email, role: 'engineer', token, expires_at: expires, invited_by: u.id
+    });
+    if(error){
+      toast('Error: ' + error.message);
+      return;
+    }
   }
+
   const link = `engiboard://invite/${token}`;
   const inviterName = u.user_metadata?.full_name || u.email || 'Your teammate';
 
-  // v0.1.88: send via Resend through Supabase Edge Function (from a tech domain),
-  // so the recipient gets a real email without needing a local mail client.
-  // Falls back to mailto: only if the server send fails.
-  const sent = await sendInviteViaServer(email, inviterName, project.name, link);
-  if(!sent){
-    await sendInviteEmail(email, inviterName, project.name, link);  // mailto fallback
+  // v0.1.102: send via Resend through Supabase Edge Function. Now returns
+  // detailed result so we can surface the actual error instead of silently
+  // dropping to mailto.
+  const result = await sendInviteViaServer(email, inviterName, project.name, link);
+  if(result.ok){
+    try { await navigator.clipboard.writeText(link); } catch(_){}
+    inp.value = '';
+    toast(`✓ Email sent to ${email}`);
+  } else {
+    // Show why the server send failed BEFORE opening mailto
+    toast(`Server send failed: ${result.reason} — opening mail draft`, 3500);
+    setTimeout(async () => {
+      await sendInviteEmail(email, inviterName, project.name, link);
+      try { await navigator.clipboard.writeText(link); } catch(_){}
+      inp.value = '';
+    }, 500);
   }
-  try { await navigator.clipboard.writeText(link); } catch(_){}
-  inp.value = '';
-  toast(sent ? `✓ Email sent to ${email}` : `✓ Invite created — mail draft opened, link copied`);
   loadPendingInvites();
 }
 
-// v0.1.88: server-side email send via Supabase Edge Function `send-invite`.
-// Returns true on success, false if the function isn't deployed or fails.
+// v0.1.102: server-side email send. Returns {ok: bool, reason?: string}
+// so the caller can show a specific error message instead of silently
+// falling back to mailto.
 async function sendInviteViaServer(toEmail, inviterName, projectName, link){
-  if(!db || !db.ready || !sb?.functions?.invoke) return false;
+  if(!db || !db.ready) return { ok: false, reason: 'cloud not ready' };
+  if(!sb?.functions?.invoke) return { ok: false, reason: 'sb.functions.invoke missing' };
   try {
     const { data, error } = await sb.functions.invoke('send-invite', {
-      body: {
-        to: toEmail,
-        inviter_name: inviterName,
-        project_name: projectName,
-        link
-      }
+      body: { to: toEmail, inviter_name: inviterName, project_name: projectName, link }
     });
     if(error){
-      console.warn('[invite] server send failed:', error.message || error);
-      return false;
+      const msg = error.message || error.toString() || 'unknown';
+      console.warn('[invite] server send failed:', msg, error);
+      return { ok: false, reason: msg };
     }
-    return !!(data?.ok);
+    if(data?.ok) return { ok: true };
+    const why = data?.error || data?.detail || 'no ok flag in response';
+    console.warn('[invite] server send returned not-ok:', data);
+    return { ok: false, reason: why };
   } catch(e){
-    console.warn('[invite] server send threw:', e.message);
-    return false;
+    console.warn('[invite] server send threw:', e?.message || e);
+    return { ok: false, reason: e?.message || String(e) };
   }
 }
 
