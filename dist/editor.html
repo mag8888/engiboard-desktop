@@ -730,10 +730,11 @@ function notify(m){const el=document.getElementById('notif');el.textContent=m;el
 // Tauri load image
 function loadScreenshotAsBg(dataUrl){
   if(!dataUrl) return;
+  try { console.log('[EB-EDITOR] loadScreenshotAsBg: src=', dataUrl.slice(0,80)); } catch(_){}
   const bg=document.getElementById('realBg');
   bg.style.display='block';
-  bg.src=dataUrl;
   bg.onload=function(){
+    try { console.log('[EB-EDITOR] img loaded:', bg.naturalWidth, 'x', bg.naturalHeight); } catch(_){}
     const ratio=bg.naturalWidth/bg.naturalHeight;
     const cw=document.getElementById('cw');
     const maxW=cw.offsetWidth-40, maxH=cw.offsetHeight-100;
@@ -743,13 +744,22 @@ function loadScreenshotAsBg(dataUrl){
     paper.style.width=w+'px';paper.style.height=h+'px';
     notify('Screenshot loaded');
   };
+  bg.onerror=function(e){
+    try { console.error('[EB-EDITOR] img FAILED to load:', dataUrl.slice(0,200), e); } catch(_){}
+  };
+  bg.src=dataUrl;
 }
 (async function(){
   if(!window.__TAURI__) return;
   let _loadedHash = null;
   let _loaded = false;
   const _dbg = [];
-  const dbg = (msg) => { _dbg.push(`[${Date.now()%100000}] ${msg}`); };
+  const dbg = (msg) => {
+    const line = `[${Date.now()%100000}] ${msg}`;
+    _dbg.push(line);
+    // v0.1.101: also write to console so user can see in DevTools
+    try { console.log('[EB-EDITOR]', line); } catch(_){}
+  };
   dbg('boot: __TAURI__ keys=' + Object.keys(window.__TAURI__).join(','));
   const hash = (s) => { let h=0; for(let i=0;i<Math.min(s.length,512);i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h; };
 
