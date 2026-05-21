@@ -148,27 +148,35 @@ fn open_editor_with_image(
         "comments":    comments.clone().unwrap_or(serde_json::json!([])),
     });
 
-    // v0.1.100: stash both filePath (legacy) AND raw bytes (for custom URI scheme).
-    // Editor will prefer eb-shot://current which serves the bytes via HTTP.
+    // v0.1.103: try to decode base64 bytes for the eb-shot:// scheme. If the
+    // input is a remote URL (cloud storage, blob:, etc.) decode fails — in
+    // that case we don't set shotUrl, and the editor uses the original URL
+    // directly (which the WebView can load over HTTP).
     let temp_path = write_temp_screenshot(&data_url);
     let temp_path_str = temp_path
         .as_ref()
         .and_then(|p| p.to_str())
         .map(|s| s.to_string());
 
-    // Stash bytes for the custom URI scheme
-    if let Some(bytes) = data_url_to_bytes(&data_url) {
+    let bytes_stashed = if let Some(bytes) = data_url_to_bytes(&data_url) {
         if let Ok(mut g) = editor_shot_bytes().lock() {
             *g = bytes;
             eprintln!("editor_shot_bytes: {} bytes stashed", g.len());
-        }
+            true
+        } else { false }
     } else {
-        eprintln!("editor_shot_bytes: data_url couldn't be decoded");
-    }
+        // Clear any stale bytes from a previous call so eb-shot doesn't serve
+        // the wrong image (this was the actual bug: stale bytes from create-
+        // screenshot were being served when opening an existing cloud URL)
+        if let Ok(mut g) = editor_shot_bytes().lock() { g.clear(); }
+        eprintln!("editor_shot_bytes: data_url is not base64 (likely cloud URL) — cleared stash");
+        false
+    };
 
     if let Ok(mut g) = editor_pending().lock() {
         *g = Some(serde_json::json!({
-            "shotUrl": "eb-shot://current",
+            // Only advertise the custom scheme when we actually have bytes
+            "shotUrl": if bytes_stashed { Some("eb-shot://current") } else { None },
             "filePath": temp_path_str,
             "dataUrl": data_url.clone(),
             "annotations": annotations.unwrap_or(serde_json::json!([])),
