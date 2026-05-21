@@ -3568,15 +3568,41 @@ function replaceListWith(html){
 
 let _repaintTick = 0;
 function forceCompositorRepaint(){
+  // User insight: the working badge counted as "+1 action" for WebKit.
+  // What WebKit treats as a real action: focus change on a real input
+  // element (not synthetic events on body). We focus the existing search
+  // input, then restore focus — this is the digital equivalent of the
+  // user clicking on the search box for an instant.
   _repaintTick++;
-  // v0.1.105: invoke native Rust command that bumps window size by 1px and
-  // back. This is the ONLY thing that reliably flushes the WKWebView
-  // compositor — synthetic JS events (mousemove, focus, animation, scroll,
-  // resize dispatch) all get optimized away. A real NSWindow resize is the
-  // OS-level signal WebKit can't ignore.
-  if(window.__TAURI__){
-    const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
-    if(invoke) invoke('flush_repaint').catch(()=>{});
+
+  const prev = document.activeElement;
+  const search = document.getElementById('searchInp');
+  if(search && prev !== search){
+    try { search.focus({preventScroll: true}); } catch(_){}
+    // Restore focus on next frame so cursor doesn't appear in search box
+    requestAnimationFrame(() => {
+      try {
+        if(prev && prev !== document.body && typeof prev.focus === 'function'){
+          prev.focus({preventScroll: true});
+        } else {
+          search.blur();
+        }
+      } catch(_){}
+    });
+  } else {
+    // Fallback if search input is somehow missing — create a probe input
+    const probe = document.createElement('input');
+    probe.type = 'text';
+    probe.tabIndex = -1;
+    probe.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+    document.body.appendChild(probe);
+    try { probe.focus({preventScroll: true}); } catch(_){}
+    requestAnimationFrame(() => {
+      try { probe.remove(); } catch(_){}
+      if(prev && prev !== document.body && typeof prev.focus === 'function'){
+        try { prev.focus({preventScroll: true}); } catch(_){}
+      }
+    });
   }
 }
 
