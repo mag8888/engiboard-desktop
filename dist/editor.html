@@ -742,21 +742,38 @@ function notify(m){const el=document.getElementById('notif');el.textContent=m;el
 function loadScreenshotAsBg(dataUrl){
   if(!dataUrl) return;
   try { console.log('[EB-EDITOR] loadScreenshotAsBg: src=', dataUrl.slice(0,80)); } catch(_){}
+  // v0.1.109: remove loading overlay AS SOON AS we start loading the image.
+  // This way #cw element gets proper dimensions before bg.onload computes paper size.
+  const initOv = document.getElementById('_eb_initial');
+  if(initOv) initOv.remove();
   const bg=document.getElementById('realBg');
   bg.style.display='block';
   bg.onload=function(){
     try { console.log('[EB-EDITOR] img loaded:', bg.naturalWidth, 'x', bg.naturalHeight); } catch(_){}
-    const ratio=bg.naturalWidth/bg.naturalHeight;
-    const cw=document.getElementById('cw');
-    const maxW=cw.offsetWidth-40, maxH=cw.offsetHeight-100;
-    let w=bg.naturalWidth, h=bg.naturalHeight;
-    if(w>maxW){w=maxW;h=Math.round(w/ratio);}
-    if(h>maxH){h=maxH;w=Math.round(h*ratio);}
-    paper.style.width=w+'px';paper.style.height=h+'px';
-    notify('Screenshot loaded');
-    // v0.1.104: hide initial loading overlay now that image is in place
+    // v0.1.109: robust paper sizing. Previously if #cw had 0 dims (covered
+    // by initial loading overlay, or not yet laid out), maxW/maxH became
+    // negative → paper got width:"-Npx" → invisible image even though
+    // img.onload fired. Now we always remove the overlay FIRST, then
+    // compute size with safe fallbacks.
     const initOv = document.getElementById('_eb_initial');
     if(initOv) initOv.remove();
+
+    const nw = bg.naturalWidth || 960;
+    const nh = bg.naturalHeight || 600;
+    const ratio = nw / nh;
+    const cw = document.getElementById('cw');
+    // Fallback to window dims if cw isn't laid out yet
+    const cwW = (cw && cw.offsetWidth > 100) ? cw.offsetWidth : (window.innerWidth || 1200);
+    const cwH = (cw && cw.offsetHeight > 100) ? cw.offsetHeight : (window.innerHeight - 120 || 600);
+    const maxW = Math.max(400, cwW - 40);
+    const maxH = Math.max(300, cwH - 100);
+    let w = nw, h = nh;
+    if(w > maxW){ w = maxW; h = Math.round(w / ratio); }
+    if(h > maxH){ h = maxH; w = Math.round(h * ratio); }
+    paper.style.width = w + 'px';
+    paper.style.height = h + 'px';
+    try { console.log('[EB-EDITOR] paper sized:', w, 'x', h, '(cw was', cwW, 'x', cwH, ')'); } catch(_){}
+    notify('Screenshot loaded');
   };
   bg.onerror=function(e){
     try { console.error('[EB-EDITOR] img FAILED to load:', dataUrl.slice(0,200), e); } catch(_){}
