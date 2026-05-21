@@ -238,10 +238,9 @@ fn open_editor_with_image(
             eprintln!("editor window created OK");
             let _ = win.show();
             let _ = win.set_focus();
-            // v0.1.101: auto-open DevTools on the editor so the user can see
-            // Console errors and dbg() output. Tauri Cargo.toml has the
-            // "devtools" feature enabled, so this works in release builds too.
-            win.open_devtools();
+            // v0.1.110: DevTools auto-open removed (was for debugging blank-
+            // window issue). Clients shouldn't see it. F12 / right-click →
+            // Inspect still works if the devtools feature is in Cargo.toml.
             // v0.1.39: emit load-image with retry. Single emit too early was
             // resulting in editor showing blank ('пустое окно'). Three retries
             // at 800/1500/2400ms — editor.html dedupes by checking its 'loaded' flag.
