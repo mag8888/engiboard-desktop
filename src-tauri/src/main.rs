@@ -120,6 +120,25 @@ fn open_url(url: String) -> Result<(), String> {
     result.map(|_| ()).map_err(|e| e.to_string())
 }
 
+// v0.1.105: bypass WKWebView's GPU compositor cache by triggering a native
+// resize event. Synthetic JS events (mousemove, focus, animations) all failed
+// because WebKit only flushes the compositor for REAL OS events. Bumping the
+// window size by 1px and back triggers the native NSWindow resize path which
+// WebKit must respond to.
+#[tauri::command]
+fn flush_repaint(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        if let Ok(size) = w.outer_size() {
+            let bumped = tauri::PhysicalSize {
+                width: size.width.saturating_add(1),
+                height: size.height,
+            };
+            let _ = w.set_size(bumped);
+            let _ = w.set_size(size);
+        }
+    }
+}
+
 #[tauri::command]
 fn show_main(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -795,7 +814,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url, read_file_bytes
+            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url, read_file_bytes, flush_repaint
         ])
         .run(tauri::generate_context!())
         .expect("error");
