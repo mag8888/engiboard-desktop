@@ -159,6 +159,17 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 </style>
 </head>
 <body>
+<!-- v0.1.104: initial loading state visible until the script removes it.
+     If the script never runs (script crash, WebView load failure, etc.) the
+     user sees a meaningful message + Close button instead of pure blank. -->
+<div id="_eb_initial" style="position:fixed;inset:0;background:#F8FAFC;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0F172A;padding:30px;text-align:center">
+  <div style="width:60px;height:60px;border:4px solid #E2E8F0;border-top-color:#0EA5E9;border-radius:50%;animation:_ebspin 0.8s linear infinite;margin-bottom:24px"></div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:8px">Loading editor…</div>
+  <div id="_eb_initial_msg" style="font-size:13px;color:#64748B;line-height:1.5;max-width:480px">Preparing screenshot data.</div>
+  <button onclick="(function(){try{const inv=window.__TAURI__?.core?.invoke||window.__TAURI__?.invoke;if(inv)inv('close_editor');else window.close();}catch(e){window.close();}})()" style="margin-top:24px;background:#fff;border:1px solid #E2E8F0;color:#0F172A;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit">Close editor</button>
+  <style>@keyframes _ebspin { to { transform: rotate(360deg) } }</style>
+</div>
+
 <div class="shell">
 <div class="tbar">
   <div style="width:78px;flex-shrink:0"></div>
@@ -743,9 +754,14 @@ function loadScreenshotAsBg(dataUrl){
     if(h>maxH){h=maxH;w=Math.round(h*ratio);}
     paper.style.width=w+'px';paper.style.height=h+'px';
     notify('Screenshot loaded');
+    // v0.1.104: hide initial loading overlay now that image is in place
+    const initOv = document.getElementById('_eb_initial');
+    if(initOv) initOv.remove();
   };
   bg.onerror=function(e){
     try { console.error('[EB-EDITOR] img FAILED to load:', dataUrl.slice(0,200), e); } catch(_){}
+    const initOv = document.getElementById('_eb_initial_msg');
+    if(initOv) initOv.textContent = 'Image failed to load: ' + (dataUrl||'').slice(0,80);
   };
   bg.src=dataUrl;
 }
@@ -757,8 +773,10 @@ function loadScreenshotAsBg(dataUrl){
   const dbg = (msg) => {
     const line = `[${Date.now()%100000}] ${msg}`;
     _dbg.push(line);
-    // v0.1.101: also write to console so user can see in DevTools
     try { console.log('[EB-EDITOR]', line); } catch(_){}
+    // v0.1.104: also update the loading overlay so user sees progress
+    const initMsg = document.getElementById('_eb_initial_msg');
+    if(initMsg) initMsg.textContent = msg;
   };
   dbg('boot: __TAURI__ keys=' + Object.keys(window.__TAURI__).join(','));
   const hash = (s) => { let h=0; for(let i=0;i<Math.min(s.length,512);i++) h=((h<<5)-h+s.charCodeAt(i))|0; return h; };
