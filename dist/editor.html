@@ -67,10 +67,10 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .fb:hover{background:rgba(255,255,255,.06);color:var(--t1)}
 .fb.on{background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.4)}
 .fb-sep{width:1px;height:20px;background:rgba(255,255,255,.08);margin:0 4px}
-.emoji-picker{display:none;position:fixed;z-index:1000;background:#1e2531;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px;grid-template-columns:repeat(6,36px);gap:2px;box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.emoji-picker{display:none;position:fixed;z-index:1000;background:#1e2531;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:5px;grid-template-columns:repeat(6,26px);gap:1px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .emoji-picker.on{display:grid}
-.emoji-picker button{font-size:22px;line-height:1;width:36px;height:36px;background:none;border:none;cursor:pointer;border-radius:8px;padding:0}
-.emoji-picker button:hover{background:rgba(255,255,255,.14)}
+.emoji-picker button{font-size:17px;line-height:1;width:26px;height:26px;background:none;border:none;cursor:pointer;border-radius:6px;padding:0}
+.emoji-picker button:hover{background:rgba(255,255,255,.16)}
 
 /* Tooltip */
 .fb::after{
@@ -289,7 +289,7 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 <script>
 let tool='select', color='#FF453A', sw=2, opVal=1;
 let pendingEmoji=null;
-const EMOJIS=['👍','👎','✅','❌','🔥','⚠️','❗','❓','⭐','💯','👀','🙂','🎉','🚀','📌','💡','🛠️','🔧','🟢','🔴','➡️','✔️'];
+const EMOJIS=['👍','👎','✅','❌','🔥','⭐','💯','⚠️','❗','❓','👀','🎉'];
 const EMOJI_SIZE=40;  // glyph size in paper CSS px (scaled up on save to match)
 function toggleEmojiPicker(ev){
   if(ev) ev.stopPropagation();

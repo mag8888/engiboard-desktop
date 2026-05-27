@@ -173,9 +173,8 @@ try:
     pyautogui.press("e")
     time.sleep(1)
     shot("05-emoji-picker")
-    # Click the centre of the opened picker (guaranteed to land on a cell,
-    # avoiding the edge/padding). Picker spans ~x310-475, y67-140 on screen.
-    pyautogui.click(392, 103)
+    # Compact picker opens at the emoji button (left ~310). First cell ~(328,80).
+    pyautogui.click(328, 80)
     time.sleep(0.6)
     shot("06-emoji-selected")
     pyautogui.click(canvas_x, canvas_y)   # place emoji on the screenshot
