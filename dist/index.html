@@ -2015,15 +2015,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         <span>Capture</span>
       </button>
-      <button class="chip on" data-f="all" style="margin-left:8px">All</button>
-      <button class="chip fc-info" data-f="0">Info</button>
-      <button class="chip fc-not"  data-f="2">Not started</button>
-      <button class="chip fc-prog" data-f="6">In progress</button>
-      <button class="chip fc-rev"  data-f="3">Review</button>
-      <button class="chip fc-req"  data-f="4">Requested</button>
-      <button class="chip fc-prob" data-f="5">Problem</button>
-      <button class="chip fc-up"   data-f="7">Updated</button>
-      <button class="chip fc-done" data-f="1">Done</button>
+      <span id="filterChips" style="display:contents"></span>
       <span style="flex:1"></span>
       <button class="chip" onclick="exportPDF()" title="Export PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
       <button class="chip" onclick="exportWeeklySummaryPDF()" title="Export weekly summary PDF" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">Weeks</button>
@@ -2321,16 +2313,27 @@ const STATUSES = [
 for(let i = 0; i < STATUSES.length; i++){
   if(I18N[currentLang] && I18N[currentLang]['st.' + i]) STATUSES[i].l = I18N[currentLang]['st.' + i];
 }
-// Apply admin custom overrides (saved in Profile → Edit Statuses)
+// Apply admin custom statuses (saved in Profile → Statuses · Admin).
+// New format: full array of {id,l,c,cls,hidden}. Old format: {id:{l,c}} overrides.
 (function(){
   try {
-    const saved = JSON.parse(localStorage.getItem('eb_custom_statuses') || '{}');
-    for(const [idStr, data] of Object.entries(saved)){
-      const s = STATUSES.find(x => x.id === +idStr);
-      if(s){ if(data.l) s.l = data.l; if(data.c) s.c = data.c; }
+    const raw = localStorage.getItem('eb_custom_statuses');
+    if(!raw) return;
+    const saved = JSON.parse(raw);
+    if(Array.isArray(saved)){
+      // Full replacement — supports added/removed (hidden) statuses.
+      STATUSES.length = 0;
+      saved.forEach(s => STATUSES.push({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden }));
+    } else {
+      for(const [idStr, data] of Object.entries(saved)){
+        const s = STATUSES.find(x => x.id === +idStr);
+        if(s){ if(data.l) s.l = data.l; if(data.c) s.c = data.c; }
+      }
     }
   } catch(e){}
 })();
+// Helper: only visible (non-deleted) statuses, in order.
+function visibleStatuses(){ return STATUSES.filter(s => !s.hidden); }
 
 // ━━━ SUPABASE CLIENT (S2 P0-3, deferred — see supabase/ARCHITECTURE_DECISION.md) ━━━
 // Client initialized for future sync; runtime falls back to localStorage if any call fails.
@@ -2597,33 +2600,60 @@ function getRoleLabel(){
   const r = localStorage.getItem('eb_user_role') || 'engineer';
   return { engineer:'Engineer', lead:'Lead', admin:'Admin' }[r] || 'Engineer';
 }
-function saveCustomStatuses(){
-  const saved = {};
-  STATUSES.forEach(s => {
+// Read the editor's DOM inputs back into the visible STATUSES (label + color).
+function _captureStatusEdits(){
+  visibleStatuses().forEach(s => {
     const lEl = document.getElementById('slabel_'+s.id);
     const cEl = document.getElementById('scolor_'+s.id);
-    if(!lEl || !cEl) return;
-    const l = lEl.value.trim() || s.l;
-    const c = cEl.value;
-    saved[s.id] = {l, c};
-    s.l = l; s.c = c;
+    if(lEl) s.l = (lEl.value.trim() || s.l);
+    if(cEl) s.c = cEl.value;
   });
-  localStorage.setItem('eb_custom_statuses', JSON.stringify(saved));
-  render();
-  toast('Statuses saved');
+}
+// Persist the FULL status set (including hidden/removed) so add/remove survive.
+function _persistStatuses(){
+  localStorage.setItem('eb_custom_statuses', JSON.stringify(
+    STATUSES.map(s => ({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden }))
+  ));
+}
+function saveCustomStatuses(){
+  _captureStatusEdits();
+  _persistStatuses();
+  render(); renderFilters();
+  toast('Task statuses saved');
 }
 function resetCustomStatuses(){
   localStorage.removeItem('eb_custom_statuses');
-  // Restore defaults
-  const defaults = [
-    {id:0,l:'Info',c:'#94A3B8'},{id:1,l:'Done',c:'#22C55E'},{id:2,l:'Not Relevant',c:'#94A3B8'},
-    {id:3,l:'Review',c:'#A78BFA'},{id:4,l:'Info Required',c:'#0EA5E9'},{id:5,l:'Problem',c:'#EF4444'},
-    {id:6,l:'In Progress',c:'#F97316'},{id:7,l:'Upcoming',c:'#0EA5E9'}
-  ];
-  defaults.forEach(d => { const s = STATUSES.find(x=>x.id===d.id); if(s){s.l=d.l;s.c=d.c;} });
-  render();
-  renderProfileSection();
+  STATUSES.length = 0;
+  [
+    {id:0,l:'Info',c:'#94A3B8',cls:'bg-info'},{id:1,l:'Done',c:'#22C55E',cls:'bg-done'},
+    {id:2,l:'Not Relevant',c:'#94A3B8',cls:'bg-not'},{id:3,l:'Review',c:'#A78BFA',cls:'bg-rev'},
+    {id:4,l:'Info Required',c:'#0EA5E9',cls:'bg-req'},{id:5,l:'Problem',c:'#EF4444',cls:'bg-prob'},
+    {id:6,l:'In Progress',c:'#F97316',cls:'bg-prog'},{id:7,l:'Upcoming',c:'#0EA5E9',cls:'bg-up'}
+  ].forEach(d => STATUSES.push({...d, hidden:false}));
+  render(); renderFilters(); renderProfileSection();
   toast('Statuses reset to default');
+}
+// Append-only (id === array index) keeps STATUSES[t.s] index access valid.
+function addStatus(){
+  _captureStatusEdits();
+  STATUSES.push({ id: STATUSES.length, l:'New status', c:'#0EA5E9', cls:'', hidden:false });
+  _persistStatuses();
+  renderProfileSection(); renderFilters();
+  toast('Status added — rename it and Save');
+}
+// Soft-delete (hidden:true, never splice) so indices never shift. Tasks using
+// the removed status are moved to the first remaining visible status.
+function deleteStatus(id){
+  if(visibleStatuses().length <= 1) return toast('At least one status is required');
+  const s = STATUSES.find(x => x.id === id);
+  if(!s) return;
+  _captureStatusEdits();
+  s.hidden = true;
+  const fallback = visibleStatuses()[0];
+  if(fallback){ TASKS.forEach(t => { if(t.s === id) t.s = fallback.id; }); }
+  _persistStatuses();
+  render(); renderFilters(); renderProfileSection();
+  toast('Status removed; its tasks moved to "' + (fallback ? fallback.l : '?') + '"');
 }
 
 // Listen for deep links — both OAuth callback (engiboard://oauth/callback?...)
@@ -3750,13 +3780,29 @@ function getFilteredTasks(){
   return result;
 }
 
+// Render the status filter chips dynamically from the (visible) task statuses,
+// so added/removed statuses are reflected. Built-in + custom both use inline
+// color from status.c, so new statuses (no fc-* CSS class) still show correctly.
+function renderFilters(){
+  const box = document.getElementById('filterChips');
+  if(!box) return;
+  const chips = [`<button class="chip${curFilter==='all'?' on':''}" data-f="all" style="margin-left:8px">All</button>`];
+  visibleStatuses().forEach(s => {
+    const on = curFilter === String(s.id);
+    const style = on
+      ? `background:${s.c};color:#fff;border-color:${s.c}`
+      : `color:${s.c};border-color:${s.c};background:transparent`;
+    chips.push(`<button class="chip" data-f="${s.id}" style="${style}">${s.l}</button>`);
+  });
+  box.innerHTML = chips.join('');
+}
+
 document.addEventListener('click', e => {
   // Only filter chips (have data-f) toggle the active state
   const chip = e.target.closest('.chip[data-f]');
   if(chip){
-    document.querySelectorAll('.chip[data-f]').forEach(c => c.classList.remove('on'));
-    chip.classList.add('on');
     curFilter = chip.dataset.f;
+    renderFilters();   // restyle active chip (chips use inline color)
     render();
   }
 });
@@ -3771,7 +3817,7 @@ document.addEventListener('input', e => {
 function clearFilters(){
   curFilter = 'all'; curSearch = '';
   document.getElementById('searchInp').value = '';
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.f === 'all'));
+  renderFilters();
   render();
 }
 
@@ -3865,6 +3911,7 @@ function forceCompositorRepaint(){
 
 function render(){
   const list = document.getElementById('list');
+  renderFilters();   // keep status filter chips in sync with custom statuses
   // Update picker label every render (counts may change)
   if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
 
@@ -3956,7 +4003,7 @@ function renderProjGroup(proj, tasks){
   const isCollapsed = collapsedProjects.has(proj.id);
   const isCurrent = proj.id === currentProject;
 
-  const segs = STATUSES.map(s => {
+  const segs = visibleStatuses().map(s => {
     const cnt = allProjTasks.filter(t => t.s === s.id).length;
     return cnt > 0 ? `<div class="proj-group-bar-seg" style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
   }).join('');
@@ -4088,8 +4135,8 @@ function renderRow(t){
     <div class="chat-col" onclick="event.stopPropagation()">
       <!-- v0.1.115: card header — status + assignee at the TOP, kebab at right -->
       <div class="card-header">
-        <span class="st ${st.cls} tc-status" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
-          <span class="pip"></span>${st.l}
+        <span class="st ${st.cls} tc-status"${st.cls?'':` style="background:${st.c}22;color:${st.c}"`} onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
+          <span class="pip" style="background:${st.c}"></span>${st.l}
         </span>
         ${renderAssignee(t)}
         <button class="card-kebab" onclick="event.stopPropagation();showTaskMenuAt(event,'${t.id}')" title="More actions">${ICON_KEBAB}</button>
@@ -4404,7 +4451,7 @@ function toggleStMenu(e, taskId){
   const menu = document.createElement('div');
   menu.className = 'st-menu open';
   menu.dataset.taskId = taskId;
-  menu.innerHTML = STATUSES.map(s => `<div class="st-opt" onclick="event.stopPropagation();changeStatus('${taskId}',${s.id})"><span class="pip" style="background:${s.c}"></span>${s.l}</div>`).join('');
+  menu.innerHTML = visibleStatuses().map(s => `<div class="st-opt" onclick="event.stopPropagation();changeStatus('${taskId}',${s.id})"><span class="pip" style="background:${s.c}"></span>${s.l}</div>`).join('');
   wrap.appendChild(menu);
   openStMenu = menu;
   setTimeout(() => document.addEventListener('click', closeStMenuOnClick, {once:true}), 50);
@@ -4888,7 +4935,7 @@ function renderPresent(){
   card.innerHTML = `
     <div class="pres-head">
       <!-- v0.1.122: no project name / no task title — only status + assignee (consistent with task card) -->
-      <div class="pres-status tc-status ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change status" style="cursor:pointer;position:relative">
+      <div class="pres-status tc-status ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change status" style="cursor:pointer;position:relative${st.cls?'':`;background:${st.c}22;color:${st.c}`}">
         <span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>
       </div>
       ${renderAssignee(t)}
@@ -5685,9 +5732,9 @@ function renderDashboardSection(){
   const totalTasks = TASKS.length;
 
   // 8 status totals (KPI strip)
-  const statusTotals = STATUSES.map(s => TASKS.filter(t => t.s === s.id).length);
+  const statusTotals = visibleStatuses().map(s => TASKS.filter(t => t.s === s.id).length);
 
-  const kpiHTML = STATUSES.map((s, i) => {
+  const kpiHTML = visibleStatuses().map((s, i) => {
     const cnt = statusTotals[i];
     const pct = totalTasks ? Math.round(cnt / totalTasks * 100) : 0;
     return `<div class="ds-card kpi-status" style="border-top-color:${s.c}">
@@ -5718,12 +5765,12 @@ function renderDashboardSection(){
     const total = pt.length;
     const done = pt.filter(t => t.s === 1).length;
     const pct = total ? Math.round(done/total*100) : 0;
-    const segs = STATUSES.map(s => {
+    const segs = visibleStatuses().map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
       return cnt > 0 ? `<div class="dproj-bar-seg" style="background:${s.c};width:${cnt/total*100}%" title="${s.l}: ${cnt}"></div>` : '';
     }).join('');
     // 2×4 legend grid covering all 8 statuses
-    const legend = STATUSES.map(s => {
+    const legend = visibleStatuses().map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
       return `<div class="dproj-stat ${cnt === 0 ? 'zero' : ''}" style="--st-color:${s.c}">
         <div class="dproj-stat-num">${cnt}</div>
@@ -5756,7 +5803,7 @@ function renderDashboardSection(){
     const done = pt.filter(t => t.s === 1).length;
     const probs = pt.filter(t => t.s === 5).length;
     const pct = total ? Math.round(done/total*100) : 0;
-    const segs = STATUSES.map(s => {
+    const segs = visibleStatuses().map(s => {
       const cnt = pt.filter(t => t.s === s.id).length;
       return cnt > 0 ? `<div style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
     }).join('');
@@ -5997,18 +6044,22 @@ function renderProfileSection(){
 
     ${localStorage.getItem('eb_user_role') === 'admin' ? `
     <div class="profile-card">
-      <div class="profile-card-h">Statuses · Admin</div>
-      <div style="font-size:11px;color:var(--t4);margin-bottom:10px">Edit status names and colors. Changes apply immediately after Save.</div>
+      <div class="profile-card-h">Task statuses · Admin</div>
+      <div style="font-size:11px;color:var(--t4);margin-bottom:10px">Add, rename, recolor or remove task statuses. Removing a status moves its tasks to the first status. Changes apply after Save.</div>
       <div id="statusEditorRows" style="display:flex;flex-direction:column;gap:6px">
-        ${STATUSES.map(s => `
+        ${visibleStatuses().map(s => `
           <div style="display:flex;align-items:center;gap:8px">
             <input type="color" value="${s.c}" id="scolor_${s.id}"
               style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0">
             <input type="text" value="${s.l}" id="slabel_${s.id}"
               style="flex:1;border:1px solid var(--line-2);border-radius:6px;padding:5px 10px;font-size:13px;background:var(--surf);color:var(--t1);outline:none">
+            <button onclick="deleteStatus(${s.id})" title="Remove status"
+              style="width:28px;height:28px;border:1px solid var(--line-2);border-radius:6px;background:none;color:var(--t3);cursor:pointer;flex-shrink:0"
+              ${visibleStatuses().length <= 1 ? 'disabled' : ''}>×</button>
           </div>`).join('')}
       </div>
       <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="profile-action" onclick="addStatus()">+ Add status</button>
         <button class="profile-action" onclick="saveCustomStatuses()">Save</button>
         <button class="profile-action" onclick="resetCustomStatuses()">Reset to default</button>
       </div>
