@@ -6,52 +6,42 @@ on:
 jobs:
   smoke:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
-      # ── 1. Download latest release installer ──────────────────────────────
-      - name: Download latest EngiBoard installer
-        shell: pwsh
-        run: |
-          $rel = Invoke-RestMethod "https://api.github.com/repos/mag8888/engiboard-desktop/releases/latest"
-          $asset = $rel.assets | Where-Object { $_.name -like "*x64-setup.exe" } | Select-Object -First 1
-          Write-Host "Downloading $($asset.name) …"
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "EngiBoard-setup.exe"
+      - uses: actions/checkout@v4
 
-      # ── 2. Install silently (currentUser NSIS) ────────────────────────────
-      - name: Install EngiBoard
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0" --locked
+
+      - name: Build the app (current commit)
+        run: cargo tauri build
+
+      - name: Install built NSIS package silently
         shell: pwsh
         run: |
-          Start-Process "EngiBoard-setup.exe" -ArgumentList "/S" -Wait
+          $exe = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
+          Write-Host "Installing $($exe.FullName)"
+          Start-Process $exe.FullName -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 3
-          # Search for the exe in likely locations
-          $candidates = @(
-            "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe",
-            "$env:LOCALAPPDATA\EngiBoard\EngiBoard.exe",
-            "$env:APPDATA\EngiBoard\EngiBoard.exe",
-            "C:\Program Files\EngiBoard\EngiBoard.exe",
-            "C:\Program Files (x86)\EngiBoard\EngiBoard.exe"
-          )
-          $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if ($found) {
-            Write-Host "Installed at $found"
-            echo "ENGIBOARD_EXE=$found" >> $env:GITHUB_ENV
+          $installed = "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe"
+          if (Test-Path $installed) {
+            echo "ENGIBOARD_EXE=$installed" >> $env:GITHUB_ENV
+            Write-Host "Installed at $installed"
           } else {
-            Write-Host "Searching entire C:\Users for EngiBoard.exe..."
-            $found2 = Get-ChildItem -Path "C:\Users" -Recurse -Filter "EngiBoard.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
-            if ($found2) {
-              Write-Host "Found at $found2"
-              echo "ENGIBOARD_EXE=$found2" >> $env:GITHUB_ENV
-            } else {
-              Write-Error "EngiBoard.exe not found anywhere after install"
-            }
+            $found = Get-ChildItem -Path "C:\Users" -Recurse -Filter "EngiBoard.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+            if ($found) { echo "ENGIBOARD_EXE=$found" >> $env:GITHUB_ENV; Write-Host "Found at $found" }
+            else { Write-Error "EngiBoard.exe not found after install" }
           }
 
-      # ── 3. Checkout repo (for the smoke test script) ──────────────────────
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # ── 4. Python + deps ──────────────────────────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -60,17 +50,16 @@ jobs:
       - name: Install test dependencies
         run: pip install pyautogui pillow pygetwindow
 
-      # ── 5. Run smoke test ─────────────────────────────────────────────────
       - name: Run smoke test
         env:
           SCREENSHOT_DIR: screenshots
           ENGIBOARD_EXE: ${{ env.ENGIBOARD_EXE }}
+          EB_AUTODEMO: "1"
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path screenshots | Out-Null
           python scripts/smoke_test.py
 
-      # ── 6. Upload screenshots (always, so we get them even on failure) ────
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: always()

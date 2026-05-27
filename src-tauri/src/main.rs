@@ -817,6 +817,22 @@ fn main() {
                     }
                 })
                 .build(app)?;
+
+            // Test hook: when EB_AUTODEMO is set, auto-enter the demo account so
+            // automated smoke tests can skip the login screen entirely. No-op in
+            // production (the env var is never set there). Mirrors loginDemo().
+            if std::env::var("EB_AUTODEMO").is_ok() {
+                let h_demo = h.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(2500));
+                    if let Some(main_win) = h_demo.get_webview_window("main") {
+                        let _ = main_win.eval(
+                            "localStorage.setItem('eb_account','demo'); \
+                             if(typeof showApp==='function'){showApp();}else{location.reload();}");
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
