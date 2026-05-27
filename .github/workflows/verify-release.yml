@@ -1,0 +1,60 @@
+name: Verify Release (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download latest release installer
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod "https://api.github.com/repos/mag8888/engiboard-desktop/releases/latest"
+          $asset = $rel.assets | Where-Object { $_.name -like "*x64-setup.exe" } | Select-Object -First 1
+          Write-Host "Downloading $($asset.name) (release $($rel.tag_name))"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "EngiBoard-setup.exe"
+
+      - name: Install silently
+        shell: pwsh
+        run: |
+          $p = Start-Process "EngiBoard-setup.exe" -ArgumentList "/S" -PassThru -Wait
+          Write-Host "Installer exit: $($p.ExitCode)"
+          $exe = $null
+          for ($i = 0; $i -lt 30; $i++) {
+            $exe = "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe"
+            if (Test-Path $exe) { break }
+            Start-Sleep -Seconds 1
+          }
+          if (Test-Path $exe) { echo "ENGIBOARD_EXE=$exe" >> $env:GITHUB_ENV; Write-Host "Installed: $exe" }
+          else { Write-Error "EngiBoard.exe not found after install" }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install pyautogui pillow pygetwindow
+
+      - name: Run smoke test against release build
+        env:
+          SCREENSHOT_DIR: screenshots
+          ENGIBOARD_EXE: ${{ env.ENGIBOARD_EXE }}
+          EB_AUTODEMO: "1"
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path screenshots | Out-Null
+          python scripts/smoke_test.py
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-verify-screenshots
+          path: screenshots/
+          retention-days: 7
