@@ -29,15 +29,33 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*-setup.exe" | Select-Object -First 1
-          Write-Host "Installing $($exe.FullName)"
-          Start-Process $exe.FullName -ArgumentList "/S" -Wait
-          Start-Sleep -Seconds 3
-          $installed = "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe"
-          if (Test-Path $installed) {
+          Write-Host "Installer: $($exe.FullName)"
+          $p = Start-Process $exe.FullName -ArgumentList "/S" -PassThru -Wait
+          Write-Host "Installer exit code: $($p.ExitCode)"
+
+          # Poll for the installed exe (NSIS /S can return before files settle)
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe",
+            "$env:LOCALAPPDATA\EngiBoard\EngiBoard.exe",
+            "$env:PROGRAMFILES\EngiBoard\EngiBoard.exe",
+            "${env:PROGRAMFILES(X86)}\EngiBoard\EngiBoard.exe"
+          )
+          $installed = $null
+          for ($i = 0; $i -lt 30; $i++) {
+            $installed = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($installed) { break }
+            Start-Sleep -Seconds 1
+          }
+
+          if ($installed) {
             echo "ENGIBOARD_EXE=$installed" >> $env:GITHUB_ENV
             Write-Host "Installed at $installed"
           } else {
-            $found = Get-ChildItem -Path "C:\Users" -Recurse -Filter "EngiBoard.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+            Write-Host "=== diagnostics: not found in known locations ==="
+            Write-Host "LOCALAPPDATA\Programs:"
+            Get-ChildItem "$env:LOCALAPPDATA\Programs" -ErrorAction SilentlyContinue | Format-Table Name
+            Write-Host "Searching C:\ for EngiBoard.exe ..."
+            $found = Get-ChildItem -Path "C:\" -Recurse -Filter "EngiBoard.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
             if ($found) { echo "ENGIBOARD_EXE=$found" >> $env:GITHUB_ENV; Write-Host "Found at $found" }
             else { Write-Error "EngiBoard.exe not found after install" }
           }
