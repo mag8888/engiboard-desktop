@@ -114,15 +114,16 @@ body._eb-repaint-flash { animation: _eb-rp 0.001s linear }
    This is the simple structural fix. */
 img[src=""], img:not([src]) { display: none }
 
-/* Padding around image stages so a screenshot can never fill edge-to-edge */
+/* Padding around the lightbox stage so a screenshot can never fill edge-to-edge */
 #lightbox .lb-stage  { padding: 6vh 8vw !important; }
-.pres-body-grid      { padding: 4vh 6vw !important; }
 
-/* HARD size cap on every image inside any image viewer */
-.pres-pic,
+/* v0.1.127: presentation pics are NO LONGER force-capped here — the legacy
+   rule applied width:auto/object-fit to the .pres-pic CONTAINER itself which
+   broke the grid layout and made images look cropped. Presentation sizing is
+   now handled entirely by the .pres-pic / .pres-pic img rules below.
+   HARD size cap kept only for the lightbox + compare viewers. */
 .cmp-img-wrap,
 .lb-stage img,
-.pres-pic img,
 .cmp-img-wrap img,
 #lightbox img,
 .ci-img {
@@ -527,36 +528,33 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 .list{flex:1;overflow:auto;padding:4px 0 60px;background:var(--bg);contain:layout paint}
 
-/* ━━━ CARD VIEW MODES (list / tile / expanded) ━━━
-   Driven by a class on #list — no HTML changes, pure CSS variations. */
+/* ━━━ CARD VIEW MODES (v0.1.123: List + Expanded only) ━━━
+   Driven by a class on #list — no HTML changes, pure CSS variations.
+   RULE: screenshots ALWAYS object-fit:contain — never crop. */
 
-/* LIST — compact rows, thin pics, chat preview only */
+/* Screenshot thumbnails: fill the row height (resizable), image contained
+   (never cropped). Default row heights below give a ~4:3 look; the user can
+   drag the resize handle at the bottom of a row to make it taller/shorter. */
+.row .pc{justify-content:stretch}
+.row .pc .pi{flex:1;width:100%;height:100%;min-height:0}
+.row .pi.has-img img{object-fit:contain}
+
+/* LIST — compact row (~4:3 pics by default), no labels, chat preview */
 .list.cv-list .row{
-  grid-template-columns:24px 1fr 120px 120px;
-  min-height:48px !important;padding:6px 10px;margin:4px 28px;
+  grid-template-columns:24px 1fr 220px 220px;
+  min-height:165px;padding:6px 10px;margin:4px 28px;align-items:stretch;
 }
-.list.cv-list .chat-list{max-height:26px;overflow:hidden}
+.list.cv-list .chat-list{max-height:none;overflow:auto}
 .list.cv-list .nt-chat-input{display:none}
 .list.cv-list .chat-row-actions-r2{display:none}
-.list.cv-list .pc{height:40px}
-.list.cv-list .pi img{object-fit:contain}
-.list.cv-list .resize-h{display:none}
+.list.cv-list .pi-lbl{display:none}        /* no BEFORE/AFTER labels in list mode */
 
-/* TILE — the default balanced layout (no overrides; uses base .row) */
-
-/* EXPANDED — large card: wider chat + tall pics, everything bigger */
+/* EXPANDED — large card: wider chat + big pics */
 .list.cv-expanded .row{
   grid-template-columns:24px 380px 1fr 1fr;
-  min-height:380px !important;padding:16px;margin:14px 28px;
+  min-height:380px;padding:16px;margin:14px 28px;align-items:stretch;
 }
-.list.cv-expanded .pc{height:340px}
-.list.cv-expanded .pi img{object-fit:contain}
 .list.cv-expanded .chat-list{max-height:220px}
-
-/* v0.1.118: screenshot format — fixed aspect ratio, image contained (no crop) */
-.list.fmt-square .pc .pi{aspect-ratio:1/1;flex:none;height:auto;max-height:100%;width:100%}
-.list.fmt-wide   .pc .pi{aspect-ratio:4/3;flex:none;height:auto;max-height:100%;width:100%}
-.list.fmt-square .pc, .list.fmt-wide .pc{justify-content:flex-start}
 
 /* View-mode toggle buttons in toolbar */
 .cv-toggle{display:inline-flex;gap:2px;background:var(--bg);border:1px solid var(--line-2);border-radius:7px;padding:2px;margin-left:8px}
@@ -1076,7 +1074,15 @@ body.dark-mode .oos-actions button{background:rgba(255,255,255,.04);border-color
 #lightbox .lb-img-wrap{
   position:relative;display:inline-block;cursor:crosshair;line-height:0
 }
-#lightbox img{max-width:70vw;max-height:70vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5);display:inline-block;vertical-align:top}
+#lightbox img{max-width:70vw;max-height:70vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5);display:inline-block;vertical-align:top;transform-origin:center center;transition:transform .08s ease-out}
+#lightbox.zoomed .lb-img-wrap{cursor:grab}
+#lightbox.zoomed.panning .lb-img-wrap{cursor:grabbing}
+/* v0.1.124: zoom controls */
+.lb-zoom-ctl{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:5px 8px;backdrop-filter:blur(8px)}
+.lb-zoom-ctl button{width:30px;height:30px;border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:50%;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;line-height:1}
+.lb-zoom-ctl button:hover{background:rgba(255,255,255,.22)}
+.lb-zoom-ctl button:last-child{width:auto;border-radius:15px;padding:0 12px;font-size:12px;font-weight:600}
+.lb-zoom-ctl span{color:#fff;font-size:12px;font-family:var(--mono);min-width:46px;text-align:center}
 #lightbox .close{
   position:absolute;top:18px;right:24px;color:#fff;font-size:28px;cursor:pointer;
   background:rgba(0,0,0,.5);border:none;font-weight:300;line-height:1;
@@ -1318,15 +1324,20 @@ body.sb-collapsed #chatPop{left:54px}
 .pres-title{font-size:18px;font-weight:600;flex:1;letter-spacing:-.01em}
 .pres-close{border:none;background:none;font-size:22px;cursor:pointer;color:var(--t3);padding:0 6px}
 .pres-body{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 24px;overflow:auto}
+/* v0.1.130: plain light-grey background (no pattern), clear frame so the
+   screenshot edges are always visible; min-height:0 so image fits the cell */
 .pres-pic{
-  background:rgba(241,245,249,.6);border-radius:10px;display:flex;align-items:center;justify-content:center;
-  position:relative;min-height:300px;overflow:hidden
+  background:#e9edf2;
+  border:1px solid var(--line-2);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;min-height:0;overflow:hidden
 }
+body.dark-mode .pres-pic{ background:#1e2531; }
 .pres-pic .lbl{
   position:absolute;top:12px;left:12px;background:rgba(15,23,42,.7);color:#fff;padding:4px 10px;
   border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.05em;z-index:2
 }
-.pres-pic img{max-width:100%;max-height:100%;object-fit:contain}
+.pres-pic img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;box-shadow:0 2px 16px rgba(0,0,0,.18)}
 .pres-pic-empty{color:var(--t3);font-size:13px}
 .pres-nav{
   display:flex;justify-content:center;align-items:center;gap:16px;
@@ -1338,7 +1349,27 @@ body.sb-collapsed #chatPop{left:54px}
 }
 .pres-nav button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
 .pres-nav button:disabled{opacity:.4;cursor:not-allowed}
-.pres-counter{font-size:12px;color:var(--t4);font-family:var(--mono)}
+.pres-counter{font-size:12px;color:var(--t4);font-family:var(--mono);min-width:60px;text-align:center}
+/* v0.1.126: bottom nav arrows */
+.pres-nav-arrow{width:34px;height:34px;border-radius:50%;border:1px solid var(--line-2);background:var(--surf);color:var(--t2);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0}
+.pres-nav-arrow:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+.pres-nav-arrow:disabled{opacity:.3;cursor:not-allowed}
+/* v0.1.121: presentation chat uses the SAME mini-chat style as task cards
+   (small avatar + bold name + inline text, no bubble, no dates, one side) */
+.pres-chat-msgs .nt-chat-msg{display:flex;align-items:flex-start;gap:6px;font-size:12px;line-height:1.35;border-radius:4px;padding:2px 3px}
+.pres-chat-msgs .nt-chat-msg:hover{background:rgba(14,165,233,.06)}
+.pres-chat-msgs .nt-chat-msg .av{
+  width:18px;height:18px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:700;color:#fff;line-height:1;margin-top:1px;
+  background:linear-gradient(135deg,var(--acc-2),var(--acc))
+}
+.pres-chat-msgs .nt-chat-msg .av.JD{background:linear-gradient(135deg,#FB923C,#C2410C)}
+.pres-chat-msgs .nt-chat-msg .av.MK{background:linear-gradient(135deg,#A78BFA,#7C3AED)}
+.pres-chat-msgs .nt-chat-msg .av.RM{background:linear-gradient(135deg,#34D399,#059669)}
+.pres-chat-msgs .nt-chat-msg .av.AI{background:linear-gradient(135deg,#6366F1,#4F46E5)}
+.pres-chat-msgs .nt-chat-msg .txt{flex:1;min-width:0;color:var(--t2);word-break:break-word}
+.pres-chat-msgs .nt-chat-msg .txt b{color:var(--t1);font-weight:600;margin-right:4px}
+
 /* v0.1.114: centered floating navigation arrows */
 .pres-arrow{
   position:absolute;top:50%;transform:translateY(-50%);z-index:20;
@@ -1466,6 +1497,13 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .dproj.cur::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--acc-2),var(--acc))}
 
 .dproj-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
+/* v0.1.128: archive controls on dashboard */
+.dproj-arch-btn{flex-shrink:0;border:1px solid var(--line-2);background:none;color:var(--t3);font-size:10px;font-weight:600;padding:3px 9px;border-radius:12px;cursor:pointer;font-family:inherit}
+.dproj-arch-btn:hover{border-color:var(--acc);color:var(--acc)}
+.dash-archive-link{border:none;background:none;color:var(--t3);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;padding:6px 10px;border-radius:7px}
+.dash-archive-link:hover{background:var(--bg);color:var(--t1)}
+.dash-back-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line-2);background:var(--surf);color:var(--t2);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0}
+.dash-back-btn:hover{border-color:var(--acc);color:var(--acc)}
 .dproj-name{font-size:16px;font-weight:600;letter-spacing:-.01em;line-height:1.3;color:var(--t1)}
 .dproj-meta{font-size:12px;color:var(--t4);font-family:var(--mono);margin-top:3px}
 .dproj-status-badge{
@@ -1991,25 +2029,13 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <button class="chip" onclick="exportWeeklySummaryPDF()" title="Export weekly summary PDF" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">Weeks</button>
       <button class="chip" onclick="exportCSV()" title="Export tasks to CSV / Excel" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">CSV</button>
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
-      <!-- v0.1.111: card view-mode toggle (List / Tile / Expanded) -->
+      <!-- v0.1.123: card view-mode toggle — List (compact) + Expanded only -->
       <div class="cv-toggle" id="cvToggle">
         <button data-cv="list" onclick="setCardView('list')" title="Compact list view">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
         </button>
-        <button data-cv="tile" onclick="setCardView('tile')" title="Tile view">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
-        </button>
         <button data-cv="expanded" onclick="setCardView('expanded')" title="Expanded view">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>
-        </button>
-      </div>
-      <!-- v0.1.118: screenshot format toggle (1:1 square / 4:3 wide) -->
-      <div class="cv-toggle" id="fmtToggle">
-        <button data-fmt="square" onclick="setShotFormat('square')" title="Square 1:1">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="10" height="10" rx="1"/></svg>
-        </button>
-        <button data-fmt="wide" onclick="setShotFormat('wide')" title="Wide 4:3">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="12" height="8" rx="1"/></svg>
         </button>
       </div>
       <input class="search" id="searchInp" placeholder="Search tasks…">
@@ -2058,8 +2084,15 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <div id="lightbox">
   <div class="lb-stage" id="lbStage">
     <div style="position:absolute;top:18px;right:24px;display:flex;gap:10px;z-index:50;align-items:center">
-      <button onclick="annotateLightboxImage()" title="Открыть редактор с инструментами (стрелки, прямоугольники, текст, blur, маркер) + сохранить обратно в задачу" style="background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(14,165,233,.4);display:inline-flex;align-items:center;gap:6px">🖍 Annotation tools / Editor</button>
+      <button onclick="annotateLightboxImage()" title="Open annotation editor (arrows, rectangles, text, blur, marker) + save back to task" style="background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(14,165,233,.4);display:inline-flex;align-items:center;gap:6px">Annotation tools / Editor</button>
       <button class="close" onclick="closeLightbox()" style="position:static">×</button>
+    </div>
+    <!-- v0.1.124: zoom controls -->
+    <div class="lb-zoom-ctl" id="lbZoomCtl">
+      <button onclick="lbZoomBy(-0.25)" title="Zoom out (− / scroll down)">−</button>
+      <span id="lbZoomLevel">100%</span>
+      <button onclick="lbZoomBy(0.25)" title="Zoom in (+ / scroll up)">+</button>
+      <button onclick="lbZoomReset()" title="Fit to screen (0)">Fit</button>
     </div>
     <div class="lb-img-wrap" id="lbImgWrap">
       <img id="lightboxImg" alt="">
@@ -3739,31 +3772,21 @@ function clearFilters(){
   render();
 }
 
-// ━━━ CARD VIEW MODE (list / tile / expanded) ━━━
-let cardView = localStorage.getItem('eb_card_view') || 'tile';
-// ━━━ SCREENSHOT FORMAT (square 1:1 / wide 4:3) ━━━
-let shotFormat = localStorage.getItem('eb_shot_format') || 'wide';
+// ━━━ CARD VIEW MODE (list / expanded) — v0.1.123: tile removed ━━━
+let cardView = localStorage.getItem('eb_card_view') || 'list';
+if(cardView === 'tile') cardView = 'list';  // migrate removed mode
 function applyCardView(){
   const list = document.getElementById('list');
   if(list){
     list.classList.remove('cv-list','cv-tile','cv-expanded');
     list.classList.add('cv-' + cardView);
-    list.classList.remove('fmt-square','fmt-wide');
-    list.classList.add('fmt-' + shotFormat);
   }
   document.querySelectorAll('#cvToggle button').forEach(b =>
     b.classList.toggle('on', b.dataset.cv === cardView));
-  document.querySelectorAll('#fmtToggle button').forEach(b =>
-    b.classList.toggle('on', b.dataset.fmt === shotFormat));
 }
 function setCardView(mode){
   cardView = mode;
   localStorage.setItem('eb_card_view', mode);
-  applyCardView();
-}
-function setShotFormat(fmt){
-  shotFormat = fmt;
-  localStorage.setItem('eb_shot_format', fmt);
   applyCardView();
 }
 
@@ -4008,7 +4031,10 @@ function renderRow(t){
   // v0.1.44: default min-height снижен с 150 до 96 — компактная строка под
   // самый "плоский" 16:9 скриншот при доступной ширине pic-cell.
   // Пользователь по-прежнему может тянуть resize-handle вниз для увеличения.
-  const height = t.h || 96;
+  // v0.1.131: only force an inline min-height when the user has manually
+  // resized this row (t.h set). Otherwise let the view-mode CSS default apply
+  // (so the resize handle works without an !important fight).
+  const heightStyle = t.h ? `min-height:${t.h}px` : '';
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
@@ -4050,7 +4076,7 @@ function renderRow(t){
   const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="min-height:${height}px" draggable="false"
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
     onmousedown="${selectMode ? '' : `rowDragDown(event,'${t.id}')`}"
     oncontextmenu="showTaskMenu(event,'${t.id}')"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
@@ -4155,6 +4181,8 @@ function piClick(taskId, slotIdx){
     }
     return;
   }
+  // v0.1.125: click → open the editor directly (with tools). Zoom lives inside
+  // the editor. No intermediate lightbox / comments column.
   openExistingShotEditor(taskId, slotIdx);
 }
 
@@ -4720,7 +4748,7 @@ function onResizeStart(e, taskId){
   const startY = e.clientY;
   const startH = row.offsetHeight;
   function onMove(ev){
-    const newH = Math.max(80, Math.min(400, startH + (ev.clientY - startY)));
+    const newH = Math.max(80, Math.min(900, startH + (ev.clientY - startY)));
     row.style.minHeight = newH + 'px';
   }
   function onUp(){
@@ -4846,23 +4874,22 @@ function renderPresent(){
   const chatBody = chatMsgs.length === 0
     ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
     : chatMsgs.map(m => {
-        // v0.1.114: all messages aligned one side (not messenger-style)
-        return `<div class="cp-msg">
-          <div class="cp-msg-av ${m.a}" title="${m.a}">${(m.a||'?').slice(0,2)}</div>
-          <div class="cp-msg-bd">
-            <div class="cp-msg-name">${m.a||'?'}</div>
-            <div class="cp-msg-bub">${(m.text||'').replace(/[<>]/g,'')}</div>
-          </div>
+        // v0.1.121: identical style to the task-card mini-chat — small avatar,
+        // bold name + inline text, no bubble background, no timestamps, one side.
+        const initials = (m.a || '?').slice(0, 2).toUpperCase();
+        return `<div class="nt-chat-msg">
+          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
+          <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
         </div>`;
       }).join('');
   card.innerHTML = `
     <div class="pres-head">
-      ${proj ? `<div class="pres-proj">${(proj.name||'').replace(/[<>]/g,'')}${proj.code?` · <span style="font-family:var(--mono);font-size:11px">${proj.code}</span>`:''}</div>` : ''}
+      <!-- v0.1.122: no project name / no task title — only status + assignee (consistent with task card) -->
       <div class="pres-status tc-status ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change status" style="cursor:pointer;position:relative">
         <span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>
       </div>
-      <div class="pres-title">${(t.n||'').replace(/[<>]/g,'')}</div>
-      <button class="pres-close" onclick="closePresent()">×</button>
+      ${renderAssignee(t)}
+      <button class="pres-close" onclick="closePresent()" style="margin-left:auto">×</button>
     </div>
     <div class="pres-body-grid" id="presBodyGrid">
       <div class="pres-pics-pair">
@@ -4879,12 +4906,15 @@ function renderPresent(){
         </div>
       </aside>
     </div>
-    <!-- Centered nav arrows -->
-    <button class="pres-arrow left" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)">‹</button>
-    <button class="pres-arrow right" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)">›</button>
+    <!-- Centered floating side arrows (clear chevron SVGs) -->
+    <button class="pres-arrow left" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="pres-arrow right" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <!-- Bottom nav with clear back/forward arrows -->
     <div class="pres-nav">
+      <button class="pres-nav-arrow" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
       <div class="pres-counter">${taskNum} / ${taskTotal}</div>
-      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task">+ Add screenshot</button>
+      <button class="pres-nav-arrow" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:14px">+ Add screenshot</button>
     </div>`;
   // Auto-scroll chat to bottom
   const msgsEl = document.getElementById('presChatMsgs');
@@ -5004,14 +5034,67 @@ function openLightbox(dataUrl, taskId, slotIdx){
   lbDraftPin = null;
   document.getElementById('lbCommentInput').value = '';
   renderLbComments();
+  lbZoomReset();  // v0.1.124: reset zoom each open
   lb.classList.add('on');
 }
+
+// ━━━ LIGHTBOX ZOOM / PAN (v0.1.124) ━━━
+let _lbZoom = 1, _lbPanX = 0, _lbPanY = 0;
+function _lbApply(){
+  const img = document.getElementById('lightboxImg');
+  if(!img) return;
+  img.style.transform = `translate(${_lbPanX}px, ${_lbPanY}px) scale(${_lbZoom})`;
+  const lvl = document.getElementById('lbZoomLevel');
+  if(lvl) lvl.textContent = Math.round(_lbZoom * 100) + '%';
+  const lb = document.getElementById('lightbox');
+  if(lb) lb.classList.toggle('zoomed', _lbZoom > 1.01);
+}
+function lbZoomBy(delta){
+  _lbZoom = Math.max(0.25, Math.min(6, _lbZoom + delta));
+  if(_lbZoom <= 1.01){ _lbPanX = 0; _lbPanY = 0; }  // recentre at/below 100%
+  _lbApply();
+}
+function lbZoomReset(){ _lbZoom = 1; _lbPanX = 0; _lbPanY = 0; _lbApply(); }
+// Wheel to zoom (towards cursor — simplified: centre zoom)
+(function(){
+  const stage = () => document.getElementById('lbStage');
+  document.addEventListener('wheel', (e) => {
+    const lb = document.getElementById('lightbox');
+    if(!lb || !lb.classList.contains('on')) return;
+    const wrap = document.getElementById('lbImgWrap');
+    if(!wrap || !wrap.contains(e.target)) return;
+    e.preventDefault();
+    lbZoomBy(e.deltaY < 0 ? 0.2 : -0.2);
+  }, { passive: false });
+  // Drag to pan when zoomed
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  document.addEventListener('mousedown', (e) => {
+    const lb = document.getElementById('lightbox');
+    if(!lb || !lb.classList.contains('on') || _lbZoom <= 1.01) return;
+    const wrap = document.getElementById('lbImgWrap');
+    if(!wrap || !wrap.contains(e.target)) return;
+    if(e.target.closest('.lb-pins')) return;  // don't pan when interacting with pins
+    dragging = true; sx = e.clientX; sy = e.clientY; ox = _lbPanX; oy = _lbPanY;
+    lb.classList.add('panning');
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', (e) => {
+    if(!dragging) return;
+    _lbPanX = ox + (e.clientX - sx);
+    _lbPanY = oy + (e.clientY - sy);
+    _lbApply();
+  });
+  document.addEventListener('mouseup', () => {
+    if(dragging){ dragging = false; document.getElementById('lightbox')?.classList.remove('panning'); }
+  });
+})();
 
 function closeLightbox(){
   document.getElementById('lightbox').classList.remove('on');
   lbCurrentImageKey = null;
   lbContext = null;
   lbDraftPin = null;
+  lbZoomReset();
 }
 
 // v0.1.31: open annotation editor with the current lightbox image (Tauri only)
@@ -5587,6 +5670,12 @@ function openChatForTask(taskId){
   }, 100);
 }
 
+// v0.1.128: dashboard Active/Archive view toggle
+let _dashShowArchive = false;
+function toggleDashArchive(){
+  _dashShowArchive = !_dashShowArchive;
+  renderDashboardSection();
+}
 function renderDashboardSection(){
   // v0.1.58 (Phase A.4): 8 KPI cards + 2×4 status legend grid per project.
   const view = document.getElementById('dashView');
@@ -5605,9 +5694,14 @@ function renderDashboardSection(){
     </div>`;
   }).join('');
 
+  // v0.1.128: split active vs archived; the dashboard shows one or the other
+  const activeProjects = PROJECTS.filter(p => !p.archived);
+  const archivedProjects = PROJECTS.filter(p => p.archived);
+  const pool = _dashShowArchive ? archivedProjects : activeProjects;
+
   // v0.1.28: rank projects by user's open count + task volume → top-6 cards
   const opens = getProjectOpens();
-  const sorted = [...PROJECTS].sort((a, b) => {
+  const sorted = [...pool].sort((a, b) => {
     const oa = opens[a.id] || 0, ob = opens[b.id] || 0;
     if(oa !== ob) return ob - oa;
     return TASKS.filter(t=>t.proj===b.id).length - TASKS.filter(t=>t.proj===a.id).length;
@@ -5633,10 +5727,14 @@ function renderDashboardSection(){
         <div class="dproj-stat-lbl">${s.l}</div>
       </div>`;
     }).join('');
-    return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="switchProject('${p.id}');setSection('projects')">
+    const archiveBtn = p.archived
+      ? `<button class="dproj-arch-btn" onclick="event.stopPropagation();unarchiveProject('${p.id}');renderDashboardSection()" title="Restore to active">Restore</button>`
+      : `<button class="dproj-arch-btn" onclick="event.stopPropagation();archiveProject('${p.id}')" title="Move to archive">Archive</button>`;
+    return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="${p.archived ? '' : `switchProject('${p.id}');setSection('projects')`}">
       <div class="dproj-head">
-        <div><div class="dproj-name">${p.name}</div><div class="dproj-meta">${p.code || ''}${p.client?' · '+p.client:''}</div></div>
-        <span class="dproj-status-badge ${p.status||'active'}">${p.status||'active'}</span>
+        <div style="min-width:0"><div class="dproj-name">${(p.name||'').replace(/[<>]/g,'')}</div>
+          <div class="dproj-meta">${p.code || ''}${p.client?' · '+p.client:''}${p.lang?' · '+p.lang:''}</div></div>
+        ${archiveBtn}
       </div>
       <div class="dproj-progress-row">
         <div class="dproj-pct">${pct}<span class="pct-sym">%</span></div>
@@ -5670,22 +5768,35 @@ function renderDashboardSection(){
 
   const addCard = `<div class="dproj add-new" onclick="openNewProjModal()"><div style="text-align:center"><div style="font-size:36px;margin-bottom:8px;line-height:1">+</div><div style="font-size:13px;font-weight:500">New project</div></div></div>`;
 
-  const topCardsHTML = top.map(projCard).join('') + (top.length < TOP_N ? addCard : '');
+  // Archive view shows only archived cards; active view shows active + add card
+  const topCardsHTML = _dashShowArchive
+    ? (top.length ? top.map(projCard).join('') : '')
+    : (top.map(projCard).join('') + (top.length < TOP_N ? addCard : ''));
   const restListHTML = rest.length > 0
-    ? `<div class="dash-section-title" style="margin-top:24px">All other projects (${rest.length})</div>
+    ? `<div class="dash-section-title" style="margin-top:24px">${_dashShowArchive ? 'More archived' : 'All other projects'} (${rest.length})</div>
        <div class="dash-list">${rest.map(projListItem).join('')}</div>`
-    : (top.length >= TOP_N
-        ? `<div class="dash-section-title" style="margin-top:24px">Quick add</div>
-           <div class="dash-list"><div class="dash-list-item" onclick="openNewProjModal()" style="justify-content:center;color:var(--acc);font-weight:500">+ New project</div></div>`
-        : '');
+    : '';
+  const emptyArchive = (_dashShowArchive && top.length === 0)
+    ? `<div style="padding:40px;text-align:center;color:var(--t4)">No archived projects yet.</div>` : '';
+
+  // v0.1.128: header with Active title OR Archive title + back arrow, and a
+  // grey "Archive (N)" text button on the right to switch views.
+  const headerRight = _dashShowArchive
+    ? ''
+    : `<button class="dash-archive-link" onclick="toggleDashArchive()" title="View archived projects">Archive${archivedProjects.length?` · ${archivedProjects.length}`:''} →</button>`;
+  const headerTitle = _dashShowArchive
+    ? `<button class="dash-back-btn" onclick="toggleDashArchive()" title="Back to active">‹</button><h2 style="margin:0">Archived <span class="accent">projects</span></h2>`
+    : `<h2 style="margin:0">Projects <span class="accent">overview</span></h2>`;
 
   view.innerHTML = `
-    <div class="dash-h">
-      <h2 style="margin:0">Projects <span class="accent">overview</span></h2>
+    <div class="dash-h" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">${headerTitle}</div>
+      ${headerRight}
     </div>
-    <div class="dash-summary dash-summary-8">${kpiHTML}</div>
-    <div class="dash-section-title">${rest.length > 0 ? 'Most active' : 'All projects'} ${rest.length>0?'<span style="font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:400;margin-left:6px">'+top.length+' / '+PROJECTS.length+'</span>':''}</div>
+    ${_dashShowArchive ? '' : `<div class="dash-summary dash-summary-8">${kpiHTML}</div>`}
+    <div class="dash-section-title">${_dashShowArchive ? 'Archive' : (rest.length > 0 ? 'Most active' : 'Active projects')} ${(!_dashShowArchive && rest.length>0)?'<span style="font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:400;margin-left:6px">'+top.length+' / '+activeProjects.length+'</span>':''}</div>
     <div class="dash-grid">${topCardsHTML}</div>
+    ${emptyArchive}
     ${restListHTML}
   `;
 }
@@ -6379,14 +6490,17 @@ function bulkSetStatus(s){
 // ━━━ TASK CONTEXT MENU (v0.1.112): right-click → Info / Copy / Duplicate / Delete ━━━
 // Kebab-button trigger: position the menu just below the button
 function showTaskMenuAt(e, taskId){
+  const btn = e.currentTarget;
   showTaskMenu(e, taskId);
   const menu = document.getElementById('_ebTaskMenu');
-  if(menu && e.currentTarget){
-    const r = e.currentTarget.getBoundingClientRect();
+  if(menu && btn){
+    const r = btn.getBoundingClientRect();
     const mw = 180;
     menu.style.left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8)) + 'px';
     menu.style.top = (r.bottom + 4) + 'px';
   }
+  // v0.1.126: drop focus so the kebab button doesn't stay visually "pressed"
+  if(btn && typeof btn.blur === 'function') btn.blur();
 }
 
 // Simple assignee picker — pick from project members / type a name
@@ -6510,7 +6624,20 @@ function taskMenuHistory(taskId){
   document.getElementById('_ebTaskMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  const hist = Array.isArray(t.history) ? [...t.history].reverse() : [];
+  let hist = Array.isArray(t.history) ? [...t.history] : [];
+  // v0.1.123: seed demo history once so the client sees what it looks like
+  if(hist.length === 0){
+    const st = STATUSES[t.s] || STATUSES[0];
+    const now = Date.now();
+    hist = [
+      { ts: now - 1000*60*60*24*3, who: 'Aleksey Stepikin', action: 'create',   detail: 'task created' },
+      { ts: now - 1000*60*60*24*3, who: 'Aleksey Stepikin', action: 'assignee', detail: 'assigned to MK' },
+      { ts: now - 1000*60*60*26,   who: 'Maria Kozlova',    action: 'status',   detail: 'Not started → In progress' },
+      { ts: now - 1000*60*60*20,   who: 'Maria Kozlova',    action: 'shot',     detail: 'added BEFORE screenshot' },
+      { ts: now - 1000*60*60*2,    who: 'Aleksey Stepikin', action: 'status',   detail: `In progress → ${st.l}` },
+    ];
+  }
+  hist = hist.reverse();
   const fmtTs = (ts) => {
     const d = new Date(ts);
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false});

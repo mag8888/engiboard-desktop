@@ -167,28 +167,35 @@ fn open_editor_with_image(
         "comments":    comments.clone().unwrap_or(serde_json::json!([])),
     });
 
-    // v0.1.103: try to decode base64 bytes for the eb-shot:// scheme. If the
-    // input is a remote URL (cloud storage, blob:, etc.) decode fails — in
-    // that case we don't set shotUrl, and the editor uses the original URL
-    // directly (which the WebView can load over HTTP).
-    let temp_path = write_temp_screenshot(&data_url);
+    // v0.1.120: the eb-shot:// scheme only works for RASTER images (png/jpeg)
+    // whose bytes we can serve with a correct MIME. SVG data URLs (demo
+    // screenshots) and any non-base64 / remote URLs must NOT go through it —
+    // they would be served as image/png and fail to decode (blank/dark editor).
+    // For those cases we set shotUrl=null and let the editor use dataUrl directly.
+    let is_svg = data_url.contains("image/svg");
+    let is_raster_data = (data_url.starts_with("data:image/png")
+        || data_url.starts_with("data:image/jpeg")
+        || data_url.starts_with("data:image/jpg"))
+        && !is_svg;
+
+    let temp_path = if is_raster_data { write_temp_screenshot(&data_url) } else { None };
     let temp_path_str = temp_path
         .as_ref()
         .and_then(|p| p.to_str())
         .map(|s| s.to_string());
 
-    let bytes_stashed = if let Some(bytes) = data_url_to_bytes(&data_url) {
-        if let Ok(mut g) = editor_shot_bytes().lock() {
-            *g = bytes;
-            eprintln!("editor_shot_bytes: {} bytes stashed", g.len());
-            true
+    let bytes_stashed = if is_raster_data {
+        if let Some(bytes) = data_url_to_bytes(&data_url) {
+            if let Ok(mut g) = editor_shot_bytes().lock() {
+                *g = bytes;
+                eprintln!("editor_shot_bytes: {} bytes stashed (raster)", g.len());
+                true
+            } else { false }
         } else { false }
     } else {
-        // Clear any stale bytes from a previous call so eb-shot doesn't serve
-        // the wrong image (this was the actual bug: stale bytes from create-
-        // screenshot were being served when opening an existing cloud URL)
+        // SVG / remote URL / other → clear stale bytes, editor uses dataUrl directly
         if let Ok(mut g) = editor_shot_bytes().lock() { g.clear(); }
-        eprintln!("editor_shot_bytes: data_url is not base64 (likely cloud URL) — cleared stash");
+        eprintln!("editor_shot_bytes: not raster data URL (svg/remote) — using dataUrl directly");
         false
     };
 

@@ -99,9 +99,15 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 /* Paper */
 .paper{
   background:#fff;flex-shrink:0;position:relative;overflow:hidden;
-  user-select:none;border-radius:6px;
+  user-select:none;border-radius:6px;transform-origin:center center;
   box-shadow:0 0 0 1px rgba(255,255,255,.06),0 24px 80px rgba(0,0,0,.4)
 }
+/* v0.1.125: editor zoom controls (bottom-centre) */
+.ed-zoom-ctl{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:4px;background:rgba(28,28,32,.95);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:5px 8px;backdrop-filter:blur(12px)}
+.ed-zoom-ctl button{width:28px;height:28px;border:none;background:rgba(255,255,255,.1);color:#fff;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:var(--font);line-height:1}
+.ed-zoom-ctl button:hover{background:rgba(255,255,255,.22)}
+.ed-zoom-ctl button:last-child{width:auto;border-radius:14px;padding:0 11px;font-size:11px;font-weight:600}
+.ed-zoom-ctl span{color:#fff;font-size:11px;font-family:var(--mono);min-width:44px;text-align:center}
 .ann-root{position:absolute;inset:0;pointer-events:none}
 .fh-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:6}
 .ashape{position:absolute;pointer-events:auto;cursor:default}
@@ -116,11 +122,10 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .cmt-pop{position:absolute;z-index:30;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 
 /* Right panel — 2 stacked sections (Layers + Comments), each scrolling internally */
-.rpanel{
-  width:220px;background:linear-gradient(to bottom,#19191D,#141417);
-  border-left:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0;
-  height:100%;min-height:0
-}
+/* v0.1.125: right panel (Layers + Comments) hidden per client request —
+   editor is now just the screenshot + toolbar, full width. Elements stay in
+   the DOM (display:none) so existing JS that updates annList/cmtList won't break. */
+.rpanel{ display:none !important; }
 .rps-section{
   flex:1;min-height:0;display:flex;flex-direction:column;
   border-bottom:1px solid var(--line)
@@ -176,10 +181,10 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
   <div class="ttl">EngiBoard · Annotate</div>
   <div class="tact">
     <button class="tbtn-sm tbtn-ic" onclick="undoLast()" title="Undo (⌘Z)" aria-label="Undo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </button>
     <button class="tbtn-sm tbtn-ic" onclick="redoNext()" title="Redo (⌘⇧Z)" aria-label="Redo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </button>
     <button class="tbtn-sm" onclick="clearAll()">Clear</button>
     <button class="tbtn-sm" onclick="discard()" title="Discard (Esc)">Discard</button>
@@ -234,6 +239,13 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
       </div>
     </div>
   </div>
+  <!-- v0.1.125: zoom controls inside the editor -->
+  <div class="ed-zoom-ctl">
+    <button onclick="edZoomBy(-0.25)" title="Zoom out (− / scroll)">−</button>
+    <span id="edZoomLevel">100%</span>
+    <button onclick="edZoomBy(0.25)" title="Zoom in (+ / scroll)">+</button>
+    <button onclick="edZoomReset()" title="Reset (0)">Fit</button>
+  </div>
 </div>
 
 <div class="rpanel">
@@ -278,6 +290,31 @@ function pushHistory(){
 }
 let selId=null, drawing=false, startPos={x:0,y:0}, cur=null;
 let isPanning=false, panStart={x:0,y:0,ox:0,oy:0}, panOff={x:0,y:0};
+// v0.1.125: zoom inside the editor. CSS transform scale is safe because
+// relPos() uses getBoundingClientRect (percentages stay correct).
+let _edScale = 1;
+function applyPaperTransform(){
+  const p = document.getElementById('paper');
+  if(p) p.style.transform = `translate(${panOff.x}px,${panOff.y}px) scale(${_edScale})`;
+  const lvl = document.getElementById('edZoomLevel');
+  if(lvl) lvl.textContent = Math.round(_edScale*100) + '%';
+}
+function edZoomBy(d){ _edScale = Math.max(0.25, Math.min(6, _edScale + d)); applyPaperTransform(); }
+function edZoomReset(){ _edScale = 1; panOff = {x:0,y:0}; applyPaperTransform(); }
+// Wheel over the canvas → zoom
+window.addEventListener('wheel', (e) => {
+  const cw = document.getElementById('cw');
+  if(!cw || !cw.contains(e.target)) return;
+  e.preventDefault();
+  edZoomBy(e.deltaY < 0 ? 0.15 : -0.15);
+}, { passive: false });
+// Keyboard: +/-/0
+window.addEventListener('keydown', (e) => {
+  if(e.target.closest('input,textarea,[contenteditable]')) return;
+  if(e.key === '+' || e.key === '='){ edZoomBy(0.25); }
+  else if(e.key === '-' || e.key === '_'){ edZoomBy(-0.25); }
+  else if(e.key === '0'){ edZoomReset(); }
+});
 let isDragging=false, dragStart=null;
 let textPos=null, cmtPos=null;
 
@@ -333,7 +370,7 @@ paper.addEventListener('mousedown',e=>{
 paper.addEventListener('mousemove',e=>{
   const p=relPos(e);
   document.getElementById('sbPos').textContent=`${p.x.toFixed(1)}% ${p.y.toFixed(1)}%`;
-  if(isPanning){panOff={x:panStart.ox+(e.clientX-panStart.x),y:panStart.oy+(e.clientY-panStart.y)};paper.style.transform=`translate(${panOff.x}px,${panOff.y}px)`;return;}
+  if(isPanning){panOff={x:panStart.ox+(e.clientX-panStart.x),y:panStart.oy+(e.clientY-panStart.y)};applyPaperTransform();return;}
   if(isDragging&&dragStart&&selId){
     const dx=p.x-dragStart.mx,dy=p.y-dragStart.my;
     annotations=annotations.map(a=>{
@@ -708,30 +745,34 @@ document.addEventListener('keydown',e=>{
 // fire-and-forget autosave emit and lets the window close normally. Explicit
 // Done/Discard go through forceCloseEditor() → destroy() (no handler at all).
 let _autosaveSkip = false;
+let _closing = false;
 (async () => {
   if(!window.__TAURI__ || !window.__TAURI__.window) return;
   try {
     const { getCurrentWindow } = window.__TAURI__.window;
     const win = getCurrentWindow();
     await win.onCloseRequested(async (event) => {
-      // v0.1.90: NEVER preventDefault. On Windows WebView2, invoke('close_editor')
-      // can hang and leave the window stuck. Best-effort autosave fire-and-forget,
-      // then let the OS close the window naturally.
-      if(annotations.length + comments.length > 0 && !_autosaveSkip){
-        try {
-          window.__TAURI__.event.emit('screenshot-ready', {
-            dataUrl: null,
-            annotations: JSON.parse(JSON.stringify(annotations)),
-            comments: JSON.parse(JSON.stringify(comments))
-          });
-        } catch(e){ console.error('close autosave emit failed', e); }
+      // v0.1.126: the native red-X was only HIDING the window (OS default),
+      // not destroying it. Now we take control: preventDefault, then DESTROY
+      // via Rust close_editor (same as Done/Escape) — close WITHOUT saving.
+      // Guard against re-entry. Fallback to JS destroy if invoke is slow.
+      if(_closing) return;
+      _closing = true;
+      try { event.preventDefault(); } catch(_){}
+      _autosaveSkip = true;
+      const invoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
+      let done = false;
+      if(invoke){
+        invoke('close_editor').then(() => { done = true; }).catch(()=>{});
       }
-      // Also try to show main again — fire-and-forget, not awaited
-      try {
-        const invoke = window.__TAURI__?.core?.invoke || window.__TAURI__?.invoke;
-        if(invoke) invoke('show_main').catch(()=>{});
-      } catch(_){}
-      // No preventDefault → OS closes the window normally
+      // Fallback: if Rust didn't destroy within 250ms, force JS destroy
+      setTimeout(() => {
+        if(done) return;
+        try {
+          const gw = window.__TAURI__?.window?.getCurrentWindow;
+          if(gw) gw().destroy();
+        } catch(_){ try { window.close(); } catch(_){} }
+      }, 250);
     });
   } catch(e) { console.error('cannot install close handler', e); }
 })();
@@ -742,29 +783,21 @@ function notify(m){const el=document.getElementById('notif');el.textContent=m;el
 function loadScreenshotAsBg(dataUrl){
   if(!dataUrl) return;
   try { console.log('[EB-EDITOR] loadScreenshotAsBg: src=', dataUrl.slice(0,80)); } catch(_){}
-  // v0.1.109: remove loading overlay AS SOON AS we start loading the image.
-  // This way #cw element gets proper dimensions before bg.onload computes paper size.
-  const initOv = document.getElementById('_eb_initial');
-  if(initOv) initOv.remove();
+  // v0.1.120: keep the loading overlay UNTIL the image actually loads. The
+  // window-size fallback below handles paper sizing even while the overlay
+  // covers #cw — so we no longer remove the overlay early (that left a blank
+  // dark editor when the image failed, with no feedback or escape).
   const bg=document.getElementById('realBg');
   bg.style.display='block';
   bg.onload=function(){
     try { console.log('[EB-EDITOR] img loaded:', bg.naturalWidth, 'x', bg.naturalHeight); } catch(_){}
-    // v0.1.109: robust paper sizing. Previously if #cw had 0 dims (covered
-    // by initial loading overlay, or not yet laid out), maxW/maxH became
-    // negative → paper got width:"-Npx" → invisible image even though
-    // img.onload fired. Now we always remove the overlay FIRST, then
-    // compute size with safe fallbacks.
-    const initOv = document.getElementById('_eb_initial');
-    if(initOv) initOv.remove();
-
     const nw = bg.naturalWidth || 960;
     const nh = bg.naturalHeight || 600;
     const ratio = nw / nh;
     const cw = document.getElementById('cw');
-    // Fallback to window dims if cw isn't laid out yet
+    // Window dims as primary fallback (overlay may cover cw → offsetWidth 0)
     const cwW = (cw && cw.offsetWidth > 100) ? cw.offsetWidth : (window.innerWidth || 1200);
-    const cwH = (cw && cw.offsetHeight > 100) ? cw.offsetHeight : (window.innerHeight - 120 || 600);
+    const cwH = (cw && cw.offsetHeight > 100) ? cw.offsetHeight : ((window.innerHeight - 120) || 600);
     const maxW = Math.max(400, cwW - 40);
     const maxH = Math.max(300, cwH - 100);
     let w = nw, h = nh;
@@ -773,12 +806,18 @@ function loadScreenshotAsBg(dataUrl){
     paper.style.width = w + 'px';
     paper.style.height = h + 'px';
     try { console.log('[EB-EDITOR] paper sized:', w, 'x', h, '(cw was', cwW, 'x', cwH, ')'); } catch(_){}
+    // Only NOW remove the overlay — image is in place
+    const initOv = document.getElementById('_eb_initial');
+    if(initOv) initOv.remove();
     notify('Screenshot loaded');
   };
   bg.onerror=function(e){
-    try { console.error('[EB-EDITOR] img FAILED to load:', dataUrl.slice(0,200), e); } catch(_){}
-    const initOv = document.getElementById('_eb_initial_msg');
-    if(initOv) initOv.textContent = 'Image failed to load: ' + (dataUrl||'').slice(0,80);
+    try { console.error('[EB-EDITOR] img FAILED to load:', (dataUrl||'').slice(0,200), e); } catch(_){}
+    // Show the error in the overlay (don't leave a blank dark screen)
+    const msg = document.getElementById('_eb_initial_msg');
+    if(msg) msg.textContent = 'Could not load the screenshot image. You can close and re-open it.';
+    const sp = document.querySelector('#_eb_initial div[style*="border-top"]');
+    if(sp) sp.style.display = 'none';  // hide the spinner on error
   };
   bg.src=dataUrl;
 }
