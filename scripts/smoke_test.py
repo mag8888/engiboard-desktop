@@ -106,65 +106,55 @@ shot("01-demo-view")
 if not rendered:
     fail("demo view never rendered (stayed blank)")
 
-# 4. Click the first existing screenshot thumbnail ----------------------------
-# Projects view: task rows with BEFORE/AFTER image columns on the right side.
+def editor_window():
+    for w in gw.getAllWindows():
+        if "annotate" in w.title.lower():
+            return w
+    return None
+
+# 4. ISSUE 1 — Presentation view: images should fill slots (object-fit:contain) -
+# Click the first task's "Presentation" link, screenshot the BEFORE/AFTER view.
+print("Opening Presentation view (issue 1: image fit)...")
+pyautogui.click(int(SW * 0.31), int(SH * 0.38))   # "Presentation" link, first task
+time.sleep(3)
+shot("02-presentation")
+pyautogui.press("escape")   # close presentation, back to list
+time.sleep(2)
+
+# 5. ISSUE 2 — Capture flow must NOT crash the app -----------------------------
+# Repro: trigger capture -> sniper overlay -> drag a region -> release.
+# Bug symptom: the whole app closes (0 windows) and no editor appears.
 wins_before = count_app_windows()
-print(f"  app windows before click: {wins_before}")
+print(f"Capture flow: app windows before = {wins_before}")
 
-thumb_x = int(SW * 0.70)   # right-side image column
-thumb_y = int(SH * 0.30)   # first task row, below the toolbar
-print(f"Clicking thumbnail at ({thumb_x}, {thumb_y})")
-pyautogui.click(thumb_x, thumb_y)
-time.sleep(6)              # editor window open + image decode
+print("  clicking Capture button...")
+pyautogui.click(int(SW * 0.26), int(SH * 0.12))   # 'Capture' button, top-left
+time.sleep(2)
+shot("03-sniper-overlay")
 
-# 5. Verify a SECOND window opened (the editor) -------------------------------
+print("  dragging a region on the sniper overlay...")
+pyautogui.moveTo(int(SW * 0.30), int(SH * 0.30))
+pyautogui.mouseDown()
+pyautogui.moveTo(int(SW * 0.62), int(SH * 0.60), duration=0.6)
+pyautogui.mouseUp()
+time.sleep(6)   # capture + editor open
+
 wins_after = count_app_windows()
-print(f"  app windows after click: {wins_after}")
-editor = shot("02-editor-opened")
-
-if wins_after <= wins_before:
-    fail(f"no new window opened (before={wins_before}, after={wins_after}) -- "
-         "thumbnail click did not open the editor")
-
-editor_blank = is_blank(editor)
-print(f"  editor blank after open: {editor_blank}")
-
-# 6. DIAGNOSTIC: nudge the editor with REAL OS events from outside the app -----
-# If an external OS resize/move/focus repaints it, the bug is a WebView2
-# compositor first-paint stall (and the in-app set_size is a no-op). If it
-# stays blank, editor.html itself isn't loading/painting.
-ed = None
-for w in gw.getAllWindows():
-    if "annotate" in w.title.lower():
-        ed = w
-        break
-if ed is None:
-    # fall back: the EngiBoard window that is not maximized / not the main
-    cands = [w for w in gw.getAllWindows() if "engiboard" in w.title.lower()]
-    ed = cands[-1] if cands else None
-
-if ed is not None:
-    print(f"  editor window: '{ed.title}' pos=({ed.left},{ed.top}) size=({ed.width}x{ed.height})")
-    try:
-        ed.activate(); time.sleep(0.5)
-        shot("03-after-activate")
-        ed.resizeTo(ed.width + 60, ed.height + 40); time.sleep(0.8)
-        ed.resizeTo(ed.width - 60, ed.height - 40); time.sleep(0.8)
-        shot("04-after-resize")
-        ed.moveTo(ed.left + 30, ed.top + 30); time.sleep(0.6)
-        shot("05-after-move")
-        # click inside the editor to give it real focus
-        pyautogui.click(ed.left + ed.width // 2, ed.top + ed.height // 2); time.sleep(0.8)
-        shot("06-after-click")
-    except Exception as e:
-        print(f"  nudge raised {e!r}")
-    final = Image.open(os.path.join(OUT, "06-after-click.png"))
-    print(f"  blank after external nudges: {is_blank(final)}")
-else:
-    print("  could not locate editor window for nudge experiment")
-
+print(f"Capture flow: app windows after = {wins_after}")
+shot("04-after-capture")
 log_fh.flush()
-if editor_blank:
-    fail("editor window is blank/white on open -- see app-stderr.log + nudge screenshots")
 
-print("\nPASS: editor opened with visible content")
+# Primary assertion for the reported crash: app must still be alive.
+if wins_after == 0:
+    fail("APP CLOSED after capture -- the reported crash reproduced (0 windows)")
+
+# Capture should have opened the editor with the grabbed image.
+ed = editor_window()
+if ed is None:
+    fail("capture did not open the editor window (no 'Annotate' window present)")
+
+editor_img = Image.open(os.path.join(OUT, "04-after-capture.png"))
+if is_blank(editor_img):
+    fail("editor opened from capture but is blank/white")
+
+print("\nPASS: capture did not crash; editor opened with content")

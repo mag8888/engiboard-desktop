@@ -148,8 +148,23 @@ fn show_main(app: tauri::AppHandle) {
     }
 }
 
+// IPC command wrapper. MUST be async so Tauri runs it off the main thread:
+// a sync command runs on the main thread, and WebviewWindowBuilder::build()
+// needs the main thread's event loop free to finish WebView2 creation —
+// calling build() from the blocked main thread deadlocks (blank editor).
 #[tauri::command]
 async fn open_editor_with_image(
+    app: tauri::AppHandle,
+    data_url: String,
+    annotations: Option<serde_json::Value>,
+    comments: Option<serde_json::Value>,
+) {
+    open_editor_impl(app, data_url, annotations, comments);
+}
+
+// Sync core. Safe to call from any non-main thread (e.g. the capture thread):
+// build() proxies window creation to the main thread, which stays free.
+fn open_editor_impl(
     app: tauri::AppHandle,
     data_url: String,
     annotations: Option<serde_json::Value>,
@@ -464,7 +479,7 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
         // v0.1.43: editor с инструментами (стрелки, маркеры, текст) — это
         // спринт 1.4 ТЗ ("Базовые визуальные аннотации поверх скриншотов").
         // Capture → editor → save → screenshot-ready → paste-mode → click slot.
-        open_editor_with_image(app, url, None, None);
+        open_editor_impl(app, url, None, None);
     });
 }
 
