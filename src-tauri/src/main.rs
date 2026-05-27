@@ -228,8 +228,6 @@ async fn open_editor_with_image(
     }
 
     eprintln!("creating fresh editor window");
-    let _ = std::io::Write::flush(&mut std::io::stderr());
-    let _t0 = std::time::Instant::now();
     let result = WebviewWindowBuilder::new(
         &app, "editor", WebviewUrl::App("editor.html".into()))
         .title("EngiBoard · Annotate")
@@ -241,8 +239,6 @@ async fn open_editor_with_image(
         .focused(true)
         .visible(true)
         .build();
-    eprintln!("build() returned after {:?}: ok={}", _t0.elapsed(), result.is_ok());
-    let _ = std::io::Write::flush(&mut std::io::stderr());
 
     match result {
         Ok(win) => {
@@ -264,20 +260,6 @@ async fn open_editor_with_image(
                     let r = win.emit("load-image", d.clone());
                     let r2 = win.emit("load-annotations", ann_clone.clone());
                     eprintln!("emit load-image (after {}ms more): {:?} / {:?}", delay, r, r2);
-                    // v0.1.132: flush the editor window's compositor. The same
-                    // 1px resize-bump that fixes the main window (flush_repaint)
-                    // was never applied to the dynamically-created editor window,
-                    // so on Windows its WebView2 surface stayed blank until a real
-                    // OS resize/focus event arrived. Bump after each emit so the
-                    // first paint lands once the DOM/image is in place.
-                    if let Ok(size) = win.outer_size() {
-                        let bumped = tauri::PhysicalSize {
-                            width: size.width.saturating_add(1),
-                            height: size.height,
-                        };
-                        let _ = win.set_size(bumped);
-                        let _ = win.set_size(size);
-                    }
                     if r.is_err() { break; }
                 }
             });
