@@ -162,8 +162,11 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 .tbar button,.tbar .tact,.tbar .tbtn-sm{-webkit-app-region:no-drag;app-region:no-drag}
 
 </style>
+<script>document.documentElement.style.background='#ff00ff';</script>
 </head>
 <body>
+<!-- DIAGNOSTIC marker: proves editor.html loaded + rendered. Remove after debugging. -->
+<div id="_eb_marker" style="position:fixed;top:0;left:0;right:0;height:64px;background:#ff00ff;color:#fff;font:700 22px sans-serif;display:flex;align-items:center;justify-content:center;z-index:2147483647">EDITOR HTML LOADED</div>
 <!-- v0.1.104: initial loading state visible until the script removes it.
      If the script never runs (script crash, WebView load failure, etc.) the
      user sees a meaningful message + Close button instead of pure blank. -->
