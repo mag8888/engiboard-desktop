@@ -1,0 +1,59 @@
+name: Smoke Test (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── 1. Download latest release installer ──────────────────────────────
+      - name: Download latest EngiBoard installer
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod "https://api.github.com/repos/mag8888/engiboard-desktop/releases/latest"
+          $asset = $rel.assets | Where-Object { $_.name -like "*x64-setup.exe" } | Select-Object -First 1
+          Write-Host "Downloading $($asset.name) …"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "EngiBoard-setup.exe"
+
+      # ── 2. Install silently (currentUser NSIS) ────────────────────────────
+      - name: Install EngiBoard
+        shell: pwsh
+        run: |
+          Start-Process "EngiBoard-setup.exe" -ArgumentList "/S" -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe"
+          if (Test-Path $exe) { Write-Host "Installed at $exe" }
+          else { Write-Error "Installer finished but EXE not found at $exe" }
+
+      # ── 3. Checkout repo (for the smoke test script) ──────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 4. Python + deps ──────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install pyautogui pillow pygetwindow
+
+      # ── 5. Run smoke test ─────────────────────────────────────────────────
+      - name: Run smoke test
+        env:
+          SCREENSHOT_DIR: screenshots
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path screenshots | Out-Null
+          python scripts/smoke_test.py
+
+      # ── 6. Upload screenshots (always, so we get them even on failure) ────
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test-screenshots
+          path: screenshots/
+          retention-days: 7
