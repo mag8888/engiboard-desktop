@@ -173,9 +173,9 @@ try:
     pyautogui.press("e")
     time.sleep(1)
     shot("05-emoji-picker")
-    # Picker opens just below the emoji toolbar button. First cell (thumbs-up)
-    # measured at ~(322,80) on the runner's 1024x768 screen, window at (0,0).
-    pyautogui.click(322, 80)
+    # Click the centre of the opened picker (guaranteed to land on a cell,
+    # avoiding the edge/padding). Picker spans ~x310-475, y67-140 on screen.
+    pyautogui.click(392, 103)
     time.sleep(0.6)
     shot("06-emoji-selected")
     pyautogui.click(canvas_x, canvas_y)   # place emoji on the screenshot
