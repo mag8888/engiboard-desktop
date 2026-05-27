@@ -71,7 +71,9 @@ if not app or not os.path.exists(app):
     fail(f"EngiBoard.exe not found (ENGIBOARD_EXE={os.environ.get('ENGIBOARD_EXE','unset')})")
 
 print(f"Launching {app} (EB_AUTODEMO={os.environ.get('EB_AUTODEMO','unset')})")
-subprocess.Popen([app])   # inherits EB_AUTODEMO from environment
+log_path = os.path.join(OUT, "app-stderr.log")
+log_fh = open(log_path, "w", encoding="utf-8", errors="replace")
+subprocess.Popen([app], stdout=log_fh, stderr=subprocess.STDOUT)  # capture Rust eprintln logs
 
 # 2. Wait for window, maximize for deterministic geometry ---------------------
 win = wait_window("EngiBoard", timeout=30)
@@ -124,12 +126,45 @@ if wins_after <= wins_before:
     fail(f"no new window opened (before={wins_before}, after={wins_after}) -- "
          "thumbnail click did not open the editor")
 
-if is_blank(editor):
-    fail("editor window is blank/white -- image did not render")
+editor_blank = is_blank(editor)
+print(f"  editor blank after open: {editor_blank}")
 
-print("\nPASS: editor opened as a new window with visible content")
+# 6. DIAGNOSTIC: nudge the editor with REAL OS events from outside the app -----
+# If an external OS resize/move/focus repaints it, the bug is a WebView2
+# compositor first-paint stall (and the in-app set_size is a no-op). If it
+# stays blank, editor.html itself isn't loading/painting.
+ed = None
+for w in gw.getAllWindows():
+    if "annotate" in w.title.lower():
+        ed = w
+        break
+if ed is None:
+    # fall back: the EngiBoard window that is not maximized / not the main
+    cands = [w for w in gw.getAllWindows() if "engiboard" in w.title.lower()]
+    ed = cands[-1] if cands else None
 
-# 6. Close editor -------------------------------------------------------------
-pyautogui.hotkey("ctrl", "w")
-time.sleep(1)
-shot("03-after-close")
+if ed is not None:
+    print(f"  editor window: '{ed.title}' pos=({ed.left},{ed.top}) size=({ed.width}x{ed.height})")
+    try:
+        ed.activate(); time.sleep(0.5)
+        shot("03-after-activate")
+        ed.resizeTo(ed.width + 60, ed.height + 40); time.sleep(0.8)
+        ed.resizeTo(ed.width - 60, ed.height - 40); time.sleep(0.8)
+        shot("04-after-resize")
+        ed.moveTo(ed.left + 30, ed.top + 30); time.sleep(0.6)
+        shot("05-after-move")
+        # click inside the editor to give it real focus
+        pyautogui.click(ed.left + ed.width // 2, ed.top + ed.height // 2); time.sleep(0.8)
+        shot("06-after-click")
+    except Exception as e:
+        print(f"  nudge raised {e!r}")
+    final = Image.open(os.path.join(OUT, "06-after-click.png"))
+    print(f"  blank after external nudges: {is_blank(final)}")
+else:
+    print("  could not locate editor window for nudge experiment")
+
+log_fh.flush()
+if editor_blank:
+    fail("editor window is blank/white on open -- see app-stderr.log + nudge screenshots")
+
+print("\nPASS: editor opened with visible content")
