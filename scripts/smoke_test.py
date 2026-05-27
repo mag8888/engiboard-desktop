@@ -15,7 +15,7 @@ OUT = os.environ.get("SCREENSHOT_DIR", ".")
 def shot(name):
     path = os.path.join(OUT, f"{name}.png")
     ImageGrab.grab().save(path)
-    print(f"  📸 {name}.png")
+    print(f"  [screenshot] {name}.png")
     return Image.open(path)
 
 def is_blank(img, white_thresh=0.90, dark_thresh=0.90):
@@ -95,10 +95,10 @@ img = shot("03-editor-opened")
 
 # ── 5. Verdict ──────────────────────────────────────────────────────────────
 if is_blank(img):
-    print("\n❌  FAIL: editor screenshot looks blank/white — image did not render")
+    print("\nFAIL: editor screenshot looks blank/white -- image did not render")
     sys.exit(1)
 
-print("\n✅  PASS: editor opened with visible content")
+print("\nPASS: editor opened with visible content")
 
 # ── 6. Close editor gracefully ──────────────────────────────────────────────
 pyautogui.hotkey("ctrl", "w")
