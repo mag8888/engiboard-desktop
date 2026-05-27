@@ -67,6 +67,10 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .fb:hover{background:rgba(255,255,255,.06);color:var(--t1)}
 .fb.on{background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;box-shadow:0 2px 8px rgba(59,130,246,.4)}
 .fb-sep{width:1px;height:20px;background:rgba(255,255,255,.08);margin:0 4px}
+.emoji-picker{display:none;position:fixed;z-index:1000;background:#1e2531;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:5px;grid-template-columns:repeat(6,26px);gap:1px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.emoji-picker.on{display:grid}
+.emoji-picker button{font-size:17px;line-height:1;width:26px;height:26px;background:none;border:none;cursor:pointer;border-radius:6px;padding:0}
+.emoji-picker button:hover{background:rgba(255,255,255,.16)}
 
 /* Tooltip */
 .fb::after{
@@ -175,6 +179,8 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
   <style>@keyframes _ebspin { to { transform: rotate(360deg) } }</style>
 </div>
 
+<div id="emojiPicker" class="emoji-picker"></div>
+
 <div class="shell">
 <div class="tbar">
   <div style="width:78px;flex-shrink:0"></div>
@@ -209,6 +215,7 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button>
     <button class="fb" data-id="blur" data-tip="Blur" data-key="B" onclick="setTool('blur')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg></button>
     <button class="fb" data-id="comment" data-tip="Comment" data-key="Q" onclick="setTool('comment')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    <button class="fb" data-id="emoji" data-tip="Emoji" data-key="E" onclick="toggleEmojiPicker(event)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9.5" x2="9.01" y2="9.5"/><line x1="15" y1="9.5" x2="15.01" y2="9.5"/></svg></button>
     <div class="fb-sep"></div>
     <div class="cdot on" style="background:#FF453A" data-c="#FF453A" onclick="setCol(this)"></div>
     <div class="cdot" style="background:#FF9F0A" data-c="#FF9F0A" onclick="setCol(this)"></div>
@@ -281,6 +288,41 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
      (no network dependency, captures the background reliably). -->
 <script>
 let tool='select', color='#FF453A', sw=2, opVal=1;
+let pendingEmoji=null;
+const EMOJIS=['👍','👎','✅','❌','🔥','⭐','💯','⚠️','❗','❓','👀','🎉'];
+const EMOJI_SIZE=40;  // glyph size in paper CSS px (scaled up on save to match)
+function toggleEmojiPicker(ev){
+  if(ev) ev.stopPropagation();
+  const pk=document.getElementById('emojiPicker');
+  if(pk.classList.contains('on')){ pk.classList.remove('on'); return; }
+  if(!pk.dataset.built){
+    pk.innerHTML=EMOJIS.map(e=>`<button type="button" onclick="pickEmoji('${e}')">${e}</button>`).join('');
+    pk.dataset.built='1';
+  }
+  const btn=document.querySelector('.fb[data-id="emoji"]');
+  const r=btn.getBoundingClientRect();
+  pk.style.left=Math.min(r.left, window.innerWidth-260)+'px';
+  pk.style.top=(r.bottom+6)+'px';
+  pk.classList.add('on');
+}
+function pickEmoji(e){
+  pendingEmoji=e;
+  document.getElementById('emojiPicker').classList.remove('on');
+  setTool('emoji');
+  notify('Click on the screenshot to place '+e);
+}
+function placeEmoji(pos){
+  if(!pendingEmoji) return;
+  pushHistory();
+  annotations.push({id:'a'+Date.now(),type:'emoji',x:pos.x,y:pos.y,w:0,h:0,emoji:pendingEmoji,size:EMOJI_SIZE});
+  renderAll();updateList();updateCount();
+}
+document.addEventListener('mousedown',ev=>{
+  const pk=document.getElementById('emojiPicker');
+  if(pk&&pk.classList.contains('on')&&!ev.target.closest('#emojiPicker')&&!ev.target.closest('.fb[data-id="emoji"]')){
+    pk.classList.remove('on');
+  }
+},true);
 let annotations=[], undoStack=[], redoStack=[], comments=[], commentCount=0;
 const HISTORY_MAX = 10; // 5 back + 5 forward typical
 function pushHistory(){
@@ -333,6 +375,7 @@ function setTool(t){
   const btn=document.querySelector('.fb[data-id="'+t+'"]');
   document.getElementById('sbTool').textContent=`Tool: ${t[0].toUpperCase()+t.slice(1)} (${btn?btn.dataset.key:''})`;
   closeCmtPop();commitText();
+  if(t!=='emoji'){const pk=document.getElementById('emojiPicker');if(pk)pk.classList.remove('on');}
 }
 function setCol(el){color=el.dataset.c;document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('on'));el.classList.add('on');}
 function setSW(el){sw=+el.dataset.w;document.querySelectorAll('.sw').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
@@ -349,6 +392,7 @@ paper.addEventListener('mousedown',e=>{
       if(a.locked) return false;
       if(a.type==='freehand'){const xs=(a.pts||[]).map(q=>q.x),ys=(a.pts||[]).map(q=>q.y);return xs.length&&p.x>=Math.min(...xs)-3&&p.x<=Math.max(...xs)+3&&p.y>=Math.min(...ys)-3&&p.y<=Math.max(...ys)+3;}
       if(a.type==='text') return Math.abs(p.x-a.x)<15&&Math.abs(p.y-a.y)<6;
+      if(a.type==='emoji') return Math.abs(p.x-a.x)<6&&Math.abs(p.y-a.y)<6;
       const ax=Math.min(a.x,a.x+a.w),ay=Math.min(a.y,a.y+a.h);
       return p.x>=ax&&p.x<=ax+Math.abs(a.w)&&p.y>=ay&&p.y<=ay+Math.abs(a.h);
     });
@@ -357,6 +401,7 @@ paper.addEventListener('mousedown',e=>{
     renderAll();return;
   }
   if(tool==='comment'){cmtPos=relPos(e);showCmtPopUI(e);return;}
+  if(tool==='emoji'){placeEmoji(relPos(e));return;}
   if(tool==='text'){commitText();textPos=relPos(e);showTextInp(textPos);return;}
   const p=relPos(e);
   drawing=true;startPos=p;
@@ -440,6 +485,7 @@ function makeAnnotEl(a,prev=false){
   }
   if(a.type==='blur'){const d=document.createElement('div');d.className='blur-box';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
+  if(a.type==='emoji'){const d=document.createElement('div');d.style.cssText=`position:absolute;left:${a.x}%;top:${a.y}%;transform:translate(-50%,-50%);font-size:${a.size||EMOJI_SIZE}px;line-height:1;opacity:${op};user-select:none${sel?';outline:2px solid #0EA5E9;outline-offset:2px;border-radius:4px':''}`;d.textContent=a.emoji||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
   if(a.type==='dimension'){const wrap=document.createElement('div');wrap.className='dim-wrap';wrap.style.cssText=`left:${x}%;top:${y}%;width:${w}%;opacity:${op}`;const mm=Math.round(w*4.2);wrap.innerHTML=`<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${a.color}"></div><div style="flex:1;height:${a.sw}px;background:${a.color}"></div><div style="width:1px;height:10px;background:${a.color}"></div></div><div style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px">${mm}mm</div>`;return{el:wrap,layer:'div'};}
   if(a.type==='freehand'){
     if(!a.pts||a.pts.length<2) return null;
@@ -463,7 +509,7 @@ function renderAll(){
     if(!r) continue;
     if(r.layer==='svg'){fhSvg.appendChild(r.el);}
     else{
-      if(!['text'].includes(a.type)){
+      if(!['text','emoji'].includes(a.type)){
         r.el.style.pointerEvents='auto';
         r.el.addEventListener('click',ev=>{ev.stopPropagation();selId=a.id;renderAll();updateList();});
       }
@@ -525,8 +571,8 @@ function toggleBubble(c){
 }
 function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());renderAll();updateList();updateCount();}
 
-const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬'};
-const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker'};
+const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
+const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
 function updateList(){
   // v0.1.29: split into Layers (annotations) and Comments (pin-comments) panels
   const annEl = document.getElementById('annList');
@@ -542,7 +588,7 @@ function updateList(){
     annEl.innerHTML = annotations.map(a => `
       <div class="ali ${a.id===selId?'on':''}" onclick="selAnn('${a.id}')">
         <span style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block"></span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${ICONS[a.type]||'·'} ${a.type==='text'?(a.text||'').slice(0,16):(NAMES[a.type]||a.type)}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.type==='emoji'?(a.emoji||'☺'):(ICONS[a.type]||'·')} ${a.type==='text'?(a.text||'').slice(0,16):a.type==='emoji'?'Emoji':(NAMES[a.type]||a.type)}</span>
         <button class="adel" onclick="event.stopPropagation();delAnn('${a.id}')">×</button>
       </div>
     `).join('');
@@ -676,6 +722,16 @@ function compositeToDataUrl(){
       ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.textBaseline='middle';
       ctx.fillText(a.text, tx+9, ty+12);
     }
+    else if(a.type==='emoji' && a.emoji){
+      // Scale glyph from paper CSS px to the screenshot's natural px so the
+      // saved emoji matches its on-screen size. Centered on the click point.
+      const scale = W / (paper.offsetWidth || W);
+      const px = Math.max(12, (a.size||EMOJI_SIZE) * scale);
+      ctx.globalAlpha = 1;
+      ctx.font = px + 'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(a.emoji, PX(a.x), PY(a.y));
+    }
     ctx.restore();
   }
   return cv.toDataURL('image/png');
@@ -730,6 +786,7 @@ document.addEventListener('keydown',e=>{
     if(!hadOverlay) discard();   // nothing to cancel → close
     return;
   }
+  if(k==='e'){e.preventDefault();toggleEmojiPicker();return;}
   if(KMAP[k]){e.preventDefault();setTool(KMAP[k]);return;}
   if((e.metaKey||e.ctrlKey)&&e.shiftKey&&k==='z'){e.preventDefault();redoNext();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undoLast();return;}

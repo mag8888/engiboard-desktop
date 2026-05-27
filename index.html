@@ -1337,7 +1337,7 @@ body.dark-mode .pres-pic{ background:#1e2531; }
   position:absolute;top:12px;left:12px;background:rgba(15,23,42,.7);color:#fff;padding:4px 10px;
   border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.05em;z-index:2
 }
-.pres-pic img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;box-shadow:0 2px 16px rgba(0,0,0,.18)}
+.pres-pic img{width:100%;height:100%;object-fit:contain;box-shadow:0 2px 16px rgba(0,0,0,.18)}
 .pres-pic-empty{color:var(--t3);font-size:13px}
 .pres-nav{
   display:flex;justify-content:center;align-items:center;gap:16px;
@@ -1936,8 +1936,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <div class="proj-members-h"><span>Members</span><span class="ct" id="ppMembersCt">0</span></div>
           <div class="proj-members-list" id="ppMembersList"></div>
           <div class="proj-invite-row">
-            <input type="email" id="ppInviteEmail" placeholder="email@example.com" onkeydown="if(event.key==='Enter') inviteToCurrentProject()">
-            <button id="ppInviteBtn" onclick="inviteToCurrentProject()">Invite</button>
+            <input type="email" id="ppInviteEmail" placeholder="employee@email.com — instant access" onkeydown="if(event.key==='Enter') inviteToCurrentProject()">
+            <button id="ppInviteBtn" onclick="inviteToCurrentProject()">Add</button>
           </div>
         </div>
       </div>
@@ -2803,30 +2803,33 @@ function initialsFromProfile(p){
 
 // v0.1.62: invite teammate by email — writes a project_invites row.
 // Triggers RLS check via invites_insert policy (only admin/owner can invite).
-async function inviteToCurrentProject(){
-  if(!db || !db.ready) return toast('Sign in to invite team members');
+// Direct add by email — admin types an email and the person is a project
+// member immediately. No invite link, no token, no confirmation step.
+// Local model: the email is added to project.members[] right away.
+// (Cloud cross-account enforcement by email needs a Supabase RLS migration —
+//  not required while the team works locally.)
+function inviteToCurrentProject(){
   const inp = document.getElementById('ppInviteEmail');
   const email = (inp?.value || '').trim().toLowerCase();
   if(!email || !email.includes('@')) return toast('Enter a valid email');
-  if(currentProject === 'all') return toast('Pick a specific project first');
-  try {
-    const u = await db.auth.user();
-    if(!u) return toast('Not signed in');
-    const { data, error } = await sb.from('project_invites')
-      .insert({ project_id: currentProject, email, role: 'engineer', invited_by: u.id })
-      .select().single();
-    if(error){
-      if(error.code === '23505') return toast(email + ' already invited');
-      return toast('Invite failed: ' + error.message);
-    }
-    if(inp) inp.value = '';
-    // Provide a copy-paste link the inviter can send to the invitee.
-    const link = `engiboard://invite/${data.token}`;
-    if(navigator.clipboard){
-      try { await navigator.clipboard.writeText(link); } catch(_){}
-    }
-    toast('✓ Invite created — link copied to clipboard');
-  } catch(e){ toast('Invite error: ' + e.message); }
+  const proj = getCurrentProjectMembers();
+  if(!proj) return toast('Pick a specific project first');
+  const me = (localStorage.getItem('eb_account') || '').toLowerCase();
+  if(email === me) return toast('You already own this project');
+  if(proj.members.some(m => m.toLowerCase() === email)) return toast(email + ' is already a member');
+  proj.members.push(email);
+  if(inp) inp.value = '';
+  renderProjMembers();
+  toast('✓ ' + email + ' added — has access to ' + proj.name);
+}
+
+// Remove a member from the current project (no confirmation, mirrors add).
+function removeProjMember(email){
+  const proj = getCurrentProjectMembers();
+  if(!proj) return;
+  proj.members = proj.members.filter(m => m.toLowerCase() !== (email||'').toLowerCase());
+  renderProjMembers();
+  toast('Removed ' + email);
 }
 
 // v0.1.62 (Phase G minimal): audit log helper. Writes one row per change.
@@ -6170,7 +6173,7 @@ function renderProjMembers(){
       <span class="av">${initials}</span>
       <span class="em">${m.email}</span>
       <span class="role">${roleLabel}</span>
-      ${m.role === 'owner' ? '' : `<button class="rm" onclick="outOfScope('Project members management','Sprint 2.4')" title="Удалить участника">×</button>`}
+      ${m.role === 'owner' ? '' : `<button class="rm" onclick="removeProjMember('${m.email.replace(/'/g,"\\'")}')" title="Remove member">×</button>`}
     </div>`;
   }).join('');
 }
