@@ -23,9 +23,29 @@ jobs:
         shell: pwsh
         run: |
           Start-Process "EngiBoard-setup.exe" -ArgumentList "/S" -Wait
-          $exe = "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe"
-          if (Test-Path $exe) { Write-Host "Installed at $exe" }
-          else { Write-Error "Installer finished but EXE not found at $exe" }
+          Start-Sleep -Seconds 3
+          # Search for the exe in likely locations
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe",
+            "$env:LOCALAPPDATA\EngiBoard\EngiBoard.exe",
+            "$env:APPDATA\EngiBoard\EngiBoard.exe",
+            "C:\Program Files\EngiBoard\EngiBoard.exe",
+            "C:\Program Files (x86)\EngiBoard\EngiBoard.exe"
+          )
+          $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if ($found) {
+            Write-Host "Installed at $found"
+            echo "ENGIBOARD_EXE=$found" >> $env:GITHUB_ENV
+          } else {
+            Write-Host "Searching entire C:\Users for EngiBoard.exe..."
+            $found2 = Get-ChildItem -Path "C:\Users" -Recurse -Filter "EngiBoard.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+            if ($found2) {
+              Write-Host "Found at $found2"
+              echo "ENGIBOARD_EXE=$found2" >> $env:GITHUB_ENV
+            } else {
+              Write-Error "EngiBoard.exe not found anywhere after install"
+            }
+          }
 
       # ── 3. Checkout repo (for the smoke test script) ──────────────────────
       - name: Checkout
@@ -44,6 +64,7 @@ jobs:
       - name: Run smoke test
         env:
           SCREENSHOT_DIR: screenshots
+          ENGIBOARD_EXE: ${{ env.ENGIBOARD_EXE }}
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path screenshots | Out-Null

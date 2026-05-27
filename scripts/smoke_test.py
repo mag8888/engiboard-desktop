@@ -34,12 +34,19 @@ def wait_window(title_fragment, timeout=25):
     return None
 
 # ── 1. Find installer path ──────────────────────────────────────────────────
-app = os.path.expandvars(r"%LOCALAPPDATA%\Programs\EngiBoard\EngiBoard.exe")
-if not os.path.exists(app):
-    # Fallback: user-level NSIS sometimes puts it here
-    app = r"C:\Program Files\EngiBoard\EngiBoard.exe"
-if not os.path.exists(app):
-    print(f"ERROR: EngiBoard.exe not found at {app}")
+app = os.environ.get("ENGIBOARD_EXE", "")
+if not app or not os.path.exists(app):
+    # Fallback candidates
+    for candidate in [
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\EngiBoard\EngiBoard.exe"),
+        os.path.expandvars(r"%LOCALAPPDATA%\EngiBoard\EngiBoard.exe"),
+        r"C:\Program Files\EngiBoard\EngiBoard.exe",
+    ]:
+        if os.path.exists(candidate):
+            app = candidate
+            break
+if not app or not os.path.exists(app):
+    print(f"ERROR: EngiBoard.exe not found (ENGIBOARD_EXE={os.environ.get('ENGIBOARD_EXE','not set')})")
     sys.exit(1)
 
 print(f"Launching {app}")
