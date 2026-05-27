@@ -228,6 +228,8 @@ fn open_editor_with_image(
     }
 
     eprintln!("creating fresh editor window");
+    let _ = std::io::Write::flush(&mut std::io::stderr());
+    let _t0 = std::time::Instant::now();
     let result = WebviewWindowBuilder::new(
         &app, "editor", WebviewUrl::App("editor.html".into()))
         .title("EngiBoard · Annotate")
@@ -239,6 +241,8 @@ fn open_editor_with_image(
         .focused(true)
         .visible(true)
         .build();
+    eprintln!("build() returned after {:?}: ok={}", _t0.elapsed(), result.is_ok());
+    let _ = std::io::Write::flush(&mut std::io::stderr());
 
     match result {
         Ok(win) => {
