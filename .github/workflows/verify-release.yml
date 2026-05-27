@@ -24,14 +24,27 @@ jobs:
         run: |
           $p = Start-Process "EngiBoard-setup.exe" -ArgumentList "/S" -PassThru -Wait
           Write-Host "Installer exit: $($p.ExitCode)"
+          $candidates = @(
+            "$env:LOCALAPPDATA\EngiBoard\EngiBoard.exe",
+            "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe",
+            "$env:PROGRAMFILES\EngiBoard\EngiBoard.exe",
+            "${env:PROGRAMFILES(X86)}\EngiBoard\EngiBoard.exe"
+          )
           $exe = $null
           for ($i = 0; $i -lt 30; $i++) {
-            $exe = "$env:LOCALAPPDATA\Programs\EngiBoard\EngiBoard.exe"
-            if (Test-Path $exe) { break }
+            $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($exe) { break }
             Start-Sleep -Seconds 1
           }
-          if (Test-Path $exe) { echo "ENGIBOARD_EXE=$exe" >> $env:GITHUB_ENV; Write-Host "Installed: $exe" }
-          else { Write-Error "EngiBoard.exe not found after install" }
+          if (-not $exe) {
+            Write-Host "Not in known paths. Searching C:\Users ..."
+            $exe = Get-ChildItem "C:\Users" -Recurse -Filter "EngiBoard.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          }
+          if ($exe) { echo "ENGIBOARD_EXE=$exe" >> $env:GITHUB_ENV; Write-Host "Installed: $exe" }
+          else {
+            Write-Host "LOCALAPPDATA contents:"; Get-ChildItem $env:LOCALAPPDATA -ErrorAction SilentlyContinue | Format-Table Name
+            Write-Error "EngiBoard.exe not found after install"
+          }
 
       - name: Set up Python
         uses: actions/setup-python@v5
