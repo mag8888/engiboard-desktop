@@ -292,14 +292,15 @@ let pendingEmoji=null;
 const EMOJIS=['👍','👎','✅','❌','🔥','⚠️','❗','❓','⭐','💯','👀','🙂','🎉','🚀','📌','💡','🛠️','🔧','🟢','🔴','➡️','✔️'];
 const EMOJI_SIZE=40;  // glyph size in paper CSS px (scaled up on save to match)
 function toggleEmojiPicker(ev){
-  ev.stopPropagation();
+  if(ev) ev.stopPropagation();
   const pk=document.getElementById('emojiPicker');
   if(pk.classList.contains('on')){ pk.classList.remove('on'); return; }
   if(!pk.dataset.built){
     pk.innerHTML=EMOJIS.map(e=>`<button type="button" onclick="pickEmoji('${e}')">${e}</button>`).join('');
     pk.dataset.built='1';
   }
-  const r=ev.currentTarget.getBoundingClientRect();
+  const btn=document.querySelector('.fb[data-id="emoji"]');
+  const r=btn.getBoundingClientRect();
   pk.style.left=Math.min(r.left, window.innerWidth-260)+'px';
   pk.style.top=(r.bottom+6)+'px';
   pk.classList.add('on');
@@ -785,6 +786,7 @@ document.addEventListener('keydown',e=>{
     if(!hadOverlay) discard();   // nothing to cancel → close
     return;
   }
+  if(k==='e'){e.preventDefault();toggleEmojiPicker();return;}
   if(KMAP[k]){e.preventDefault();setTool(KMAP[k]);return;}
   if((e.metaKey||e.ctrlKey)&&e.shiftKey&&k==='z'){e.preventDefault();redoNext();return;}
   if((e.metaKey||e.ctrlKey)&&k==='z'){e.preventDefault();undoLast();return;}

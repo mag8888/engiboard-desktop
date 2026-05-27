@@ -165,18 +165,20 @@ print("PASS: capture did not crash; editor opened with content")
 try:
     ed = editor_window()
     print(f"  editor rect: pos=({ed.left},{ed.top}) size=({ed.width}x{ed.height})")
-    cx = ed.left + ed.width // 2
-    btn_x, btn_y = cx + 24, ed.top + 53
-    print(f"  clicking emoji tool at ({btn_x},{btn_y})")
-    pyautogui.click(btn_x, btn_y)
+    # Focus the editor (click canvas centre; default tool is 'select', harmless),
+    # then press 'E' which opens the emoji picker deterministically.
+    canvas_x, canvas_y = ed.left + ed.width // 2, ed.top + ed.height // 2
+    pyautogui.click(canvas_x, canvas_y)
+    time.sleep(0.4)
+    pyautogui.press("e")
     time.sleep(1)
     shot("05-emoji-picker")
-    # first emoji cell is roughly under the button
-    pyautogui.click(btn_x - 8, btn_y + 46)
+    # Picker opens just below the emoji toolbar button (left-of-centre group).
+    # First cell ~ (302,102) on the runner's 1024x768 screen, window at (0,0).
+    pyautogui.click(302, 102)
     time.sleep(0.6)
     shot("06-emoji-selected")
-    # place it on the canvas
-    pyautogui.click(ed.left + ed.width // 2, ed.top + ed.height // 2)
+    pyautogui.click(canvas_x, canvas_y)   # place emoji on the screenshot
     time.sleep(0.8)
     shot("07-emoji-placed")
 except Exception as e:
