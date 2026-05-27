@@ -157,4 +157,29 @@ editor_img = Image.open(os.path.join(OUT, "04-after-capture.png"))
 if is_blank(editor_img):
     fail("editor opened from capture but is blank/white")
 
-print("\nPASS: capture did not crash; editor opened with content")
+print("PASS: capture did not crash; editor opened with content")
+
+# 6. ISSUE 3 (new feature) — emoji tool ----------------------------------------
+# Toolbar is CSS-centered in the editor window. The emoji button sits just
+# right of the toolbar's horizontal centre; the picker drops below it.
+try:
+    ed = editor_window()
+    print(f"  editor rect: pos=({ed.left},{ed.top}) size=({ed.width}x{ed.height})")
+    cx = ed.left + ed.width // 2
+    btn_x, btn_y = cx + 24, ed.top + 53
+    print(f"  clicking emoji tool at ({btn_x},{btn_y})")
+    pyautogui.click(btn_x, btn_y)
+    time.sleep(1)
+    shot("05-emoji-picker")
+    # first emoji cell is roughly under the button
+    pyautogui.click(btn_x - 8, btn_y + 46)
+    time.sleep(0.6)
+    shot("06-emoji-selected")
+    # place it on the canvas
+    pyautogui.click(ed.left + ed.width // 2, ed.top + ed.height // 2)
+    time.sleep(0.8)
+    shot("07-emoji-placed")
+except Exception as e:
+    print(f"  emoji step raised {e!r}")
+
+print("\nDONE")
