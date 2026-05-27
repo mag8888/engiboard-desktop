@@ -149,7 +149,7 @@ fn show_main(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn open_editor_with_image(
+async fn open_editor_with_image(
     app: tauri::AppHandle,
     data_url: String,
     annotations: Option<serde_json::Value>,
