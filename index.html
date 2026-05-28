@@ -546,7 +546,8 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 }
 .list.cv-list .chat-list{max-height:none;overflow:auto}
 .list.cv-list .nt-chat-input{display:none}
-.list.cv-list .chat-row-actions-r2{display:none}
+.list.cv-list .chat-row-actions{flex-direction:row;flex-wrap:wrap;gap:6px;align-items:center}
+.list.cv-list .chat-row-actions-r2{display:flex}
 .list.cv-list .pi-lbl{display:none}        /* no BEFORE/AFTER labels in list mode */
 
 /* EXPANDED — large card: wider chat + big pics */
@@ -6628,11 +6629,18 @@ function setAssignee(taskId, name){
 function showTaskMenu(e, taskId){
   e.preventDefault();
   e.stopPropagation();
-  document.getElementById('_ebTaskMenu')?.remove();
+  // Toggle: if a menu is already open for this same task, close and return.
+  const existing = document.getElementById('_ebTaskMenu');
+  if(existing){
+    const wasForSameTask = existing.dataset.taskId === String(taskId);
+    existing.remove();
+    if(wasForSameTask) return;
+  }
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   const menu = document.createElement('div');
   menu.id = '_ebTaskMenu';
+  menu.dataset.taskId = String(taskId);
   menu.className = 'task-ctx-menu';
   menu.innerHTML = `
     <div class="tcm-item" onclick="taskMenuInfo('${taskId}')">${ICON_INFO} Task info</div>
