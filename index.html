@@ -1936,8 +1936,10 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <div class="proj-members-h"><span>Members</span><span class="ct" id="ppMembersCt">0</span></div>
           <div class="proj-members-list" id="ppMembersList"></div>
           <div class="proj-invite-row">
-            <input type="email" id="ppInviteEmail" placeholder="employee@email.com — instant access" onkeydown="if(event.key==='Enter') inviteToCurrentProject()">
-            <button id="ppInviteBtn" onclick="inviteToCurrentProject()">Add</button>
+            <select id="ppMemberPicker" style="flex:1;border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;font-size:12px;background:var(--surf);color:var(--t1)">
+              <option value="">Select a user to add…</option>
+            </select>
+            <button id="ppInviteBtn" onclick="addMemberFromPicker()">Add</button>
           </div>
         </div>
       </div>
@@ -6200,33 +6202,120 @@ function getCurrentProjectMembers(){
   return proj;
 }
 
+function _ebEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// Cloud-aware members panel: lists project_members + profiles, and the picker
+// is populated with all registered users not yet in the project. Falls back to
+// the legacy local-only model when no cloud session.
 function renderProjMembers(){
   const wrap = document.getElementById('ppMembers');
   const list = document.getElementById('ppMembersList');
   const ct = document.getElementById('ppMembersCt');
   if(!wrap || !list) return;
   const proj = getCurrentProjectMembers();
-  if(!proj){
-    // 'All projects' or invalid — hide section
-    wrap.style.display = 'none';
-    return;
-  }
+  if(!proj){ wrap.style.display = 'none'; return; }
   wrap.style.display = '';
-  // Header includes project name + count
-  const me = localStorage.getItem('eb_account') || 'demo@engiboard.app';
-  const allMembers = [{ email: me, role: 'owner' }, ...proj.members.map(em => ({ email: em, role: 'member' }))];
-  ct.textContent = `${allMembers.length} · ${proj.name}`;
+  if(db && db.ready && proj._cloud){
+    _renderMembersCloud(proj);
+  } else {
+    _renderMembersLocal(proj);
+  }
+}
 
-  list.innerHTML = allMembers.map(m => {
-    const initials = m.email.split('@')[0].slice(0,2).toUpperCase();
-    const roleLabel = m.role === 'owner' ? 'Owner' : 'Member';
+async function _renderMembersCloud(proj){
+  const list = document.getElementById('ppMembersList');
+  const ct   = document.getElementById('ppMembersCt');
+  const pk   = document.getElementById('ppMemberPicker');
+  try {
+    const { data: members, error: em } = await sb
+      .from('project_members')
+      .select('user_id, role, profiles:user_id(email, full_name)')
+      .eq('project_id', proj.id);
+    if(em) throw em;
+    ct.textContent = `${(members||[]).length} · ${proj.name}`;
+    list.innerHTML = (members||[]).map(m => {
+      const p = m.profiles || {};
+      const display = p.full_name || p.email || m.user_id;
+      const initials = (p.full_name||p.email||'??').split(/[\s@]/)[0].slice(0,2).toUpperCase();
+      const isOwner = m.role === 'owner' || m.role === 'admin';
+      return `<div class="proj-member">
+        <span class="av">${_ebEsc(initials)}</span>
+        <span class="em">${_ebEsc(display)}</span>
+        <span class="role">${_ebEsc(m.role||'member')}</span>
+        ${isOwner ? '' : `<button class="rm" onclick="removeProjMemberCloud('${_ebEsc(m.user_id)}')" title="Remove">×</button>`}
+      </div>`;
+    }).join('') || `<div style="padding:8px;color:var(--t4);font-size:11px">No members yet — add someone below.</div>`;
+
+    if(pk){
+      pk.disabled = false;
+      const memberIds = new Set((members||[]).map(m => m.user_id));
+      const { data: profiles, error: ep } = await sb
+        .from('profiles').select('id, email, full_name').order('email');
+      if(ep) throw ep;
+      const choices = (profiles||[]).filter(p => !memberIds.has(p.id));
+      pk.innerHTML = '<option value="">Select a user to add…</option>' +
+        choices.map(p => {
+          const label = (p.full_name ? p.full_name + ' — ' : '') + (p.email||'');
+          return `<option value="${_ebEsc(p.id)}">${_ebEsc(label)}</option>`;
+        }).join('');
+    }
+  } catch(e){
+    list.innerHTML = `<div style="padding:8px;color:var(--t4);font-size:11px">Could not load members: ${_ebEsc(e.message||e)}</div>`;
+  }
+}
+
+function _renderMembersLocal(proj){
+  const list = document.getElementById('ppMembersList');
+  const ct   = document.getElementById('ppMembersCt');
+  const pk   = document.getElementById('ppMemberPicker');
+  if(!Array.isArray(proj.members)) proj.members = [];
+  const me = localStorage.getItem('eb_account') || 'demo@engiboard.app';
+  const all = [{ email: me, role: 'owner' }, ...proj.members.map(em => ({ email: em, role: 'member' }))];
+  ct.textContent = `${all.length} · ${proj.name}`;
+  list.innerHTML = all.map(m => {
+    const initials = (m.email||'??').split('@')[0].slice(0,2).toUpperCase();
     return `<div class="proj-member">
-      <span class="av">${initials}</span>
-      <span class="em">${m.email}</span>
-      <span class="role">${roleLabel}</span>
-      ${m.role === 'owner' ? '' : `<button class="rm" onclick="removeProjMember('${m.email.replace(/'/g,"\\'")}')" title="Remove member">×</button>`}
+      <span class="av">${_ebEsc(initials)}</span>
+      <span class="em">${_ebEsc(m.email)}</span>
+      <span class="role">${m.role==='owner'?'Owner':'Member'}</span>
+      ${m.role==='owner'?'':`<button class="rm" onclick="removeProjMember('${_ebEsc(m.email)}')" title="Remove">×</button>`}
     </div>`;
   }).join('');
+  if(pk){
+    pk.innerHTML = '<option value="">Sign in to pick a registered user…</option>';
+    pk.disabled = true;
+  }
+}
+
+async function addMemberFromPicker(){
+  const pk = document.getElementById('ppMemberPicker');
+  const uid = pk && pk.value;
+  if(!uid) return toast('Pick a user from the list first');
+  const proj = getCurrentProjectMembers();
+  if(!proj) return toast('Pick a project first');
+  if(!db || !db.ready) return toast('Sign in to add members');
+  try {
+    const { error } = await sb.from('project_members')
+      .insert({ project_id: proj.id, user_id: uid, role: 'engineer' });
+    if(error){
+      if(error.code === '23505') return toast('Already a member');
+      throw error;
+    }
+    toast('Member added');
+    renderProjMembers();
+  } catch(e){ toast('Add failed: ' + (e.message||e)); }
+}
+
+async function removeProjMemberCloud(userId){
+  const proj = getCurrentProjectMembers();
+  if(!proj || !db || !db.ready) return;
+  try {
+    const { error } = await sb.from('project_members').delete()
+      .eq('project_id', proj.id).eq('user_id', userId);
+    if(error) throw error;
+    toast('Removed');
+    renderProjMembers();
+  } catch(e){ toast('Remove failed: ' + (e.message||e)); }
 }
 
 // v0.1.87: old local-only inviteByEmail removed — was shadowing the cloud
@@ -6604,6 +6693,7 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="taskMenuInfo('${taskId}')">${ICON_INFO} Task info</div>
     <div class="tcm-item" onclick="taskMenuHistory('${taskId}')">${ICON_HISTORY} History</div>
     <div class="tcm-item" onclick="taskMenuCopy('${taskId}')">${ICON_COPY} Copy text</div>
+    <div class="tcm-item" onclick="taskMenuCopyPublicLink('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy public link</div>
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
     <div class="tcm-sep"></div>
     <div class="tcm-item danger" onclick="taskMenuDelete('${taskId}')">${ICON_TRASH} Delete</div>`;
@@ -6654,6 +6744,24 @@ function taskMenuDuplicate(taskId){
   }
   render(); updateHeader();
   toast('✓ Task duplicated');
+}
+// Copy a read-only public URL to the task. Requires the task to be in the
+// cloud (so it has a public_token). Uses the GitHub Pages base; falls back
+// to the document origin in case the app is opened from another host.
+const PUBLIC_BASE = 'https://mag8888.github.io/engiboard-desktop';
+async function taskMenuCopyPublicLink(taskId){
+  document.getElementById('_ebTaskMenu')?.remove();
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if(!db || !db.ready) return toast('Sign in to share a task link');
+  if(!t._cloud) return toast('Save the task to the cloud first (it will sync once signed in)');
+  try {
+    const { data, error } = await sb.from('tasks').select('public_token').eq('id', t.id).maybeSingle();
+    if(error || !data || !data.public_token) return toast('Could not get share token');
+    const url = `${PUBLIC_BASE}/task?t=${data.public_token}`;
+    try { await navigator.clipboard.writeText(url); } catch(_){}
+    toast('Public link copied to clipboard');
+  } catch(e){ toast('Share failed: ' + (e.message || e)); }
 }
 function taskMenuCopy(taskId){
   document.getElementById('_ebTaskMenu')?.remove();

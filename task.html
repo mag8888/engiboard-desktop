@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EngiBoard — Shared task</title>
+<style>
+  :root{--bg:#F8FAFC;--surf:#fff;--line:#E2E8F0;--t1:#0F172A;--t2:#334155;--t3:#64748B;--t4:#94A3B8;--acc:#0EA5E9}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--t1);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  .topbar{background:var(--surf);border-bottom:1px solid var(--line);padding:10px 24px;display:flex;align-items:center;gap:10px}
+  .mark{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#38BDF8,#0EA5E9);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .brand{font-weight:600;color:var(--t2)}
+  .tag{margin-left:auto;font-size:11px;color:var(--t4);font-family:ui-monospace,monospace;background:#EFF6FF;color:#0369A1;padding:3px 8px;border-radius:6px}
+  .wrap{max-width:1100px;margin:30px auto;padding:0 24px}
+  .card{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  h1{margin:4px 0 6px;font-size:24px;font-weight:700;letter-spacing:-.01em}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--t3);margin-bottom:14px}
+  .pill{background:#F1F5F9;color:var(--t2);padding:3px 10px;border-radius:999px;font-weight:600;font-size:11px;letter-spacing:.02em}
+  .pill-st{background:rgba(14,165,233,.12);color:#0369A1}
+  .desc{font-size:14px;color:var(--t2);white-space:pre-wrap;margin:14px 0 6px}
+  .imgs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  @media (max-width:700px){.imgs{grid-template-columns:1fr}}
+  .slot{background:#0F172A;border-radius:10px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+  .slot img{width:100%;height:100%;object-fit:contain}
+  .slot .lbl{position:absolute;top:10px;left:10px;background:rgba(15,23,42,.7);color:#fff;padding:3px 9px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.06em;z-index:2}
+  .slot .empty{color:#475569;font-size:12px}
+  .checklist{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .checklist h3{font-size:12px;font-weight:700;color:var(--t3);letter-spacing:.06em;margin:0 0 8px;text-transform:uppercase}
+  .checklist .row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:var(--t2)}
+  .checklist .row.done{text-decoration:line-through;color:var(--t4)}
+  .checklist .box{width:14px;height:14px;border:1.5px solid var(--line);border-radius:3px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff}
+  .checklist .row.done .box{background:#22C55E;border-color:#22C55E}
+  .err,.empty-state{padding:60px 30px;text-align:center;color:var(--t3)}
+  .err h2{color:var(--t1);font-weight:600;margin:0 0 6px;font-size:18px}
+  .foot{margin:24px 0 60px;text-align:center;color:var(--t4);font-size:11px}
+  .foot a{color:var(--t3);text-decoration:none;border-bottom:1px dashed var(--line)}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="mark">E</div>
+  <div class="brand">EngiBoard</div>
+  <div class="tag">SHARED VIEW · READ-ONLY</div>
+</div>
+
+<div id="root" class="wrap">
+  <div class="card empty-state">Loading shared task…</div>
+</div>
+
+<div class="foot">Powered by <a href="https://github.com/mag8888/engiboard-desktop" target="_blank" rel="noopener">EngiBoard</a></div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://gselxucvcomqlfyogidz.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_aQQe78hYSZThsOSlJ9e7eQ_BDO5_bWo';
+
+function token(){
+  const u = new URL(location.href);
+  return u.searchParams.get('t');
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderError(msg){
+  document.getElementById('root').innerHTML =
+    `<div class="card err"><h2>Task not available</h2><div>${escapeHtml(msg)}</div></div>`;
+}
+
+function renderTask(t){
+  const projectLine = [t.project_code, t.project_title].filter(Boolean).join(' · ');
+  const status = t.status || (t.desktop_status != null ? ('status #' + t.desktop_status) : '');
+  const checklist = Array.isArray(t.checklist) ? t.checklist : [];
+  const slot = (label, src) => `
+    <div class="slot">
+      <span class="lbl">${label}</span>
+      ${src ? `<img src="${escapeHtml(src)}" alt="">` : `<span class="empty">No ${label.toLowerCase()} yet</span>`}
+    </div>`;
+  document.getElementById('root').innerHTML = `
+    <div class="card">
+      <div class="meta">
+        ${projectLine ? `<span class="pill">${escapeHtml(projectLine)}</span>` : ''}
+        ${status ? `<span class="pill pill-st">${escapeHtml(status)}</span>` : ''}
+        ${t.updated_at ? `<span>Updated ${new Date(t.updated_at).toLocaleString()}</span>` : ''}
+      </div>
+      <h1>${escapeHtml(t.title || 'Untitled task')}</h1>
+      ${t.description ? `<div class="desc">${escapeHtml(t.description)}</div>` : ''}
+      <div class="imgs">${slot('BEFORE', t.shot1_url)}${slot('AFTER', t.shot2_url)}</div>
+      ${checklist.length ? `<div class="checklist"><h3>Checklist</h3>${
+        checklist.map(it => {
+          const done = !!(it.done || it.checked);
+          return `<div class="row${done?' done':''}"><span class="box">${done?'✔':''}</span>${escapeHtml(it.text||it.label||'')}</div>`;
+        }).join('')
+      }</div>` : ''}
+    </div>`;
+  document.title = (t.title || 'Task') + ' · EngiBoard';
+}
+
+(async function(){
+  const tok = token();
+  if(!tok) return renderError('No share token in the URL. Ask the project admin for a fresh link.');
+  if(!window.supabase || typeof window.supabase.createClient !== 'function')
+    return renderError('Could not load Supabase client. Check your internet connection.');
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  try {
+    const { data, error } = await sb.rpc('get_task_by_token', { p_token: tok });
+    if(error) return renderError(error.message || 'Database error.');
+    const row = Array.isArray(data) ? data[0] : data;
+    if(!row) return renderError('This link is no longer valid — the task may have been deleted or the token revoked.');
+    renderTask(row);
+  } catch(e){
+    renderError(String(e.message || e));
+  }
+})();
+</script>
+</body>
+</html>
