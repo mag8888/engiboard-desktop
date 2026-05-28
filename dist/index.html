@@ -1254,7 +1254,7 @@ body.sb-collapsed #chatPop{left:54px}
 }
 #compare.on{display:flex}
 .cmp-card{
-  background:var(--surf);border-radius:14px;width:90vw;max-width:1280px;max-height:88vh;
+  background:var(--surf);border-radius:14px;width:90vw;max-width:1280px;height:80vh;
   display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5);
   overflow:hidden
 }
@@ -1268,45 +1268,30 @@ body.sb-collapsed #chatPop{left:54px}
   padding:4px 10px;border-radius:6px;line-height:1
 }
 .cmp-head .cmp-x:hover{background:rgba(15,23,42,.06);color:var(--t1)}
+/* v0.1.137: Compare uses two side-by-side panes (same look as Presentation):
+   each pane fits the image with object-fit:contain — no cropping, no overlap. */
 .cmp-stage{
-  position:relative;flex:1;background:#0f172a;
-  overflow:hidden;user-select:none;cursor:ew-resize;
-  min-height:300px
+  flex:1;display:grid;grid-template-columns:1fr 1fr;gap:18px;
+  padding:18px 22px;background:var(--bg);
+  min-height:0;overflow:hidden
 }
-.ci-before, .cmp-stage .ci-after{
-  position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;
-  pointer-events:none
+.cmp-pane{
+  background:#e9edf2;border:1px solid var(--line-2);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;min-height:0;overflow:hidden
 }
-.ci-after-clip{
-  position:absolute;top:0;bottom:0;left:0;overflow:hidden;
-  pointer-events:none
+body.dark-mode .cmp-pane{ background:#1e2531 }
+.cmp-pane img{width:100%;height:100%;object-fit:contain;box-shadow:0 2px 16px rgba(0,0,0,.18)}
+.cmp-pane .cmp-lbl{
+  position:absolute;top:12px;left:12px;background:rgba(15,23,42,.7);color:#fff;
+  padding:4px 10px;border-radius:4px;font-family:var(--mono);font-size:10px;
+  font-weight:700;letter-spacing:.1em;z-index:2
 }
-.ci-after-clip .ci-after{
-  position:absolute;left:0;top:0;width:auto;min-width:100vw;height:100%;
-  /* the inner img is sized so the visible portion lines up with the BEFORE behind it */
-}
-.ci-handle{
-  position:absolute;top:0;bottom:0;width:40px;
-  transform:translateX(-50%);cursor:ew-resize;z-index:5;
-  display:flex;align-items:center;justify-content:center
-}
-.ci-line{
-  position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);
-  width:3px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4)
-}
-.ci-grip{
-  position:relative;width:40px;height:40px;border-radius:50%;background:#fff;color:#0f172a;
-  display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
-  box-shadow:0 4px 12px rgba(0,0,0,.5);cursor:grab
-}
-.ci-grip:active{cursor:grabbing}
-.ci-lbl-before, .ci-lbl-after{
-  position:absolute;top:14px;font-family:var(--mono);font-size:10px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;color:#fff;
-  background:rgba(15,23,42,.7);padding:5px 12px;border-radius:5px;z-index:3;pointer-events:none
-}
-.ci-lbl-before{left:14px}
-.ci-lbl-after{right:14px}
+.cmp-pane .cmp-empty{position:absolute;color:var(--t3);font-size:13px}
+.cmp-pane img[src=""],.cmp-pane img:not([src]){display:none}
+.cmp-pane img[src=""] + .cmp-empty,
+.cmp-pane img:not([src]) + .cmp-empty{display:block}
+.cmp-pane img[src]:not([src=""]) ~ .cmp-empty{display:none}
 
 /* Presentation */
 #present{
@@ -2131,24 +2116,25 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <!-- PRESENT -->
 <div id="present"><div class="pres-card" id="presCard"></div></div>
 
-<!-- v0.1.31: Compare modal (BEFORE vs AFTER wipe slider) -->
+<!-- v0.1.137: Compare modal — side-by-side BEFORE/AFTER like Presentation,
+     no wipe (cleaner, no overlap issues, images sized by object-fit:contain). -->
 <div id="compare">
   <div class="cmp-card">
     <div class="cmp-head">
       <h3 id="cmpTitle">Compare</h3>
-      <span class="cmp-meta" id="cmpMeta">drag the slider to wipe</span>
+      <span class="cmp-meta" id="cmpMeta"></span>
       <button class="cmp-x" onclick="closeCompare()" title="Close (Esc)">×</button>
     </div>
     <div class="cmp-stage" id="cmpStage">
-      <span class="ci-lbl-before" data-t="col.before">BEFORE</span>
-      <span class="ci-lbl-after" data-t="col.after">AFTER</span>
-      <img class="ci-before" id="ciBefore" alt="">
-      <div class="ci-after-clip" id="ciAfterClip">
-        <img class="ci-after" id="ciAfter" alt="">
+      <div class="cmp-pane">
+        <span class="cmp-lbl" data-t="col.before">BEFORE</span>
+        <img id="ciBefore" alt="">
+        <span class="cmp-empty" id="ciBeforeEmpty">No before yet</span>
       </div>
-      <div class="ci-handle" id="ciHandle">
-        <div class="ci-line"></div>
-        <div class="ci-grip">⇄</div>
+      <div class="cmp-pane">
+        <span class="cmp-lbl" data-t="col.after">AFTER</span>
+        <img id="ciAfter" alt="">
+        <span class="cmp-empty" id="ciAfterEmpty">No after yet</span>
       </div>
     </div>
   </div>
@@ -6395,68 +6381,27 @@ function saveTaskNotes(taskId, notes){
   if(t) t.notes = (notes || '').trim();
 }
 
-// v0.1.31: Compare modal — BEFORE vs AFTER with wipe slider
-let _cmpDrag = false;
+// v0.1.137: Compare modal — side-by-side BEFORE/AFTER, identical look to
+// Presentation (object-fit:contain in each pane, no wipe slider).
 function openCompare(taskId){
-  // v0.1.55: gate removed — compare is part of the full feature set now.
   const t = TASKS.find(x => x.id === taskId);
-  if(!t || !t.shot1 || !t.shot2){
-    toast('Need both BEFORE and AFTER screenshots to compare');
+  if(!t || (!t.shot1 && !t.shot2)){
+    toast('Need at least one screenshot to compare');
     return;
   }
   document.getElementById('cmpTitle').textContent = t.title || t.n || 'Compare';
-  const ciBefore = document.getElementById('ciBefore');
-  const ciAfter  = document.getElementById('ciAfter');
-  ciBefore.src = t.shot1; ciBefore.style.display = '';
-  ciAfter.src  = t.shot2; ciAfter.style.display  = '';
-  // Sync clip width with stage width: after image renders the same size as before, then we clip
-  setTimeout(() => {
-    const stage = document.getElementById('cmpStage');
-    const afterImg = document.getElementById('ciAfter');
-    if(stage && afterImg){
-      afterImg.style.width = stage.clientWidth + 'px';
-    }
-    setComparePos(50);
-  }, 30);
+  const b = document.getElementById('ciBefore');
+  const a = document.getElementById('ciAfter');
+  // override the global img guard (which set display:none for empty src)
+  if(t.shot1){ b.src = t.shot1; b.style.display = ''; }
+  else { b.removeAttribute('src'); b.style.display = 'none'; }
+  if(t.shot2){ a.src = t.shot2; a.style.display = ''; }
+  else { a.removeAttribute('src'); a.style.display = 'none'; }
   document.getElementById('compare').classList.add('on');
 }
 function closeCompare(){
   document.getElementById('compare').classList.remove('on');
-  _cmpDrag = false;
 }
-function setComparePos(pct){
-  pct = Math.max(0, Math.min(100, pct));
-  const clip = document.getElementById('ciAfterClip');
-  const handle = document.getElementById('ciHandle');
-  if(clip) clip.style.width = pct + '%';
-  if(handle) handle.style.left = pct + '%';
-}
-// Drag handlers on the stage — drag anywhere wipes
-(function setupCmpDrag(){
-  const stage = document.getElementById('cmpStage');
-  if(!stage){ setTimeout(setupCmpDrag, 200); return; }
-  const onMove = (clientX) => {
-    const r = stage.getBoundingClientRect();
-    const pct = ((clientX - r.left) / r.width) * 100;
-    setComparePos(pct);
-  };
-  stage.addEventListener('mousedown', e => { _cmpDrag = true; onMove(e.clientX); e.preventDefault(); });
-  document.addEventListener('mousemove', e => { if(_cmpDrag) onMove(e.clientX); });
-  document.addEventListener('mouseup', () => { _cmpDrag = false; });
-  // Also support touch on macOS trackpad / windows touch
-  stage.addEventListener('touchstart', e => { _cmpDrag = true; if(e.touches[0]) onMove(e.touches[0].clientX); });
-  document.addEventListener('touchmove', e => { if(_cmpDrag && e.touches[0]) onMove(e.touches[0].clientX); });
-  document.addEventListener('touchend', () => { _cmpDrag = false; });
-  // Resize observer to keep .ci-after sized correctly
-  if(window.ResizeObserver){
-    new ResizeObserver(() => {
-      const afterImg = document.getElementById('ciAfter');
-      if(afterImg && document.getElementById('compare').classList.contains('on')){
-        afterImg.style.width = stage.clientWidth + 'px';
-      }
-    }).observe(stage);
-  }
-})();
 
 // v0.1.33: inline chat send from task row — keeps last 8 in DOM, scrolls to bottom
 // ━━━ EMOJI PICKER (v0.1.111) ━━━
