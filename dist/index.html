@@ -1612,19 +1612,17 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .body[data-hidden="1"]{display:none}
 
 /* Tasks view: project group bar */
-/* Week-folder header inside a single project: collapsible group per task week. */
-.week-hdr{display:flex;align-items:center;gap:10px;padding:8px 14px;margin:14px 0 6px;
-  background:linear-gradient(90deg,rgba(14,165,233,.08),transparent);
-  border-left:3px solid #0EA5E9;border-radius:6px;cursor:pointer;
-  font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--t2);
-  user-select:none;transition:background .12s}
-.week-hdr:hover{background:linear-gradient(90deg,rgba(14,165,233,.14),transparent)}
-.week-hdr.collapsed{opacity:.75}
-.week-hdr .week-caret{font-size:10px;color:#0EA5E9;flex-shrink:0}
-.week-hdr .week-name{flex:1}
-.week-hdr .week-ct{background:rgba(14,165,233,.15);color:#0369A1;
-  padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700}
-body.dark-mode .week-hdr{background:linear-gradient(90deg,rgba(14,165,233,.18),transparent)}
+/* Week-folder header inside a single project: collapsible group per task
+   week. v0.1.143: flat / no chrome — saves vertical space, reads as a
+   small mono label rather than a banner. */
+.week-hdr{display:flex;align-items:center;gap:8px;padding:2px 4px;margin:0;
+  cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;
+  letter-spacing:.04em;color:var(--t3);user-select:none}
+.week-hdr:hover{color:var(--t1)}
+.week-hdr.collapsed{opacity:.7}
+.week-hdr .week-caret{font-size:9px;color:var(--t3);flex-shrink:0;width:8px}
+.week-hdr .week-name{flex:0 0 auto}
+.week-hdr .week-ct{color:var(--t3);font-size:10px;font-weight:500}
 .proj-group{margin:6px 0}
 .proj-group-head{
   display:flex;align-items:center;gap:10px;padding:9px 28px;background:var(--surf);
