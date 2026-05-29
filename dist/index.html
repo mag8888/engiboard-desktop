@@ -1615,9 +1615,10 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 /* Week-folder header inside a single project: collapsible group per task
    week. v0.1.143: flat / no chrome — saves vertical space, reads as a
    small mono label rather than a banner. */
-.week-hdr{display:flex;align-items:center;gap:8px;padding:2px 4px;margin:0;
+.week-hdr{display:flex;align-items:center;gap:8px;padding:2px 4px;margin:16px 0 0;
   cursor:pointer;font-family:var(--mono);font-size:11px;font-weight:600;
   letter-spacing:.04em;color:var(--t3);user-select:none}
+.week-hdr:first-child{margin-top:0}
 .week-hdr:hover{color:var(--t1)}
 .week-hdr.collapsed{opacity:.7}
 .week-hdr .week-caret{font-size:9px;color:var(--t3);flex-shrink:0;width:8px}
