@@ -265,6 +265,13 @@ body.sb-collapsed .brand{width:auto;padding-right:18px}
 .pm-pill.stat{color:var(--t4);font-family:var(--mono)}
 .pm-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4);padding:8px 12px 4px}
 .pm-empty{padding:8px 12px;font-size:12px;color:var(--t4);font-style:italic}
+/* Role-based UI gating: hide create/manage controls for non-eligible roles. */
+body.eb-not-admin .pm-add,
+body.eb-not-admin .dproj.add-new,
+body.eb-not-admin .es-zero .dbtn{display:none !important}
+body.eb-not-lead-or-admin .eb-needs-lead{display:none !important}
+body.eb-not-lead-or-admin .tc-status,
+body.eb-not-lead-or-admin .pres-status{pointer-events:none !important;opacity:.65}
 .pm-add{
   padding:9px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;
   color:var(--acc);border-top:1px solid var(--line);margin-top:4px;text-align:center
@@ -2490,48 +2497,56 @@ function loginDemo(){
   toast('Demo · 24 tasks loaded');
 }
 // Google sign-in shortcut. Real Google OAuth needs the Supabase provider
-// configured; until that's done we use a pragmatic flow: ask for the email,
-// derive a deterministic password (so the same Google email logs into the
-// same cloud account next time on any machine), sign in via Supabase, or
-// sign up if first time. Marks the user as ADMIN locally and in the cloud
-// profile (RLS allows updating own row), so they can add team members.
+// configured; until that's wired up server-side we use a pragmatic bridge:
+// ask for the email, derive a deterministic password from it, sign in via
+// Supabase or sign up if first time. Role comes from the cloud profile
+// (defaults to engineer; admins are promoted manually by the system owner).
 async function loginGoogle(){
   const email = (prompt('Sign in with your Google email:', localStorage.getItem('eb_account') || 'you@gmail.com') || '').trim().toLowerCase();
   if(!email || !email.includes('@')) return;
-
-  // Deterministic password: scheme + email. Lets the same email sign in from
-  // any machine without separate sharing. Not as secure as real OAuth, but a
-  // working bridge until the Google provider is wired up server-side.
   const pw = 'EngiBoard_AutoPw_2026_v1::' + email;
-
   if(!sb || !window.supabase){
-    // No Supabase client — fall back to local-only login (e.g. truly offline).
-    localStorage.setItem('eb_user_role', 'admin');
     completeLogin(email, false);
     toast('Signed in locally (offline mode)');
     return;
   }
-
   try {
     let r = await sb.auth.signInWithPassword({ email, password: pw });
     if(r.error){
-      // Not registered yet — sign up. (Email confirmation is off, so this
-      // logs the user in immediately.)
       const su = await sb.auth.signUp({ email, password: pw });
       if(su.error) throw su.error;
       r = su;
     }
-    const uid = r.data?.user?.id || r.data?.session?.user?.id;
-    localStorage.setItem('eb_user_role', 'admin');
-    // Mark them admin in the cloud profile so other RLS checks see it too.
-    if(uid){
-      try { await sb.from('profiles').update({ role: 'admin' }).eq('id', uid); } catch(_){}
-    }
+    await refreshCloudRole();
     completeLogin(email, true);
-    toast('Signed in as admin · ' + email);
+    toast('Signed in · ' + email);
   } catch(e){
     toast('Sign-in failed: ' + (e.message || e));
   }
+}
+
+// Read the current user's role from the cloud profiles row and mirror it into
+// localStorage so the frontend can gate UI without a roundtrip on each render.
+async function refreshCloudRole(){
+  if(!sb || !window.supabase) return null;
+  try {
+    const { data: u } = await sb.auth.getUser();
+    const uid = u && u.user && u.user.id;
+    if(!uid) return null;
+    const { data } = await sb.from('profiles').select('role').eq('id', uid).maybeSingle();
+    const role = (data && data.role) || 'engineer';
+    localStorage.setItem('eb_user_role', role);
+    return role;
+  } catch(e){ console.warn('refreshCloudRole failed', e); return null; }
+}
+
+// Tiny helper to check the current user's global role (admin/lead/engineer).
+function isAdmin(){ return (localStorage.getItem('eb_user_role')||'').toLowerCase() === 'admin'; }
+function isLeadOrAdmin(){ const r=(localStorage.getItem('eb_user_role')||'').toLowerCase(); return r==='admin'||r==='lead'; }
+// Add body classes that drive CSS-based gating of UI surfaces.
+function applyRoleGates(){
+  document.body.classList.toggle('eb-not-admin', !isAdmin());
+  document.body.classList.toggle('eb-not-lead-or-admin', !isLeadOrAdmin());
 }
 
 
@@ -2583,19 +2598,23 @@ async function loginEmail(email, password){
     return;
   }
   const data = await db.auth.signInWithPassword(email, password);
+  // Role comes from the cloud profile (admins are promoted manually by the
+  // system owner — the signup-time role picker is now ignored on the server).
+  await refreshCloudRole();
   completeLogin(data.user.email, false);
 }
 
 async function signUpEmail(email, password, role){
   if(!db || !db.ready){
-    localStorage.setItem('eb_user_role', role);
+    localStorage.setItem('eb_user_role', 'engineer');
     completeLogin(email, false);
     toast('Account created (offline — will sync when connected)');
     return;
   }
   const data = await db.auth.signUp(email, password);
-  localStorage.setItem('eb_user_role', role);
-  toast('✓ Account created — check your email to confirm');
+  // New cloud users always start as engineer; admin promotes from the Profile panel.
+  localStorage.setItem('eb_user_role', 'engineer');
+  toast('Account created · default role: engineer (admin can promote you)');
   completeLogin(data.user.email, false);
 }
 
@@ -2728,7 +2747,8 @@ function completeLogin(email, fromOAuth){
   // rows. If cloud is empty the local demo/work stays intact.
   localStorage.setItem('eb_account', email);
   showApp();
-  toast(fromOAuth ? '✓ Signed in with Google' : 'Welcome, ' + email.split('@')[0]);
+  try { applyRoleGates(); } catch(_){}
+  toast(fromOAuth ? 'Signed in · ' + email : 'Welcome, ' + email.split('@')[0]);
 }
 function logout(){
   localStorage.removeItem('eb_account');
@@ -3347,6 +3367,9 @@ function formatWeek(dateStr){
 async function showApp(){
   document.getElementById('LP').classList.add('hide');
   document.getElementById('APP').classList.add('on');
+  // Pull the user's role from the cloud profile so UI gates stay correct
+  // across page reloads (don't await — render proceeds with cached role).
+  try { refreshCloudRole().then(() => { try { applyRoleGates(); } catch(_){} }); } catch(_){}
   // v0.1.117: restore locally-archived project flags
   try {
     const archSet = getArchivedSet();
@@ -4367,7 +4390,7 @@ window.addEventListener('message', ev => {
 function renderEmptyRow(){
   const nextUid = nextTaskUid(currentProject);
   // v0.1.46: chat-col first (matches new column order)
-  return `<div class="row empty" data-task-id="new" style="min-height:64px">
+  return `<div class="row empty eb-needs-lead" data-task-id="new" style="min-height:64px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
@@ -4381,7 +4404,7 @@ function renderEmptyRowForProject(projId){
   // v0.1.75: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
   // JS binding (it could be missed if render order changed, leaving Enter
   // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
-  return `<div class="row empty" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
+  return `<div class="row empty eb-needs-lead" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"
@@ -6122,6 +6145,13 @@ function renderProfileSection(){
         <button class="profile-action" onclick="saveCustomStatuses()">Save</button>
         <button class="profile-action" onclick="resetCustomStatuses()">Reset to default</button>
       </div>
+    </div>
+    <div class="profile-card">
+      <div class="profile-card-h">Team roles · Admin</div>
+      <div style="font-size:11px;color:var(--t4);margin-bottom:10px">Promote teammates to Lead (can create tasks) or Admin (can create projects + manage team). Demotion is allowed too.</div>
+      <div id="teamRolesList" style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)">
+        <div style="color:var(--t4);font-style:italic">Loading registered users…</div>
+      </div>
     </div>` : ''}
 
     <div class="profile-card">
@@ -6143,6 +6173,47 @@ function renderProfileSection(){
   // v0.1.64
   if(typeof loadProjectMembers === 'function') loadProjectMembers();
   if(typeof loadPendingInvites === 'function') loadPendingInvites();
+  if(typeof renderTeamRolesPanel === 'function') renderTeamRolesPanel();
+}
+
+// Admin-only team-roles panel: list every registered profile and let admin
+// promote/demote between engineer / lead / admin (RLS enforces the change).
+async function renderTeamRolesPanel(){
+  const box = document.getElementById('teamRolesList');
+  if(!box) return;
+  if(!isAdmin() || !sb){ box.innerHTML = ''; return; }
+  try {
+    const { data: profiles, error } = await sb.from('profiles')
+      .select('id, email, full_name, role').order('email');
+    if(error) throw error;
+    const { data: me } = await sb.auth.getUser();
+    const myId = me && me.user && me.user.id;
+    const rows = (profiles||[]).map(p => {
+      const isSelf = p.id === myId;
+      const name = p.full_name || p.email || p.id;
+      const sel = `<select onchange="setUserRole('${p.id}', this.value)" ${isSelf ? 'disabled' : ''} style="border:1px solid var(--line-2);border-radius:6px;padding:4px 8px;font-size:12px;background:var(--surf);color:var(--t1)">
+        <option value="engineer" ${p.role==='engineer'?'selected':''}>Engineer</option>
+        <option value="lead"     ${p.role==='lead'    ?'selected':''}>Lead</option>
+        <option value="admin"    ${p.role==='admin'   ?'selected':''}>Admin</option>
+      </select>`;
+      return `<div style="display:flex;align-items:center;gap:10px">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_ebEsc(name)}${isSelf?' (you)':''}</span>
+        ${sel}
+      </div>`;
+    });
+    box.innerHTML = rows.join('') || '<div style="color:var(--t4);font-style:italic">No registered users yet</div>';
+  } catch(e){
+    box.innerHTML = `<div style="color:var(--t4)">Could not load users: ${_ebEsc(e.message||e)}</div>`;
+  }
+}
+async function setUserRole(uid, role){
+  if(!isAdmin() || !sb) return toast('Only admin can change roles');
+  if(!['engineer','lead','admin'].includes(role)) return;
+  try {
+    const { error } = await sb.from('profiles').update({ role }).eq('id', uid);
+    if(error) throw error;
+    toast('Role updated to ' + role);
+  } catch(e){ toast('Update failed: ' + (e.message||e)); }
 }
 
 function updateSidebarCounts(){
