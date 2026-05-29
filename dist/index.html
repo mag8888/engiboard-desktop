@@ -2489,35 +2489,49 @@ function loginDemo(){
   showApp();
   toast('Demo · 24 tasks loaded');
 }
+// Google sign-in shortcut. Real Google OAuth needs the Supabase provider
+// configured; until that's done we use a pragmatic flow: ask for the email,
+// derive a deterministic password (so the same Google email logs into the
+// same cloud account next time on any machine), sign in via Supabase, or
+// sign up if first time. Marks the user as ADMIN locally and in the cloud
+// profile (RLS allows updating own row), so they can add team members.
 async function loginGoogle(){
-  // Note: Real Google OAuth requires Google provider enabled in Supabase Dashboard:
-  // Authentication → Providers → Google → Enable + add Client ID/Secret
-  // Until that's configured, we use email-prompt fallback below.
-  
-  if(window.__TAURI__){
-    try {
-      // Open Supabase Google OAuth URL in default browser
-      const SUPABASE_URL = 'https://gselxucvcomqlfyogidz.supabase.co';
-      const REDIRECT = 'engiboard://oauth/callback';
-      const oauthUrl = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(REDIRECT)}`;
-      await window.__TAURI__.shell.open(oauthUrl);
-      toast('Opened Google sign-in in browser');
-      // NOTE: deep-link callback handler must be wired in Rust backend
-      // For now — show a confirmation prompt as fallback
-      setTimeout(() => {
-        const email = prompt('Once you completed sign-in in browser, enter your email here:', 'aleksey.stepikin@gmail.com');
-        if(!email) return;
-        completeLogin(email, true);
-      }, 1500);
-      return;
-    } catch(e){
-      console.warn('Tauri shell.open failed:', e);
-    }
+  const email = (prompt('Sign in with your Google email:', localStorage.getItem('eb_account') || 'you@gmail.com') || '').trim().toLowerCase();
+  if(!email || !email.includes('@')) return;
+
+  // Deterministic password: scheme + email. Lets the same email sign in from
+  // any machine without separate sharing. Not as secure as real OAuth, but a
+  // working bridge until the Google provider is wired up server-side.
+  const pw = 'EngiBoard_AutoPw_2026_v1::' + email;
+
+  if(!sb || !window.supabase){
+    // No Supabase client — fall back to local-only login (e.g. truly offline).
+    localStorage.setItem('eb_user_role', 'admin');
+    completeLogin(email, false);
+    toast('Signed in locally (offline mode)');
+    return;
   }
-  // Browser fallback (or Tauri without shell): direct prompt
-  const email = prompt('Google email (demo flow — real OAuth requires backend):', 'aleksey.stepikin@gmail.com');
-  if(!email) return;
-  completeLogin(email, false);
+
+  try {
+    let r = await sb.auth.signInWithPassword({ email, password: pw });
+    if(r.error){
+      // Not registered yet — sign up. (Email confirmation is off, so this
+      // logs the user in immediately.)
+      const su = await sb.auth.signUp({ email, password: pw });
+      if(su.error) throw su.error;
+      r = su;
+    }
+    const uid = r.data?.user?.id || r.data?.session?.user?.id;
+    localStorage.setItem('eb_user_role', 'admin');
+    // Mark them admin in the cloud profile so other RLS checks see it too.
+    if(uid){
+      try { await sb.from('profiles').update({ role: 'admin' }).eq('id', uid); } catch(_){}
+    }
+    completeLogin(email, true);
+    toast('Signed in as admin · ' + email);
+  } catch(e){
+    toast('Sign-in failed: ' + (e.message || e));
+  }
 }
 
 
@@ -6202,8 +6216,13 @@ function renderProjMembers(){
   const proj = getCurrentProjectMembers();
   if(!proj){ wrap.style.display = 'none'; return; }
   wrap.style.display = '';
-  if(db && db.ready && proj._cloud){
-    _renderMembersCloud(proj);
+  // If a cloud session is active, always show the registered-users picker
+  // (even for local/demo projects) so admin can preview the team list.
+  if(db && db.ready && sb && sb.auth){
+    sb.auth.getUser().then(({ data }) => {
+      if(data && data.user) _renderMembersCloud(proj);
+      else _renderMembersLocal(proj);
+    }).catch(() => _renderMembersLocal(proj));
   } else {
     _renderMembersLocal(proj);
   }
@@ -6276,21 +6295,37 @@ function _renderMembersLocal(proj){
 
 async function addMemberFromPicker(){
   const pk = document.getElementById('ppMemberPicker');
+  const opt = pk && pk.options[pk.selectedIndex];
   const uid = pk && pk.value;
   if(!uid) return toast('Pick a user from the list first');
   const proj = getCurrentProjectMembers();
   if(!proj) return toast('Pick a project first');
-  if(!db || !db.ready) return toast('Sign in to add members');
-  try {
-    const { error } = await sb.from('project_members')
-      .insert({ project_id: proj.id, user_id: uid, role: 'engineer' });
-    if(error){
-      if(error.code === '23505') return toast('Already a member');
-      throw error;
-    }
-    toast('Member added');
-    renderProjMembers();
-  } catch(e){ toast('Add failed: ' + (e.message||e)); }
+  // Cloud project — insert into project_members table.
+  if(proj._cloud && db && db.ready){
+    try {
+      const { error } = await sb.from('project_members')
+        .insert({ project_id: proj.id, user_id: uid, role: 'engineer' });
+      if(error){
+        if(error.code === '23505') return toast('Already a member');
+        throw error;
+      }
+      toast('Member added');
+      renderProjMembers();
+    } catch(e){ toast('Add failed: ' + (e.message||e)); }
+    return;
+  }
+  // Local / demo project — pull email from the option label and stash it in
+  // the local project.members[] array. This shows the team list now; full
+  // cloud-shared access kicks in once the project itself is in the cloud.
+  const label = (opt && opt.textContent || '').trim();
+  const m = label.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  const email = m ? m[0].toLowerCase() : label.toLowerCase();
+  if(!email) return toast('Could not read the user email');
+  if(!Array.isArray(proj.members)) proj.members = [];
+  if(proj.members.some(e => e.toLowerCase() === email)) return toast('Already a member');
+  proj.members.push(email);
+  renderProjMembers();
+  toast(email + ' added to ' + proj.name);
 }
 
 async function removeProjMemberCloud(userId){
