@@ -2496,33 +2496,50 @@ function loginDemo(){
   showApp();
   toast('Demo · 24 tasks loaded');
 }
-// Google sign-in shortcut. Real Google OAuth needs the Supabase provider
-// configured; until that's wired up server-side we use a pragmatic bridge:
-// ask for the email, derive a deterministic password from it, sign in via
-// Supabase or sign up if first time. Role comes from the cloud profile
-// (defaults to engineer; admins are promoted manually by the system owner).
+// Real Google OAuth via Supabase. Opens Google's consent screen, returns
+// here with a session in the URL hash, which the Supabase JS client picks
+// up automatically. New users land as 'engineer'; admins are promoted manually.
 async function loginGoogle(){
-  const email = (prompt('Enter your real Google email (e.g. name@gmail.com):', localStorage.getItem('eb_account') || '') || '').trim().toLowerCase();
-  if(!email || !email.includes('@') || email === 'you@gmail.com') return toast('Please enter a real email');
-  const pw = 'EngiBoard_AutoPw_2026_v1::' + email;
-  if(!sb || !window.supabase){
-    completeLogin(email, false);
-    toast('Signed in locally (offline mode)');
-    return;
-  }
+  if(!sb || !window.supabase) return toast('Cloud client not loaded — try again');
   try {
-    let r = await sb.auth.signInWithPassword({ email, password: pw });
-    if(r.error){
-      const su = await sb.auth.signUp({ email, password: pw });
-      if(su.error) throw su.error;
-      r = su;
-    }
-    await refreshCloudRole();
-    completeLogin(email, true);
-    toast('Signed in · ' + email);
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: location.origin + location.pathname }
+    });
+    if(error) throw error;
+    // Browser navigates to Google now; on return, handleOAuthReturn() runs.
   } catch(e){
-    toast('Sign-in failed: ' + (e.message || e));
+    toast('Google sign-in failed: ' + (e.message || e));
   }
+}
+
+// After redirect back from Google, Supabase JS auto-parses the session.
+// We just need to refresh the role + show the app once the session is live.
+async function handleOAuthReturn(){
+  if(!sb || !window.supabase) return;
+  try {
+    const { data } = await sb.auth.getSession();
+    const u = data && data.session && data.session.user;
+    if(!u) return;
+    await refreshCloudRole();
+    // Clean the URL hash (#access_token=...) so refreshes don't re-trigger.
+    if(location.hash.includes('access_token')){
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+    completeLogin(u.email || (localStorage.getItem('eb_account') || ''), true);
+  } catch(e){ console.warn('OAuth return handler failed', e); }
+}
+// Listen for sign-in events (covers OAuth return, password sign-in, etc.)
+if(sb && sb.auth && typeof sb.auth.onAuthStateChange === 'function'){
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN' && session && session.user){
+      // If we're still on the login screen, complete the login flow.
+      const lp = document.getElementById('LP');
+      const onLogin = lp && !lp.classList.contains('hide');
+      if(onLogin) handleOAuthReturn();
+      else refreshCloudRole().then(() => { try { applyRoleGates(); } catch(_){} });
+    }
+  });
 }
 
 // Read the current user's role from the cloud profiles row and mirror it into
