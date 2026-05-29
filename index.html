@@ -270,8 +270,8 @@ body.eb-not-admin .pm-add,
 body.eb-not-admin .dproj.add-new,
 body.eb-not-admin .es-zero .dbtn{display:none !important}
 body.eb-not-lead-or-admin .eb-needs-lead{display:none !important}
-body.eb-not-lead-or-admin .tc-status,
-body.eb-not-lead-or-admin .pres-status{pointer-events:none !important;opacity:.65}
+/* Task status pills are clickable for everyone (admin, lead, engineer, demo)
+   — anyone working on a task should be able to change its state. */
 .pm-add{
   padding:9px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;
   color:var(--acc);border-top:1px solid var(--line);margin-top:4px;text-align:center
