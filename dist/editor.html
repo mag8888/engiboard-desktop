@@ -755,6 +755,18 @@ async function saveTask(){
         comments: JSON.parse(JSON.stringify(comments))
       });
     } else if(!window.__TAURI__ && dataUrl){
+      // If we're inside an iframe from index.html, post the result back so the
+      // parent updates the task slot. Otherwise just download.
+      if(window.parent && window.parent !== window){
+        try {
+          window.parent.postMessage({
+            type:'eb-screenshot-ready', dataUrl,
+            annotations: JSON.parse(JSON.stringify(annotations)),
+            comments: JSON.parse(JSON.stringify(comments))
+          }, '*');
+          notify('Saved'); return;
+        } catch(e){ console.warn('post to parent failed', e); }
+      }
       const a=document.createElement('a');a.download='engisnap-'+Date.now()+'.png';a.href=dataUrl;a.click();
       notify('Downloaded'); return;   // browser: keep window
     }
@@ -763,6 +775,10 @@ async function saveTask(){
 }
 
 async function discard(){
+  // In a web iframe, just tell the parent to close us.
+  if(!window.__TAURI__ && window.parent && window.parent !== window){
+    try { window.parent.postMessage({type:'eb-editor-close'}, '*'); return; } catch(_){}
+  }
   // Explicit user action — close immediately, no save, no confirm
   // (native confirm() is blocked inside the Tauri webview anyway).
   await forceCloseEditor();
@@ -878,6 +894,20 @@ function loadScreenshotAsBg(dataUrl){
   };
   bg.src=dataUrl;
 }
+// Browser fallback: parent window (index.html in web mode) ships the image
+// via postMessage; we render it and reply back when the user clicks Done.
+(function(){
+  if(window.__TAURI__) return;
+  let _loaded = false;
+  window.addEventListener('message', ev => {
+    const d = ev.data || {};
+    if(d.type === 'eb-load-image' && d.dataUrl && !_loaded){
+      _loaded = true;
+      try { document.getElementById('_eb_initial')?.remove(); } catch(_){}
+      try { loadScreenshotAsBg(d.dataUrl); } catch(e){ console.error(e); }
+    }
+  });
+})();
 (async function(){
   if(!window.__TAURI__) return;
   let _loadedHash = null;

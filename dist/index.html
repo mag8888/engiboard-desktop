@@ -4250,8 +4250,10 @@ async function openExistingShotEditor(taskId, slotIdx){
   if(!dataUrl){ toast('No screenshot in this slot'); return; }
 
   if(!window.__TAURI__){
-    // Browser fallback — no editor window available, fall back to lightbox view
-    if(typeof openLightbox === 'function') openLightbox(dataUrl, taskId, slotIdx);
+    // Browser fallback — open the full editor (annotation tools) in an iframe
+    // overlay so the user can edit just like in the desktop app. Save flow
+    // round-trips via postMessage.
+    openWebEditor(dataUrl, taskId, slotIdx);
     return;
   }
 
@@ -4307,6 +4309,60 @@ async function openExistingShotEditor(taskId, slotIdx){
     if(typeof openLightbox === 'function') openLightbox(dataUrl, taskId, slotIdx);
   }
 }
+
+// Web fallback: open the full annotation editor (editor.html) in a full-screen
+// iframe overlay. The image is delivered via postMessage after the iframe loads,
+// and the editor posts back the annotated PNG when the user clicks Done/Save.
+function openWebEditor(dataUrl, taskId, slotIdx){
+  pendingAnnotateContext = { taskId, slotIdx };
+  // Close the simple lightbox if it's open
+  if(typeof closeLightbox === 'function') closeLightbox();
+  // Reuse one overlay across opens
+  let overlay = document.getElementById('_ebWebEditorOverlay');
+  if(overlay) overlay.remove();
+  overlay = document.createElement('div');
+  overlay.id = '_ebWebEditorOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0a0a0a;display:flex;flex-direction:column';
+  const close = document.createElement('button');
+  close.textContent = '×';
+  close.title = 'Close editor (Esc)';
+  close.style.cssText = 'position:absolute;top:14px;right:14px;z-index:2;width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:22px;cursor:pointer';
+  close.onclick = closeWebEditor;
+  const frame = document.createElement('iframe');
+  frame.id = '_ebWebEditorFrame';
+  frame.src = 'editor.html';
+  frame.style.cssText = 'flex:1;border:0;background:#0a0a0a';
+  overlay.appendChild(frame); overlay.appendChild(close);
+  document.body.appendChild(overlay);
+  // When iframe is ready, ship the image via postMessage (URL params can't hold a data URL).
+  frame.onload = () => {
+    try {
+      frame.contentWindow.postMessage({ type:'eb-load-image', dataUrl }, '*');
+    } catch(e){ console.warn('postMessage load-image failed', e); }
+  };
+}
+function closeWebEditor(){
+  document.getElementById('_ebWebEditorOverlay')?.remove();
+  pendingAnnotateContext = null;
+}
+// Receive saved PNG back from the iframe editor.
+window.addEventListener('message', ev => {
+  const d = ev.data || {};
+  if(d.type === 'eb-screenshot-ready' && pendingAnnotateContext){
+    const { taskId, slotIdx } = pendingAnnotateContext;
+    const t = TASKS.find(x => x.id === taskId);
+    if(t){
+      if(slotIdx === 0) t.shot1 = d.dataUrl;
+      else if(slotIdx === 1) t.shot2 = d.dataUrl;
+      else if(Array.isArray(t.shots)) t.shots[slotIdx - 2] = d.dataUrl;
+      try { render && render(); } catch(_){}
+      toast('Annotation saved');
+    }
+    closeWebEditor();
+  } else if(d.type === 'eb-editor-close'){
+    closeWebEditor();
+  }
+});
 
 function renderEmptyRow(){
   const nextUid = nextTaskUid(currentProject);
@@ -5153,11 +5209,6 @@ function closeLightbox(){
 // v0.1.31: open annotation editor with the current lightbox image (Tauri only)
 let pendingAnnotateContext = null;  // { taskId, slotIdx } — set when launching editor from lightbox
 function annotateLightboxImage(){
-  // v0.1.43: editor возвращён в скоуп Этапа 1.
-  if(!window.__TAURI__){
-    toast('Annotation editor only works in desktop app');
-    return;
-  }
   if(!lbContext || !lbContext.taskId){
     toast('Cannot annotate — no task context');
     return;
@@ -5166,6 +5217,11 @@ function annotateLightboxImage(){
   const dataUrl = img?.src;
   if(!dataUrl){
     toast('No image loaded');
+    return;
+  }
+  if(!window.__TAURI__){
+    // Browser: open the full editor in an iframe overlay.
+    openWebEditor(dataUrl, lbContext.taskId, lbContext.slotIdx);
     return;
   }
   pendingAnnotateContext = { ...lbContext };
