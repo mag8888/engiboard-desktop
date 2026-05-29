@@ -886,16 +886,16 @@ body.dark-mode .links-panel{background:rgba(14,165,233,.04)}
   border-radius:3px;background:rgba(14,165,233,.12);color:var(--acc);font-weight:700
 }
 .ic-btn.lnk-ic.active{color:var(--acc)}
-/* v0.1.145: Drive split-button — main half opens the URL, "···" half opens
-   a small context menu (edit / delete). Visual divider between halves. */
+/* v0.1.146: Drive split-button — main half opens the URL, kebab half opens
+   the edit/remove menu. Tight kebab (vertical 3-dot SVG) sits right next
+   to the label with no divider, like a card kebab. */
 .ic-btn.drive-split{padding:0;background:rgba(14,165,233,.08);color:#0EA5E9;
   font-weight:600;display:inline-flex;align-items:stretch;overflow:hidden}
-.ic-btn.drive-split .ds-open{padding:3px 8px;display:inline-flex;align-items:center;cursor:pointer}
+.ic-btn.drive-split .ds-open{padding:3px 4px 3px 8px;display:inline-flex;align-items:center;cursor:pointer}
 .ic-btn.drive-split .ds-open:hover{background:rgba(14,165,233,.14)}
-.ic-btn.drive-split .ds-more{padding:3px 7px 5px;display:inline-flex;align-items:center;
-  border-left:1px solid rgba(14,165,233,.28);cursor:pointer;font-weight:700;
-  letter-spacing:1px;line-height:.6;font-size:14px}
-.ic-btn.drive-split .ds-more:hover{background:rgba(14,165,233,.16)}
+.ic-btn.drive-split .ds-kebab{padding:3px 6px;display:inline-flex;align-items:center;
+  cursor:pointer;opacity:.7}
+.ic-btn.drive-split .ds-kebab:hover{opacity:1;background:rgba(14,165,233,.16)}
 .row .nt-mt{font-size:11px;color:var(--t3);font-family:var(--mono);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .row .nt-mt .play-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -4363,18 +4363,20 @@ function renderRow(t){
         </div>
         <div class="chat-row-actions-r2">
           <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
-          <span class="ic-btn lnk-ic${lnkActive}" onclick="event.stopPropagation();toggleLinksPanel('${t.id}')" title="Links">${LNK_ICON}${lnkBadge}</span>${(function(){
-            // v0.1.145: Drive link split-button — clicking the left half opens
-            // the URL, the `···` half on the right opens a menu (edit / delete).
-            // Divider is a 1px inner border between halves.
+${(function(){
+            // v0.1.146: the standalone Links icon (chain + count) was
+            // removed — the user only manages Drive via the inline button,
+            // and the standalone icon was creating visual noise next to it.
+            // Click the Drive label to open; the kebab opens edit/remove.
             const drive = lnks.find(l => (l.type === 'gdrive') || /drive\.google\./.test(l.url||''));
             if(!drive) return '';
             const safeUrl   = String(drive.url||'').replace(/'/g,"\\'");
             const safeTitle = (drive.title||drive.url||'').replace(/"/g,'&quot;');
             const linkIcon  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+            const kebabIcon = `<svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>`;
             return `<span class="ic-btn drive-split" title="${safeTitle}">
               <span class="ds-open" onclick="event.stopPropagation();openLink('${safeUrl}')">${linkIcon}Drive</span>
-              <span class="ds-more" onclick="event.stopPropagation();openDriveLinkMenu(event,'${t.id}','${drive.id||""}')" title="More">···</span>
+              <span class="ds-kebab" onclick="event.stopPropagation();openDriveLinkMenu(event,'${t.id}','${drive.id||""}')" title="More">${kebabIcon}</span>
             </span>`;
           })()}
           <span class="ic-btn" id="tmplBtn_${t.id}" style="position:relative" onclick="event.stopPropagation();openTmplMenu('${t.id}')" title="Task templates"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Tmpl</span>
