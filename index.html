@@ -1419,6 +1419,20 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   flex:1;background:var(--bg);
   display:flex;flex-direction:column;min-height:80px;overflow:hidden
 }
+/* v0.1.147: presentation right pane is split horizontally — chat on the
+   left half, free-form Notes on the right half. Both stretch full height
+   so the user can read existing notes and type new ones without losing
+   the chat thread. */
+.pres-side-split{flex:1;display:grid;grid-template-columns:1fr 1fr;
+  min-height:0;border-left:0}
+.pres-chat-half, .pres-notes-half{display:flex;flex-direction:column;
+  min-height:0;min-width:0;overflow:hidden}
+.pres-notes-half{border-left:1px solid var(--line)}
+.pres-notes-area{flex:1;min-height:0;resize:none;border:0;outline:none;
+  background:var(--bg);color:var(--t1);font-family:inherit;font-size:13px;
+  line-height:1.5;padding:14px 16px;-webkit-user-select:text;user-select:text}
+.pres-notes-area::placeholder{color:var(--t4)}
+.pres-notes-area:focus{background:color-mix(in srgb, var(--acc) 4%, var(--bg))}
 .pres-pic-col{padding:20px 24px;overflow:auto;display:flex;flex-direction:column}
 .pres-chat-h{
   padding:12px 16px;border-bottom:1px solid var(--line);background:var(--surf);
@@ -5297,11 +5311,19 @@ function renderPresent(){
       </div>
       <div class="pres-vsplit" onmousedown="startPresSplit(event)" title="Drag to resize"></div>
       <aside class="pres-chat-col">
-        <div class="pres-chat-h">Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
-        <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
-        ${presChecklistLinksHTML(t)}
-        <div class="pres-chat-foot">
-          <input id="presChatInput" placeholder="Type a message and press Enter…" onkeydown="if(event.key==='Enter') sendPresChat()">
+        <div class="pres-side-split">
+          <section class="pres-chat-half">
+            <div class="pres-chat-h">Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
+            <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
+            ${presChecklistLinksHTML(t)}
+            <div class="pres-chat-foot">
+              <input id="presChatInput" placeholder="Type a message and press Enter…" onkeydown="if(event.key==='Enter') sendPresChat()">
+            </div>
+          </section>
+          <section class="pres-notes-half">
+            <div class="pres-chat-h">Notes</div>
+            <textarea id="presNotes" class="pres-notes-area" placeholder="Type your notes here…" oninput="saveTaskNotes('${t.id}', this.value)">${(t.notes||'').replace(/</g,'&lt;')}</textarea>
+          </section>
         </div>
       </aside>
     </div>
