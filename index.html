@@ -793,6 +793,11 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 .card-assignee{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--t3);background:var(--bg);border:1px solid var(--line);padding:3px 9px 3px 6px;border-radius:14px;cursor:pointer;user-select:none}
 .card-assignee:hover{border-color:var(--acc);color:var(--acc)}
 .card-assignee.has{color:var(--t1)}
+/* v0.1.142: deadline chip — red, sits right next to the assignee. */
+.card-deadline{display:inline-flex;align-items:center;font-size:11px;border:1px solid #DC2626;
+  padding:3px 9px;border-radius:14px;cursor:pointer;user-select:none;
+  margin-left:4px;letter-spacing:.02em;transition:filter .12s}
+.card-deadline:hover{filter:brightness(1.1)}
 .card-assignee .ca-av{width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .task-ctx-menu .ca-av{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 /* Kebab button — sits at the right end of the card header (chat column) */
@@ -2027,7 +2032,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <span style="flex:1"></span>
       <button class="chip" onclick="exportPDF()" title="Export PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
       <button class="chip" onclick="exportWeeklySummaryPDF()" title="Export weekly summary PDF" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">Weeks</button>
-      <button class="chip" onclick="exportCSV()" title="Export tasks to CSV / Excel" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">CSV</button>
+      <button class="chip" onclick="exportCSVWithOptions()" title="Export tasks to Excel (XLSX) with embedded screenshots" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">XLSX</button>
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <!-- v0.1.123: card view-mode toggle — List (compact) + Expanded only -->
       <div class="cv-toggle" id="cvToggle">
@@ -4206,6 +4211,69 @@ function renderAssignee(t){
   </span>`;
 }
 
+// v0.1.142: deadline chip rendered next to the assignee. Past-due dates get
+// a stronger background so they pop. Click opens a date prompt; the option
+// to clear is also in the kebab menu.
+function _fmtDeadline(iso){
+  if(!iso) return '';
+  // Display as DD MMM (short month). Year only if different from current.
+  const d = new Date(iso + 'T00:00:00');
+  if(isNaN(d.getTime())) return iso;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return sameYear ? `${d.getDate()} ${months[d.getMonth()]}`
+                  : `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear().toString().slice(2)}`;
+}
+function _isOverdue(iso){
+  if(!iso) return false;
+  const d = new Date(iso + 'T23:59:59');
+  return !isNaN(d.getTime()) && d.getTime() < Date.now();
+}
+function renderDeadline(t){
+  if(!t.deadline) return '';
+  const overdue = _isOverdue(t.deadline);
+  const label = _fmtDeadline(t.deadline);
+  const style = overdue
+    ? 'background:#DC2626;color:#fff;border-color:#DC2626;font-weight:700'
+    : 'background:transparent;color:#DC2626;border-color:#DC2626;font-weight:600';
+  return `<span class="card-deadline" onclick="event.stopPropagation();setTaskDeadline('${t.id}')" title="${overdue ? 'Overdue — click to change' : 'Deadline — click to change'}" style="${style}">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${label}
+  </span>`;
+}
+function setTaskDeadline(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  // Default to deadline (or today) in YYYY-MM-DD form for the prompt
+  const today = new Date().toISOString().slice(0,10);
+  const cur = t.deadline || today;
+  const v = prompt('Deadline (YYYY-MM-DD, leave empty to clear):', cur);
+  if(v === null) return; // cancelled
+  const trimmed = v.trim();
+  if(!trimmed){
+    delete t.deadline;
+    if(typeof logHist === 'function') logHist(t, 'deadline', 'cleared');
+    toast('Deadline cleared');
+  } else if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && !isNaN(new Date(trimmed + 'T00:00:00').getTime())){
+    t.deadline = trimmed;
+    if(typeof logHist === 'function') logHist(t, 'deadline', `set to ${trimmed}`);
+    toast(`Deadline: ${_fmtDeadline(trimmed)}`);
+  } else {
+    toast('Invalid date — expected YYYY-MM-DD');
+    return;
+  }
+  document.getElementById('_ebTaskMenu')?.remove();
+  if(typeof render === 'function') render();
+}
+function clearTaskDeadline(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !t.deadline) return;
+  delete t.deadline;
+  if(typeof logHist === 'function') logHist(t, 'deadline', 'cleared');
+  document.getElementById('_ebTaskMenu')?.remove();
+  toast('Deadline cleared');
+  if(typeof render === 'function') render();
+}
+
 function renderRow(t){
   const st = STATUSES[t.s] || STATUSES[0];
   // v0.1.31: row height fits 5-col layout (title-col + chat-col + 2 pics)
@@ -4269,7 +4337,7 @@ function renderRow(t){
         <span class="st ${st.cls} tc-status"${st.cls?'':` style="background:${st.c}22;color:${st.c}"`} onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip" style="background:${st.c}"></span>${st.l}
         </span>
-        ${renderAssignee(t)}
+        ${renderAssignee(t)}${renderDeadline(t)}
         <button class="card-kebab" onclick="event.stopPropagation();showTaskMenuAt(event,'${t.id}')" title="More actions">${ICON_KEBAB}</button>
       </div>
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
@@ -6915,12 +6983,16 @@ function showTaskMenu(e, taskId){
   menu.dataset.taskId = String(taskId);
   menu.className = 'task-ctx-menu';
   const hiddenLabel = t.hidden ? 'Unhide' : 'Hide (internal)';
+  const deadlineLabel = t.deadline ? `Change deadline (${_fmtDeadline(t.deadline)})` : 'Set deadline';
+  const deadlineIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
   menu.innerHTML = `
     <div class="tcm-item" onclick="taskMenuInfo('${taskId}')">${ICON_INFO} Task info</div>
     <div class="tcm-item" onclick="taskMenuHistory('${taskId}')">${ICON_HISTORY} History</div>
     <div class="tcm-item" onclick="taskMenuCopy('${taskId}')">${ICON_COPY} Copy text</div>
     <div class="tcm-item" onclick="taskMenuCopyPublicLink('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy public link</div>
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
+    <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
+    ${t.deadline ? `<div class="tcm-item" onclick="clearTaskDeadline('${taskId}')">${deadlineIcon}Clear deadline</div>` : ''}
     <div class="tcm-item" onclick="toggleTaskHidden('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>${hiddenLabel}</div>
     <div class="tcm-sep"></div>
     <div class="tcm-item danger" onclick="taskMenuDelete('${taskId}')">${ICON_TRASH} Delete</div>`;
@@ -7397,50 +7469,472 @@ function statusToIndex(raw){
   return STATUS_NAME_TO_INDEX[k] !== undefined ? STATUS_NAME_TO_INDEX[k] : 0;
 }
 
-// ━━━ CSV / EXCEL EXPORT (v0.1.119) ━━━
-// Exports the current view's tasks to a CSV file that opens cleanly in Excel.
+// ━━━ CSV / EXCEL EXPORT (v0.1.119 → v0.1.142) ━━━
+// v0.1.142 rewrite: was a flat CSV, is now a real XLSX with screenshots
+// embedded as image cells. CSV cannot embed binaries; Excel needs proper
+// drawing anchors, so we build the XLSX zip ourselves (store-only — no
+// deflate needed, keeps the code small).
 function csvCell(v){
   const s = String(v == null ? '' : v);
-  // Quote if it contains comma, quote, or newline; double internal quotes
   if(/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;
 }
-function exportCSV(){
-  // Export the tasks currently in scope (respects project filter + search)
-  const tasks = (typeof getFilteredTasks === 'function') ? getFilteredTasks() : TASKS;
+
+// State for the "include hidden tasks" toggle in the export dialog.
+let _exportIncludeHidden = false;
+
+// ─── small helpers reused by the XLSX builder ─────────────────────────
+
+// CRC-32 (IEEE 802.3 polynomial) — needed for ZIP file headers.
+const _CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function _crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < bytes.length; i++) c = _CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function _strToBytes(s){ return new TextEncoder().encode(s); }
+function _xmlEscape(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+// Build a store-only (no compression) ZIP from a list of { name, data: Uint8Array }.
+// Excel happily opens store-only XLSX — same spec, just method=0 instead of 8.
+function _buildZip(files){
+  const enc = new TextEncoder();
+  const records = [];
+  let offset = 0;
+  const centralEntries = [];
+  for(const f of files){
+    const nameBytes = enc.encode(f.name);
+    const crc = _crc32(f.data);
+    const size = f.data.length;
+    // Local file header
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true);
+    dv.setUint16(4, 20, true);              // version needed
+    dv.setUint16(6, 0, true);               // flags
+    dv.setUint16(8, 0, true);               // method = stored
+    dv.setUint16(10, 0, true);              // mod time
+    dv.setUint16(12, 0x21, true);           // mod date (1980-01-01)
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, size, true);
+    dv.setUint32(22, size, true);
+    dv.setUint16(26, nameBytes.length, true);
+    dv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+    records.push(lh, f.data);
+    centralEntries.push({ name: nameBytes, crc, size, offset });
+    offset += lh.length + size;
+  }
+  const localBytesLen = offset;
+  const central = [];
+  let centralLen = 0;
+  for(const e of centralEntries){
+    const c = new Uint8Array(46 + e.name.length);
+    const dv = new DataView(c.buffer);
+    dv.setUint32(0, 0x02014b50, true);
+    dv.setUint16(4, 20, true);              // version made by
+    dv.setUint16(6, 20, true);              // version needed
+    dv.setUint16(8, 0, true);
+    dv.setUint16(10, 0, true);              // method
+    dv.setUint16(12, 0, true);
+    dv.setUint16(14, 0x21, true);
+    dv.setUint32(16, e.crc, true);
+    dv.setUint32(20, e.size, true);
+    dv.setUint32(24, e.size, true);
+    dv.setUint16(28, e.name.length, true);
+    dv.setUint16(30, 0, true);
+    dv.setUint16(32, 0, true);
+    dv.setUint16(34, 0, true);
+    dv.setUint16(36, 0, true);
+    dv.setUint32(38, 0, true);
+    dv.setUint32(42, e.offset, true);
+    c.set(e.name, 46);
+    central.push(c);
+    centralLen += c.length;
+  }
+  // End of central directory
+  const eocd = new Uint8Array(22);
+  const dv = new DataView(eocd.buffer);
+  dv.setUint32(0, 0x06054b50, true);
+  dv.setUint16(8, centralEntries.length, true);
+  dv.setUint16(10, centralEntries.length, true);
+  dv.setUint32(12, centralLen, true);
+  dv.setUint32(16, localBytesLen, true);
+  // Concatenate
+  const total = localBytesLen + centralLen + eocd.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for(const r of records){ out.set(r, p); p += r.length; }
+  for(const c of central){ out.set(c, p); p += c.length; }
+  out.set(eocd, p);
+  return out;
+}
+
+// Rasterize an image src (data: URL — SVG or PNG/JPEG) to a PNG Uint8Array
+// at the given max width, preserving aspect. Returns null on failure.
+function _imgToPng(src, maxW){
+  return new Promise(resolve => {
+    if(!src){ resolve(null); return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const ratio = img.naturalHeight / Math.max(1, img.naturalWidth);
+        const w = Math.min(maxW, img.naturalWidth || maxW);
+        const h = Math.max(1, Math.round(w * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(async blob => {
+          if(!blob){ resolve(null); return; }
+          const buf = new Uint8Array(await blob.arrayBuffer());
+          resolve({ data: buf, w, h });
+        }, 'image/png');
+      } catch(e){ resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+// Convert pixels to EMU (English Metric Units) — Excel image positioning.
+const _PX_TO_EMU = 9525;
+
+async function exportCSV(){
+  // Tasks currently in scope (respects project filter + search). Hidden tasks
+  // are included only if the user opted in via _exportIncludeHidden.
+  const isAllMode = currentProject === 'all';
+  let tasks = isAllMode ? TASKS.slice() : TASKS.filter(t => t.proj === currentProject);
+  if(!_exportIncludeHidden) tasks = tasks.filter(t => !t.hidden);
+  if(curFilter !== 'all' && curFilter !== ''){
+    const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
+    if(!isNaN(sIdx) && sIdx >= 0 && sIdx <= 7) tasks = tasks.filter(t => t.s === sIdx);
+    else if(curFilter === 'problem')  tasks = tasks.filter(t => t.s === 5);
+    else if(curFilter === 'progress') tasks = tasks.filter(t => t.s === 6);
+    else if(curFilter === 'done')     tasks = tasks.filter(t => t.s === 1);
+    else if(curFilter === 'thisweek') tasks = tasks.filter(t => t.w === '26W17');
+  }
+  if(curSearch){
+    const q = curSearch.toLowerCase();
+    tasks = tasks.filter(t =>
+      (t.title || t.n || '').toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q) ||
+      (t.chat || []).some(c => c.text.toLowerCase().includes(q))
+    );
+  }
   if(!tasks.length){ toast('No tasks to export'); return; }
-  const header = ['Project','Project #','Task','Status','Assignee','Checklist','Comments','Screenshots','Links'];
-  const lines = [header.map(csvCell).join(',')];
-  tasks.forEach(t => {
+
+  toast(`Building XLSX with ${tasks.length} task${tasks.length===1?'':'s'}…`, 1800);
+
+  // Rasterize all screenshots in parallel. Each cell holds at most one image
+  // (shot1) — if a task has both shot1 and shot2 we put shot2 in a separate
+  // column. Anything in t.shots (3+) is summarised in a count column.
+  const IMG_MAX_W = 320;
+  const imgPairs = await Promise.all(tasks.map(async t => {
+    const a = t.shot1 ? await _imgToPng(t.shot1, IMG_MAX_W) : null;
+    const b = t.shot2 ? await _imgToPng(t.shot2, IMG_MAX_W) : null;
+    return { a, b };
+  }));
+
+  // Image registry: name → bytes (xl/media/imageN.png)
+  const media = [];
+  // Drawings: per-image anchor record
+  const drawings = [];
+  // Per-row height in points (Excel default = 15pt = 20px). Pick the taller
+  // of any image in that row; assume ~75 DPI so 1px ≈ 0.75pt.
+  const ROW_PT_PER_PX = 0.75;
+  const rowHeights = []; // index aligned with data rows
+  let mediaId = 0;
+  const addImage = (imgInfo, rowIdx0, colIdx0) => {
+    if(!imgInfo) return;
+    mediaId++;
+    const name = `image${mediaId}.png`;
+    media.push({ name, data: imgInfo.data, w: imgInfo.w, h: imgInfo.h });
+    drawings.push({ name, rowIdx0, colIdx0, w: imgInfo.w, h: imgInfo.h });
+    // Track row height
+    const needed = imgInfo.h + 6;
+    rowHeights[rowIdx0] = Math.max(rowHeights[rowIdx0] || 0, needed);
+  };
+
+  const headers = ['#','Project','Code','Week','Task','Status','Assignee','Deadline','Checklist','Comments','Before','After','Extra','Links'];
+  const COL_BEFORE = 10; // 0-based: column K
+  const COL_AFTER  = 11; // column L
+  // Build a sharedStrings table for everything text-y.
+  const sst = [];
+  const sstIdx = new Map();
+  const interned = s => {
+    const k = String(s == null ? '' : s);
+    if(sstIdx.has(k)) return sstIdx.get(k);
+    const i = sst.length; sst.push(k); sstIdx.set(k, i); return i;
+  };
+  headers.forEach(h => interned(h));
+
+  // Row data: each entry is an array of {t:'s'|'n', v:value, c?:styleIdx}
+  const dataRows = [];
+  tasks.forEach((t, i) => {
     const proj = PROJECTS.find(p => p.id === t.proj);
     const st = STATUSES[t.s] || STATUSES[0];
     const cl = Array.isArray(t.checklist) ? t.checklist : [];
     const clStr = cl.length ? `${cl.filter(x=>x.done).length}/${cl.length}` : '';
-    const shots = (t.shot1?1:0)+(t.shot2?1:0)+(Array.isArray(t.shots)?t.shots.length:0);
+    const shotsExtra = Array.isArray(t.shots) ? t.shots.length : 0;
     const lnks = Array.isArray(t.links) ? t.links.length : 0;
-    lines.push([
-      proj?.name || '',
-      proj?.code || '',
-      t.title || t.n || '',
-      st.l,
-      t.assignee || '',
-      clStr,
-      (t.chat||[]).length || 0,
-      shots,
-      lnks
-    ].map(csvCell).join(','));
+    const linkStr = (t.links || []).map(l => l.title || l.url).filter(Boolean).join('; ');
+    const deadlineStr = t.deadline ? t.deadline : '';
+    const deadlineStyle = (t.deadline && _isOverdue(t.deadline)) ? 2 : (t.deadline ? 3 : 0);
+    dataRows.push([
+      { t: 'n', v: i + 1 },
+      { t: 's', v: interned(proj?.name || '') },
+      { t: 's', v: interned(proj?.code || '') },
+      { t: 's', v: interned(t.w || '') },
+      { t: 's', v: interned(t.title || t.n || '') },
+      { t: 's', v: interned(st.l) },
+      { t: 's', v: interned(t.assignee || '') },
+      { t: 's', v: interned(deadlineStr), c: deadlineStyle },
+      { t: 's', v: interned(clStr) },
+      { t: 'n', v: (t.chat || []).length || 0 },
+      { t: 's', v: interned(t.shot1 ? 'BEFORE' : '') },
+      { t: 's', v: interned(t.shot2 ? 'AFTER' : '') },
+      { t: 'n', v: shotsExtra },
+      { t: 's', v: interned(linkStr) }
+    ]);
+    // Register images for this row
+    if(imgPairs[i].a) addImage(imgPairs[i].a, i + 1, COL_BEFORE);   // +1 for header row
+    if(imgPairs[i].b) addImage(imgPairs[i].b, i + 1, COL_AFTER);
   });
-  // UTF-8 BOM so Excel reads Cyrillic correctly
-  const csv = '﻿' + lines.join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+  // ─── XML files ────────────────────────────────────────────────────
+  const cellRef = (col0, row0) => {
+    // Excel A1 reference, row0 is 0-based.
+    let n = col0; let s = '';
+    do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while(n >= 0);
+    return s + (row0 + 1);
+  };
+
+  const sharedStrings =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sst.length}" uniqueCount="${sst.length}">
+${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')}
+</sst>`;
+
+  // Styles: 0=default, 1=header, 2=overdue (red bg, white bold), 3=deadline (red text bold).
+  const styles =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="4">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><color rgb="FFDC2626"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="4">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF0EA5E9"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFDC2626"/></patternFill></fill>
+  </fills>
+  <borders count="1"><border/></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="4">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center" horizontal="center"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  // sheet1.xml
+  let sheetRows = '';
+  // Header row (row 1 in Excel, index 0)
+  sheetRows += `<row r="1" ht="22" customHeight="1">${headers.map((h, c) =>
+    `<c r="${cellRef(c, 0)}" t="s" s="1"><v>${interned(h)}</v></c>`).join('')}</row>`;
+  // Data rows
+  dataRows.forEach((row, i) => {
+    const r = i + 2; // Excel is 1-based, +1 for header
+    const ht = rowHeights[i + 1];
+    const htAttr = ht ? ` ht="${(ht * ROW_PT_PER_PX).toFixed(1)}" customHeight="1"` : '';
+    sheetRows += `<row r="${r}"${htAttr}>${row.map((cell, c) => {
+      const ref = cellRef(c, i + 1);
+      const sty = cell.c ? ` s="${cell.c}"` : '';
+      if(cell.t === 's') return `<c r="${ref}" t="s"${sty}><v>${cell.v}</v></c>`;
+      return `<c r="${ref}"${sty}><v>${cell.v}</v></c>`;
+    }).join('')}</row>`;
+  });
+  // Column widths (in Excel units; ~7px per unit)
+  const colWidths = [4, 22, 8, 8, 40, 14, 14, 12, 10, 10, 46, 46, 6, 30];
+  const colsXml = `<cols>${colWidths.map((w, i) =>
+    `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
+
+  const sheet =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews>
+  <sheetFormatPr defaultRowHeight="15"/>
+  ${colsXml}
+  <sheetData>${sheetRows}</sheetData>
+  ${drawings.length ? `<drawing r:id="rId1"/>` : ''}
+</worksheet>`;
+
+  // drawing1.xml — one twoCellAnchor per image
+  const drawingXml = drawings.length
+    ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+${drawings.map((d, i) => {
+  // Anchor: top-left corner = (col, row), bottom-right = (col+1, row+1) but
+  // we use absolute extents to keep the image at its natural pixel size.
+  const cx = d.w * _PX_TO_EMU;
+  const cy = d.h * _PX_TO_EMU;
+  return `<xdr:oneCellAnchor>
+  <xdr:from><xdr:col>${d.colIdx0}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${d.rowIdx0}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>
+  <xdr:ext cx="${cx}" cy="${cy}"/>
+  <xdr:pic>
+    <xdr:nvPicPr>
+      <xdr:cNvPr id="${i+1}" name="${d.name}"/>
+      <xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>
+    </xdr:nvPicPr>
+    <xdr:blipFill><a:blip r:embed="rId${i+1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
+    <xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
+  </xdr:pic>
+  <xdr:clientData/>
+</xdr:oneCellAnchor>`;
+}).join('\n')}
+</xdr:wsDr>`
+    : '';
+
+  // drawing1.xml.rels — links each rId to its image part
+  const drawingRels = drawings.length
+    ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${drawings.map((d, i) =>
+  `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${d.name}"/>`).join('\n')}
+</Relationships>`
+    : '';
+
+  // workbook + rels chrome
+  const workbook =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets><sheet name="Tasks" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+
+  const workbookRels =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
+</Relationships>`;
+
+  const sheetRels = drawings.length
+    ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+</Relationships>`
+    : '';
+
+  const rootRels =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const contentTypes =
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+  ${drawings.length ? `<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>` : ''}
+</Types>`;
+
+  // Assemble file list
+  const fileList = [
+    { name: '[Content_Types].xml', data: _strToBytes(contentTypes) },
+    { name: '_rels/.rels', data: _strToBytes(rootRels) },
+    { name: 'xl/workbook.xml', data: _strToBytes(workbook) },
+    { name: 'xl/_rels/workbook.xml.rels', data: _strToBytes(workbookRels) },
+    { name: 'xl/styles.xml', data: _strToBytes(styles) },
+    { name: 'xl/sharedStrings.xml', data: _strToBytes(sharedStrings) },
+    { name: 'xl/worksheets/sheet1.xml', data: _strToBytes(sheet) }
+  ];
+  if(drawings.length){
+    fileList.push({ name: 'xl/worksheets/_rels/sheet1.xml.rels', data: _strToBytes(sheetRels) });
+    fileList.push({ name: 'xl/drawings/drawing1.xml', data: _strToBytes(drawingXml) });
+    fileList.push({ name: 'xl/drawings/_rels/drawing1.xml.rels', data: _strToBytes(drawingRels) });
+    media.forEach(m => fileList.push({ name: `xl/media/${m.name}`, data: m.data }));
+  }
+
+  const zipBytes = _buildZip(fileList);
+  const blob = new Blob([zipBytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const proj = PROJECTS.find(p => p.id === currentProject);
-  const fname = `engiboard_${(proj?.code || proj?.name || 'tasks').replace(/[^a-zA-Z0-9_-]/g,'_')}_${new Date().toISOString().slice(0,10)}.csv`;
+  const fname = `engiboard_${(proj?.code || proj?.name || 'tasks').replace(/[^a-zA-Z0-9_-]/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
   const a = document.createElement('a');
   a.href = url; a.download = fname;
   document.body.appendChild(a); a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  toast(`✓ Exported ${tasks.length} task${tasks.length===1?'':'s'} to CSV`);
+  toast(`Exported ${tasks.length} task${tasks.length===1?'':'s'} (${media.length} screenshot${media.length===1?'':'s'}) → ${fname}`, 3500);
+}
+
+// Wrapper for the toolbar chip: opens a tiny prompt for the include-hidden
+// toggle, then calls the actual exporter. Stays out of exportCSV() so the
+// function can also be invoked silently from automation.
+function exportCSVWithOptions(){
+  // Count what would be excluded so the user sees what the toggle controls
+  const scope = (currentProject === 'all')
+    ? TASKS
+    : TASKS.filter(t => t.proj === currentProject);
+  const hiddenCount = scope.filter(t => t.hidden).length;
+  if(hiddenCount === 0){
+    // Nothing hidden in current scope — no need to ask, just export.
+    _exportIncludeHidden = false;
+    return exportCSV();
+  }
+  // Modal dialog: ask whether to include hidden tasks
+  const existing = document.getElementById('_ebExportDlg');
+  if(existing) existing.remove();
+  const dlg = document.createElement('div');
+  dlg.id = '_ebExportDlg';
+  dlg.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+  dlg.innerHTML = `
+    <div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:10px;padding:20px 22px;min-width:340px;max-width:420px;box-shadow:0 12px 40px rgba(0,0,0,.35)">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px">Export to Excel (XLSX)</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:14px">Screenshots are embedded inside cells. Currently ${scope.length} task${scope.length===1?'':'s'} in scope, ${hiddenCount} hidden.</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px">
+        <input type="checkbox" id="_ebExpHidden" ${_exportIncludeHidden ? 'checked' : ''}/>
+        <span>Include hidden tasks (${hiddenCount})</span>
+      </label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button id="_ebExpCancel" class="chip" style="font-size:12px;padding:6px 14px">Cancel</button>
+        <button id="_ebExpGo" class="chip" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#fff;border-color:var(--acc)">Export</button>
+      </div>
+    </div>`;
+  document.body.appendChild(dlg);
+  dlg.querySelector('#_ebExpCancel').onclick = () => dlg.remove();
+  dlg.querySelector('#_ebExpGo').onclick = () => {
+    _exportIncludeHidden = dlg.querySelector('#_ebExpHidden').checked;
+    dlg.remove();
+    exportCSV();
+  };
+  dlg.addEventListener('click', e => { if(e.target === dlg) dlg.remove(); });
 }
 
 // ━━━ P1-5 · PDF EXPORT ━━━
