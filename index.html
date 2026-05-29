@@ -1607,6 +1607,19 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .body[data-hidden="1"]{display:none}
 
 /* Tasks view: project group bar */
+/* Week-folder header inside a single project: collapsible group per task week. */
+.week-hdr{display:flex;align-items:center;gap:10px;padding:8px 14px;margin:14px 0 6px;
+  background:linear-gradient(90deg,rgba(14,165,233,.08),transparent);
+  border-left:3px solid #0EA5E9;border-radius:6px;cursor:pointer;
+  font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--t2);
+  user-select:none;transition:background .12s}
+.week-hdr:hover{background:linear-gradient(90deg,rgba(14,165,233,.14),transparent)}
+.week-hdr.collapsed{opacity:.75}
+.week-hdr .week-caret{font-size:10px;color:#0EA5E9;flex-shrink:0}
+.week-hdr .week-name{flex:1}
+.week-hdr .week-ct{background:rgba(14,165,233,.15);color:#0369A1;
+  padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700}
+body.dark-mode .week-hdr{background:linear-gradient(90deg,rgba(14,165,233,.18),transparent)}
 .proj-group{margin:6px 0}
 .proj-group-head{
   display:flex;align-items:center;gap:10px;padding:9px 28px;background:var(--surf);
@@ -3797,10 +3810,44 @@ function setView(v){
 }
 
 // ━━━ FILTERS ━━━
+// Week-folder collapse state, persisted per project so user choices survive
+// reloads. Key shape: `eb_collapsed_weeks_<projectId>` → JSON array of week tags.
+function _ebWkKey(projId){ return 'eb_collapsed_weeks_' + projId; }
+function isWeekCollapsed(projId, w){
+  try { return (JSON.parse(localStorage.getItem(_ebWkKey(projId)) || '[]')).includes(w); }
+  catch(_){ return false; }
+}
+function toggleWeek(projId, w){
+  let set;
+  try { set = new Set(JSON.parse(localStorage.getItem(_ebWkKey(projId)) || '[]')); }
+  catch(_){ set = new Set(); }
+  if(set.has(w)) set.delete(w); else set.add(w);
+  localStorage.setItem(_ebWkKey(projId), JSON.stringify([...set]));
+  render();
+}
+
+// "Hidden" tasks are internal questions/bugs the user has stashed away. They
+// stay in the project (not deleted), but the main list skips them unless the
+// user flips the "Show hidden" toggle in the filter bar.
+let _showHidden = false;
+function toggleShowHidden(){
+  _showHidden = !_showHidden;
+  if(typeof renderFilters === 'function') renderFilters();
+  if(typeof render === 'function') render();
+}
+function toggleTaskHidden(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  t.hidden = !t.hidden;
+  document.getElementById('_ebTaskMenu')?.remove();
+  toast(t.hidden ? 'Task hidden' : 'Task restored');
+  render();
+}
 function getFilteredTasks(){
   let result = (currentProject === 'all')
     ? [...TASKS]
     : TASKS.filter(t => t.proj === currentProject);
+  if(!_showHidden) result = result.filter(t => !t.hidden);
   // v0.1.46: filter by status int (0..7) when curFilter is numeric.
   // Legacy strings ('problem','progress','done','thisweek') kept for back-compat.
   if(curFilter !== 'all' && curFilter !== ''){
@@ -3837,6 +3884,12 @@ function renderFilters(){
       : `color:${s.c};border-color:${s.c};background:transparent`;
     chips.push(`<button class="chip" data-f="${s.id}" style="${style}">${s.l}</button>`);
   });
+  // "Hidden" toggle — shows tasks the user explicitly stashed.
+  const hideOn = _showHidden;
+  const hideStyle = hideOn
+    ? 'background:#475569;color:#fff;border-color:#475569;margin-left:6px'
+    : 'color:#475569;border-color:#475569;background:transparent;margin-left:6px';
+  chips.push(`<button class="chip" onclick="toggleShowHidden()" style="${hideStyle}" title="Toggle hidden tasks (internal questions)">${hideOn ? 'Hidden ON' : 'Hidden'}</button>`);
   box.innerHTML = chips.join('');
 }
 
@@ -3968,6 +4021,10 @@ function render(){
   const isAllMode = currentProject === 'all';
   let allTasks = isAllMode ? TASKS.slice() : TASKS.filter(t => t.proj === currentProject);
 
+  // v0.1.142: hidden tasks (internal stash) are skipped unless the user has
+  // explicitly flipped the "Show hidden" chip in the filter bar.
+  if(!_showHidden) allTasks = allTasks.filter(t => !t.hidden);
+
   // v0.1.46: filter by status int (0..7) when curFilter is numeric.
   if(curFilter !== 'all' && curFilter !== ''){
     const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
@@ -4008,9 +4065,40 @@ function render(){
       currentProject = 'all';
       return render();
     }
-    // v0.1.44: убрали группировку по неделям — клиент попросил выкинуть код недели/дату.
-    // Просто плоский список задач в порядке их создания.
-    allTasks.forEach(t => { html += renderRow(t); });
+    // v0.1.142: group tasks by week tag (t.w). Each week is a collapsible
+    // folder. Tasks without a week go into "Unscheduled". Collapsed state
+    // persists per project in localStorage.
+    const groups = new Map();
+    allTasks.forEach(t => {
+      const w = t.w || '';
+      if(!groups.has(w)) groups.set(w, []);
+      groups.get(w).push(t);
+    });
+    // Sort weeks: chronological by tag (e.g. 26W14 < 26W17); unscheduled last.
+    const weekKeys = [...groups.keys()].sort((a,b) => {
+      if(a==='' && b==='') return 0;
+      if(a==='') return 1;
+      if(b==='') return -1;
+      return a.localeCompare(b);
+    });
+    if(weekKeys.length <= 1){
+      // Single week (or no weeks) — render flat, as before, no folder chrome.
+      allTasks.forEach(t => { html += renderRow(t); });
+    } else {
+      for(const w of weekKeys){
+        const tasks = groups.get(w);
+        const label = w || 'Unscheduled';
+        const collapsed = isWeekCollapsed(proj.id, w);
+        html += `<div class="week-hdr${collapsed?' collapsed':''}" onclick="toggleWeek('${proj.id}','${w}')">
+          <span class="week-caret">${collapsed ? '▸' : '▾'}</span>
+          <span class="week-name">${label}</span>
+          <span class="week-ct">${tasks.length}</span>
+        </div>`;
+        if(!collapsed){
+          tasks.forEach(t => { html += renderRow(t); });
+        }
+      }
+    }
     html += renderEmptyRowForProject(proj.id);
     replaceListWith(html);
     wireUpEmptyInput();
@@ -4196,7 +4284,12 @@ function renderRow(t){
         </div>
         <div class="chat-row-actions-r2">
           <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
-          <span class="ic-btn lnk-ic${lnkActive}" onclick="event.stopPropagation();toggleLinksPanel('${t.id}')" title="Links">${LNK_ICON}${lnkBadge}</span>
+          <span class="ic-btn lnk-ic${lnkActive}" onclick="event.stopPropagation();toggleLinksPanel('${t.id}')" title="Links">${LNK_ICON}${lnkBadge}</span>${(function(){
+            const drive = lnks.find(l => (l.type === 'gdrive') || /drive\.google\./.test(l.url||''));
+            return drive
+              ? `<span class="ic-btn" onclick="event.stopPropagation();openLink('${drive.url.replace(/'/g,"\\'")}')" title="${(drive.title||drive.url).replace(/"/g,'&quot;')}" style="background:rgba(14,165,233,.08);color:#0EA5E9;font-weight:600"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-2px;margin-right:4px"><path d="M7.71 3.5L1.15 15l3.93 6.81h11l-3.93-6.81L7.71 3.5zm9.36 0L13.14 11l3.93 6.81L21 11 17.07 3.5zm-2.84 11l-3.93-6.81-3.94 6.81h7.87z"/></svg>Drive</span>`
+              : '';
+          })()}
           <span class="ic-btn" id="tmplBtn_${t.id}" style="position:relative" onclick="event.stopPropagation();openTmplMenu('${t.id}')" title="Task templates"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Tmpl</span>
         </div>
       </div>
@@ -6821,12 +6914,14 @@ function showTaskMenu(e, taskId){
   menu.id = '_ebTaskMenu';
   menu.dataset.taskId = String(taskId);
   menu.className = 'task-ctx-menu';
+  const hiddenLabel = t.hidden ? 'Unhide' : 'Hide (internal)';
   menu.innerHTML = `
     <div class="tcm-item" onclick="taskMenuInfo('${taskId}')">${ICON_INFO} Task info</div>
     <div class="tcm-item" onclick="taskMenuHistory('${taskId}')">${ICON_HISTORY} History</div>
     <div class="tcm-item" onclick="taskMenuCopy('${taskId}')">${ICON_COPY} Copy text</div>
     <div class="tcm-item" onclick="taskMenuCopyPublicLink('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy public link</div>
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
+    <div class="tcm-item" onclick="toggleTaskHidden('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>${hiddenLabel}</div>
     <div class="tcm-sep"></div>
     <div class="tcm-item danger" onclick="taskMenuDelete('${taskId}')">${ICON_TRASH} Delete</div>`;
   document.body.appendChild(menu);
