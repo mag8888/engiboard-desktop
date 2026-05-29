@@ -2502,8 +2502,8 @@ function loginDemo(){
 // Supabase or sign up if first time. Role comes from the cloud profile
 // (defaults to engineer; admins are promoted manually by the system owner).
 async function loginGoogle(){
-  const email = (prompt('Sign in with your Google email:', localStorage.getItem('eb_account') || 'you@gmail.com') || '').trim().toLowerCase();
-  if(!email || !email.includes('@')) return;
+  const email = (prompt('Enter your real Google email (e.g. name@gmail.com):', localStorage.getItem('eb_account') || '') || '').trim().toLowerCase();
+  if(!email || !email.includes('@') || email === 'you@gmail.com') return toast('Please enter a real email');
   const pw = 'EngiBoard_AutoPw_2026_v1::' + email;
   if(!sb || !window.supabase){
     completeLogin(email, false);
