@@ -896,6 +896,12 @@ body.dark-mode .links-panel{background:rgba(14,165,233,.04)}
 .ic-btn.drive-split .ds-kebab{padding:3px 6px;display:inline-flex;align-items:center;
   cursor:pointer;opacity:.7}
 .ic-btn.drive-split .ds-kebab:hover{opacity:1;background:rgba(14,165,233,.16)}
+/* v0.1.149: "Add link" entry point when the task has no Drive link yet.
+   Muted vs the active Drive split so it reads as an empty slot. */
+.ic-btn.drive-add{padding:3px 8px;color:var(--t3);font-weight:500;
+  border:1px dashed var(--line-2);background:transparent;cursor:pointer}
+.ic-btn.drive-add:hover{color:var(--acc);border-color:rgba(14,165,233,.5);
+  background:rgba(14,165,233,.06)}
 .row .nt-mt{font-size:11px;color:var(--t3);font-family:var(--mono);display:flex;align-items:center;gap:6px;flex-shrink:0}
 .row .nt-mt .play-ic{
   display:inline-flex;align-items:center;gap:3px;cursor:pointer;
@@ -4391,15 +4397,17 @@ function renderRow(t){
         <div class="chat-row-actions-r2">
           <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
 ${(function(){
-            // v0.1.146: the standalone Links icon (chain + count) was
-            // removed — the user only manages Drive via the inline button,
-            // and the standalone icon was creating visual noise next to it.
-            // Click the Drive label to open; the kebab opens edit/remove.
+            // v0.1.149: when the task has no Drive link yet, show a muted
+            // "+ Link" affordance so the user has an entry point to add one.
+            // Once a Drive link exists, it morphs into the split-button
+            // (open | kebab with edit / remove).
+            const linkIcon  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
             const drive = lnks.find(l => (l.type === 'gdrive') || /drive\.google\./.test(l.url||''));
-            if(!drive) return '';
+            if(!drive){
+              return `<span class="ic-btn drive-add" onclick="event.stopPropagation();promptAddDriveLink('${t.id}')" title="Attach a Google Drive link">${linkIcon}Link</span>`;
+            }
             const safeUrl   = String(drive.url||'').replace(/'/g,"\\'");
             const safeTitle = (drive.title||drive.url||'').replace(/"/g,'&quot;');
-            const linkIcon  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
             const kebabIcon = `<svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>`;
             return `<span class="ic-btn drive-split" title="${safeTitle}">
               <span class="ds-open" onclick="event.stopPropagation();openLink('${safeUrl}')">${linkIcon}Drive</span>
@@ -4906,6 +4914,30 @@ function _findDriveLink(t, linkId){
   }
   return arr.find(l => (l.type === 'gdrive') || /drive\.google\./.test(l.url||''));
 }
+// v0.1.149: entry point for attaching a Drive link when there's none yet.
+// Prompts for a URL, validates, and pushes it into t.links. Auto-syncs to
+// Supabase. Mirrors what addLink() does for the (removed) Links panel.
+function promptAddDriveLink(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const v = prompt('Paste a Google Drive (or any) URL:', '');
+  if(v === null) return;
+  const url = v.trim();
+  if(!url) return;
+  if(!/^https?:\/\//.test(url)){ toast('URL must start with http(s)://'); return; }
+  if(!Array.isArray(t.links)) t.links = [];
+  const isDrive = (typeof isGDriveUrl === 'function') ? isGDriveUrl(url) : /drive\.google\./.test(url);
+  t.links.push({
+    id: 'lnk' + Date.now(),
+    url,
+    title: (typeof gdriveTitleFromUrl === 'function') ? gdriveTitleFromUrl(url) : 'Link',
+    type: isDrive ? 'gdrive' : 'url'
+  });
+  if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
+  toast(isDrive ? 'Drive link added' : 'Link added');
+  render();
+}
+
 function editDriveLink(taskId, linkId){
   document.getElementById('_ebDriveMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
