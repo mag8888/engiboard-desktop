@@ -4008,6 +4008,55 @@ function toggleShowHidden(){
   if(typeof renderFilters === 'function') renderFilters();
   if(typeof render === 'function') render();
 }
+// ━━━ UNDO / REDO (v0.1.154, #19 MR) ━━━
+// Action stack — each entry is a { label, undo, redo } pair. The mutating
+// helpers (toggleTaskPinned, toggleTaskHidden, setS, moveTaskToWeek,
+// taskMenuDelete) push here so the user can Cmd+Z out of mistakes. Cap
+// at 50 entries; new actions clear the redo stack. Cloud-aware: each undo
+// re-fires the same db.tasks.update() so multi-user sees the rollback.
+const _undoStack = [];
+const _redoStack = [];
+const _UNDO_MAX = 50;
+// Flag: when an undo/redo handler calls back into a mutating function (like
+// changeStatus or moveTaskToWeek), the function would normally push a new
+// entry onto the stack. That would loop. Set this true around the inverse
+// call so pushUndo becomes a no-op for that one invocation.
+let _suppressUndoPush = false;
+function pushUndo(label, undo, redo){
+  if(_suppressUndoPush) return;
+  _undoStack.push({ label, undo, redo, ts: Date.now() });
+  if(_undoStack.length > _UNDO_MAX) _undoStack.shift();
+  _redoStack.length = 0;
+}
+function _runWithoutUndo(fn){
+  _suppressUndoPush = true;
+  try { fn(); } finally { _suppressUndoPush = false; }
+}
+function doUndo(){
+  const a = _undoStack.pop();
+  if(!a){ toast('Nothing to undo', 1500); return; }
+  try { _runWithoutUndo(a.undo); _redoStack.push(a); toast(`Undone: ${a.label}`, 2000); }
+  catch(e){ console.error('undo failed', e); toast('Undo failed — state may be stale', 3000); }
+}
+function doRedo(){
+  const a = _redoStack.pop();
+  if(!a){ toast('Nothing to redo', 1500); return; }
+  try { _runWithoutUndo(a.redo); _undoStack.push(a); toast(`Redone: ${a.label}`, 2000); }
+  catch(e){ console.error('redo failed', e); toast('Redo failed', 3000); }
+}
+// Global keyboard binding — Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z = redo.
+// Skipped when focus is in an editable element so the user's native undo
+// in inputs/textareas still works.
+document.addEventListener('keydown', e => {
+  const k = e.key?.toLowerCase();
+  if(k !== 'z') return;
+  if(!(e.metaKey || e.ctrlKey)) return;
+  const tag = (document.activeElement?.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+  e.preventDefault();
+  if(e.shiftKey) doRedo(); else doUndo();
+}, true);
+
 // v0.1.152 (#17 reported by DB): pin a task so it stays at the top of the
 // list and shows up in the Pinned sidebar section across projects. Like
 // Telegram channel pins — sticky entry point for the things you keep
@@ -4015,24 +4064,22 @@ function toggleShowHidden(){
 function toggleTaskPinned(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  t.pinned = !t.pinned;
+  const prev = !!t.pinned;
   document.getElementById('_ebTaskMenu')?.remove();
-  // v0.1.153 (Fullstack review): pin/unpin now writes to history for
-  // audit-trail parity with status, deadline, week-move actions.
-  if(typeof logHist === 'function') logHist(t, 'pin', t.pinned ? 'pinned to top' : 'unpinned');
-  toast(t.pinned ? 'Pinned' : 'Unpinned');
-  if(db?.ready && t._cloud){
-    db.tasks.update(t.id, { pinned: t.pinned }).then(({ error }) => {
-      if(error){
-        console.error('pin sync failed', error);
-        toast('Pin not saved — try again', 4000);
-      }
-    }).catch(err => {
-      console.error('pin sync rejected', err);
-      toast('Pin not saved — try again', 4000);
-    });
-  }
-  render();
+  const apply = (val) => {
+    t.pinned = val;
+    if(typeof logHist === 'function') logHist(t, 'pin', val ? 'pinned to top' : 'unpinned');
+    if(db?.ready && t._cloud){
+      db.tasks.update(t.id, { pinned: val }).then(({ error }) => {
+        if(error){ console.error('pin sync failed', error); toast('Pin not saved — try again', 4000); }
+      }).catch(err => { console.error('pin sync rejected', err); toast('Pin not saved — try again', 4000); });
+    }
+    render();
+  };
+  apply(!prev);
+  toast(!prev ? 'Pinned' : 'Unpinned');
+  // v0.1.154 (#19): record for undo
+  pushUndo(prev ? 'Unpin' : 'Pin', () => apply(prev), () => apply(!prev));
 }
 
 function toggleTaskHidden(taskId){
@@ -4041,21 +4088,23 @@ function toggleTaskHidden(taskId){
   // v0.1.153 (Lead QA review): un-archiving a task back into a completed
   // week silently re-introduces work into a closed milestone. Block it
   // with the same guard used by drag-drop and Move-to-week.
-  if(t.hidden && t.w && isWeekComplete(t.proj, t.w)){
+  // v0.1.154: undo bypasses the block — restoring prior state is fine.
+  if(t.hidden && t.w && !_suppressUndoPush && isWeekComplete(t.proj, t.w)){
     toast(`Week ${t.w} is closed — reopen the week first, or unarchive from a different week`, 5000);
     document.getElementById('_ebTaskMenu')?.remove();
     return;
   }
-  t.hidden = !t.hidden;
+  const prev = !!t.hidden;
   document.getElementById('_ebTaskMenu')?.remove();
-  // v0.1.151: clearer toast — "archive" carries the right reversibility
-  // signal vs. "hide", and the "Show archived" hint reminds the user how
-  // to find it again (the Hidden→Archived chip in the filter bar).
-  toast(t.hidden ? 'Archived — toggle "Archived" filter to view' : 'Restored from archive', 3500);
-  // v0.1.147: persist to Supabase when the task lives in the cloud, so the
-  // hidden state survives a reload and is shared across team members.
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { hidden: t.hidden }).catch(()=>{});
-  render();
+  const apply = (val) => {
+    t.hidden = val;
+    if(db?.ready && t._cloud) db.tasks.update(t.id, { hidden: val }).catch(()=>{});
+    render();
+  };
+  apply(!prev);
+  toast(!prev ? 'Archived — toggle "Archived" filter to view' : 'Restored from archive', 3500);
+  // v0.1.154 (#19): record for undo
+  pushUndo(prev ? 'Unarchive' : 'Archive', () => apply(prev), () => apply(!prev));
 }
 function getFilteredTasks(){
   let result = (currentProject === 'all')
@@ -4554,12 +4603,19 @@ function moveTaskToWeek(taskId, week){
   document.getElementById('_ebWeekMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  if((t.w || '') === week){ return; }
+  const prevWeek = t.w || '';
+  if(prevWeek === week){ return; }
   // v0.1.152 (#18 DB): mirror the drag-drop guard for the context-menu path.
-  if(week && isWeekComplete(t.proj, week)){
+  // v0.1.154: undo bypasses the complete-week block — it's restoring the
+  // previous valid state, not introducing a new violation.
+  if(week && !_suppressUndoPush && isWeekComplete(t.proj, week)){
     toast(`Week ${week} is complete — reopen it first`, 4000);
     return;
   }
+  // v0.1.154 (#19): record for undo before the mutation lands.
+  pushUndo(`Move to ${week || 'Unscheduled'}`,
+    () => moveTaskToWeek(taskId, prevWeek),
+    () => moveTaskToWeek(taskId, week));
   t.w = week || '';
   if(typeof logHist === 'function') logHist(t, 'week', `moved to ${t.w || 'Unscheduled'}`);
   if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: t.w || null }).catch(()=>{});
@@ -5154,8 +5210,14 @@ function changeStatus(taskId, sid){
   const t = TASKS.find(x => x.id === taskId);
   if(t){
     const prevStatus = t.s;
+    if(prevStatus === sid){ closeStMenu(); return; }
     t.s = sid;
     logHist(t, 'status', `${(STATUSES[prevStatus]||{}).l||'?'} → ${STATUSES[sid].l}`);
+    // v0.1.154 (#19): record for undo. _runWithoutUndo wraps the inverse
+    // call so the recursive changeStatus call doesn't re-push.
+    pushUndo(`Status: ${STATUSES[sid].l}`,
+      () => changeStatus(taskId, prevStatus),
+      () => changeStatus(taskId, sid));
     closeStMenu();
     render();
     // v0.1.114: if presentation mode is open for this task, refresh it too
@@ -7995,7 +8057,13 @@ function taskMenuDelete(taskId){
   document.getElementById('_ebTaskMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  openConfirmModal('Delete task', `Delete "${(t.title||t.n||'this task').slice(0,40)}"? This cannot be undone.`, 'Delete', () => {
+  openConfirmModal('Delete task', `Delete "${(t.title||t.n||'this task').slice(0,40)}"? You can Cmd/Ctrl+Z to bring it back.`, 'Delete', () => {
+    // v0.1.154 (#19): snapshot the full task + its position so undo can
+    // restore both in-memory and (best-effort) in Supabase. The cloud
+    // insert keeps the same id so any task_comments referencing it stay
+    // linked.
+    const snapshot = JSON.parse(JSON.stringify(t));
+    const idx = TASKS.findIndex(x => x.id === taskId);
     if(t._cloud && db && db.ready){
       db.tasks.delete(t.id).then(({error}) => {
         if(error) console.warn('[cloud] delete failed:', error.message);
@@ -8005,7 +8073,42 @@ function taskMenuDelete(taskId){
     TASKS = TASKS.filter(x => x.id !== taskId);
     if(typeof saveTimers === 'function') saveTimers();
     render(); updateHeader();
-    toast('✓ Task deleted');
+    toast('Task deleted — Cmd+Z to undo', 4500);
+    pushUndo('Delete task',
+      // Undo: re-insert at original index, try to restore in cloud too.
+      () => {
+        TASKS.splice(idx, 0, snapshot);
+        render(); updateHeader();
+        if(snapshot._cloud && db && db.ready){
+          // We can't use db.tasks.create (it auto-generates id). Use the
+          // raw client to keep the original id so comments stay linked.
+          try {
+            const payload = {
+              id: snapshot.id, project_id: snapshot.proj,
+              title: snapshot.title || snapshot.n || '',
+              description: snapshot.notes || '',
+              desktop_status: snapshot.s, week_tag: snapshot.w || null,
+              shot1_url: snapshot.shot1 || null, shot2_url: snapshot.shot2 || null,
+              shots_extra: snapshot.shots || [], links: snapshot.links || [],
+              checklist: snapshot.checklist || [],
+              hidden: !!snapshot.hidden, pinned: !!snapshot.pinned,
+              deadline: snapshot.deadline || null, notes: snapshot.notes || ''
+            };
+            sb.from('tasks').insert(payload).then(({error}) => {
+              if(error){ console.warn('[cloud] restore failed:', error.message); toast('Restored locally — cloud refused', 4000); }
+            });
+          } catch(_){}
+        }
+      },
+      // Redo: delete again.
+      () => {
+        if(snapshot._cloud && db && db.ready){
+          db.tasks.delete(snapshot.id).catch(()=>{});
+        }
+        TASKS = TASKS.filter(x => x.id !== snapshot.id);
+        render(); updateHeader();
+      }
+    );
   });
 }
 function taskMenuDuplicate(taskId){
