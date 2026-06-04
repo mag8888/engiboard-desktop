@@ -35,8 +35,13 @@
   --line:rgba(15,23,42,.06);
   --line-2:rgba(15,23,42,.10);
   --t1:#0F172A;
-  --t2:#475569;
-  --t3:#94A3B8;
+  --t2:#334155;
+  /* v0.1.150 (fix #21 reported by tester MR): --t3 used to be #94A3B8
+     (3.5:1 on white, fails WCAG-AA for small text). Lift to #475569
+     so muted secondary labels remain readable; --t4 stays as the
+     genuinely faded tier. --t2 also tightened from slate-600 to
+     slate-700 to widen the gap and keep the hierarchy. */
+  --t3:#475569;
   --t4:#64748B;
   --acc:#0EA5E9;
   --acc-2:#38BDF8;
@@ -2063,9 +2068,15 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       </button>
       <span id="filterChips" style="display:contents"></span>
       <span style="flex:1"></span>
-      <button class="chip" onclick="exportPDF()" title="Export PDF report" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">PDF</button>
-      <button class="chip" onclick="exportCSVWithOptions()" title="Export tasks to Excel (XLSX) with embedded screenshots" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--acc);border-color:rgba(14,165,233,.3)">XLSX</button>
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
+      <!-- v0.1.150 (fix #4 reported by DB): export buttons are used rarely, so
+           collapse them into a single "More" kebab on the right of the toolbar.
+           Click opens a small menu with Export PDF / Export XLSX. -->
+      <button class="chip" id="toolbarMoreBtn" onclick="openToolbarMore(event)" title="More actions"
+        style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:6px 8px;
+               display:inline-flex;align-items:center;color:var(--t3)">
+        <svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>
+      </button>
       <!-- v0.1.123: card view-mode toggle — List (compact) + Expanded only -->
       <div class="cv-toggle" id="cvToggle">
         <button data-cv="list" onclick="setCardView('list')" title="Compact list view">
@@ -4281,6 +4292,74 @@ function renderDeadline(t){
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>${label}
   </span>`;
 }
+// v0.1.150 (fix #27/#13 reported by MR/DB): submenu to move a task between
+// weeks without drag-and-drop. Lists every week tag currently in use in the
+// project + "Unscheduled" + "New week…" (prompts for the tag). Solves #13
+// too — there was no UI to create a new week before this.
+function openMoveToWeekMenu(e, taskId){
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
+  document.getElementById('_ebTaskMenu')?.remove();
+  document.getElementById('_ebWeekMenu')?.remove();
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  // Collect every week tag used by tasks in the same project, sorted.
+  const weeks = [...new Set(TASKS.filter(x => x.proj === t.proj).map(x => x.w || ''))]
+    .filter(w => w !== '')
+    .sort();
+  const menu = document.createElement('div');
+  menu.id = '_ebWeekMenu';
+  menu.className = 'task-ctx-menu';
+  const item = (w, label, isCurrent) => {
+    const dot = isCurrent ? '<span style="color:var(--acc);margin-right:4px">●</span>' : '<span style="display:inline-block;width:11px"></span>';
+    return `<div class="tcm-item" onclick="moveTaskToWeek('${taskId}','${w}')">${dot}${label}</div>`;
+  };
+  let html = weeks.map(w => item(w, w, w === (t.w || ''))).join('');
+  html += item('', 'Unscheduled', !t.w);
+  html += `<div class="tcm-sep"></div>`;
+  html += `<div class="tcm-item" onclick="promptNewWeekForTask('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New week…</div>`;
+  menu.innerHTML = html;
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth || 200, mh = menu.offsetHeight || 200;
+  const x = e?.clientX ?? (window.innerWidth/2);
+  const y = e?.clientY ?? (window.innerHeight/2);
+  menu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
+  menu.style.top  = Math.min(y, window.innerHeight - mh - 8) + 'px';
+  setTimeout(() => {
+    document.addEventListener('click', function cl(ev){
+      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click', cl); }
+    });
+  }, 20);
+}
+function moveTaskToWeek(taskId, week){
+  document.getElementById('_ebWeekMenu')?.remove();
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  if((t.w || '') === week){ return; }
+  t.w = week || '';
+  if(typeof logHist === 'function') logHist(t, 'week', `moved to ${t.w || 'unscheduled'}`);
+  if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: t.w || null }).catch(()=>{});
+  toast(`Moved to ${t.w || 'unscheduled'}`);
+  render();
+}
+function promptNewWeekForTask(taskId){
+  document.getElementById('_ebWeekMenu')?.remove();
+  // Default suggestion = ISO week of today (e.g. 26W23).
+  const now = new Date();
+  const yr = now.getUTCFullYear().toString().slice(2);
+  // ISO week number — approximate but matches the app's existing tags.
+  const ref = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  ref.setUTCDate(ref.getUTCDate() + 4 - (ref.getUTCDay()||7));
+  const yearStart = new Date(Date.UTC(ref.getUTCFullYear(),0,1));
+  const wkNum = Math.ceil((((ref - yearStart) / 86400000) + 1)/7);
+  const def = `${yr}W${String(wkNum).padStart(2,'0')}`;
+  const v = prompt('New week tag (e.g. 26W23):', def);
+  if(v === null) return;
+  const tag = v.trim().toUpperCase();
+  if(!/^\d{2}W\d{1,2}$/.test(tag)){ toast('Expected format like 26W23'); return; }
+  moveTaskToWeek(taskId, tag);
+}
+
 function setTaskDeadline(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
@@ -4344,7 +4423,7 @@ function renderRow(t){
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
         return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
+          <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
         </div>`;
       }).join('');
   // P2-6 timer state
@@ -4414,7 +4493,9 @@ ${(function(){
               <span class="ds-kebab" onclick="event.stopPropagation();openDriveLinkMenu(event,'${t.id}','${drive.id||""}')" title="More">${kebabIcon}</span>
             </span>`;
           })()}
-          <span class="ic-btn" id="tmplBtn_${t.id}" style="position:relative" onclick="event.stopPropagation();openTmplMenu('${t.id}')" title="Task templates"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Tmpl</span>
+<!-- v0.1.150 (fix #5 reported by DB): Tmpl chip was rarely used and crowded
+       the row toolbar — moved to the task's kebab menu ("Insert template"). -->
+          <span class="ic-btn" id="tmplBtn_${t.id}" style="display:none"></span>
         </div>
       </div>
     </div>
@@ -4613,6 +4694,15 @@ window.addEventListener('message', ev => {
       else if(slotIdx === 1) t.shot2 = d.dataUrl;
       else if(Array.isArray(t.shots)) t.shots[slotIdx - 2] = d.dataUrl;
       try { render && render(); } catch(_){}
+      // v0.1.150 (fix #6/#24 reported by DB+MR): when the editor was opened
+      // from presentation mode the row was re-rendered but the modal kept
+      // showing the stale <img>. Refresh the modal too so the new annotation
+      // is visible immediately, without exiting and re-entering the task.
+      try {
+        if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === taskId){
+          renderPresent && renderPresent();
+        }
+      } catch(_){}
       toast('Annotation saved');
     }
     closeWebEditor();
@@ -5280,12 +5370,14 @@ function onRowClick(e, taskId){
 // ━━━ PRESENT ━━━
 function openPresent(taskId){
   // v0.1.43: режим презентации вернули — это спринт 1.4 ТЗ.
+  // v0.1.150 (fix #28 reported by tester MR): the modal used to abort with
+  // "No screenshots in this task" when both shot1 and shot2 were empty.
+  // That broke navigation — pressing Next/Prev over an image-less task
+  // would just toast and stop. Allow opening; the Before/After cells
+  // already render their own empty-state with a "+ Add screenshot" CTA at
+  // the bottom of the modal, so the user always has a way forward.
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  if(!t.shot1 && !t.shot2 && !(Array.isArray(t.shots) && t.shots.length)){
-    toast('No screenshots in this task');
-    return;
-  }
   presentTask = t;
   renderPresent();
   const presEl = document.getElementById('present');
@@ -5386,7 +5478,7 @@ function renderPresent(){
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
         return `<div class="nt-chat-msg">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>
+          <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
         </div>`;
       }).join('');
   card.innerHTML = `
@@ -5465,23 +5557,72 @@ function startPresSplit(e){
   document.addEventListener('mouseup', onUp);
 }
 
-function sendPresChat(){
+async function sendPresChat(){
   const inp = document.getElementById('presChatInput');
   if(!inp) return;
   const text = inp.value.trim();
   if(!text || !presentTask) return;
   if(!presentTask.chat) presentTask.chat = [];
-  presentTask.chat.push({
-    a:'AS',
-    ts:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false}),
-    text
-  });
+  // v0.1.150 (fix #23 reported by tester MR): comments typed in presentation
+  // mode used to live only in local state — neither persisted to Supabase
+  // nor visible after closing the modal. Reuse the row-chat cloud path so
+  // both entry points behave identically (optimistic local push, server
+  // confirms, rollback on error).
+  const t = presentTask;
+  let myInitials = 'AS';
+  let authorId = null;
+  if(t._cloud && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      if(u){
+        authorId = u.id;
+        myInitials = initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name });
+      }
+    } catch(_){}
+  }
+  const clientId = 'c' + Date.now() + Math.random().toString(36).slice(2,7);
+  const localMsg = {
+    a: myInitials,
+    text,
+    ts: new Date().toLocaleTimeString('en', { hour:'2-digit', minute:'2-digit', hour12:false }),
+    _pending: !!(t._cloud && authorId),
+    _clientId: clientId
+  };
+  t.chat.push(localMsg);
   inp.value = '';
   renderPresent();
-  // v0.1.39 fix: client reported "при добавлении сообщения в режиме презентации
-  // оно не сразу отображается в чате задачи". Refresh task row chat panel inline
-  // (cheap — just innerHTML update, doesn't full-rerender list).
-  syncTaskRowChat(presentTask.id);
+  syncTaskRowChat(t.id);
+
+  if(t._cloud && db && db.ready){
+    if(!authorId){
+      // Auth disappeared — keep the local msg but warn the user.
+      toast('Not signed in — comment kept locally only', 3500);
+      return;
+    }
+    db.taskComments.create({ task_id: t.id, body: text, author_id: authorId })
+      .then(({ data, error }) => {
+        if(error){
+          const i = t.chat.indexOf(localMsg);
+          if(i >= 0) t.chat.splice(i, 1);
+          toast('Comment not saved: ' + error.message, 3500);
+          renderPresent();
+          syncTaskRowChat(t.id);
+          return;
+        }
+        const idx = t.chat.indexOf(localMsg);
+        if(idx >= 0){
+          t.chat[idx] = {
+            a: initialsFromProfile(data?.author),
+            text: data?.body || text,
+            ts: new Date(data?.created_at || Date.now()).toLocaleTimeString('en-US', {hour12:false,hour:'2-digit',minute:'2-digit'}),
+            id: data?.id,
+            _clientId: clientId
+          };
+          renderPresent();
+          syncTaskRowChat(t.id);
+        }
+      });
+  }
 }
 
 // v0.1.39: keep task-row inline chat in sync with presentTask.chat (used by both
@@ -5496,7 +5637,7 @@ function syncTaskRowChat(taskId){
     const initials = (m.a || '?').slice(0, 2).toUpperCase();
     return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
       <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-      <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>    </div>`;
+      <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>    </div>`;
   }).join('');
   panel.scrollTop = panel.scrollHeight;
 }
@@ -5694,6 +5835,27 @@ function renderLbComments(){
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// v0.1.150 (fix #25 reported by tester MR): chat messages used to render
+// URLs as plain text, so users had to copy-paste them into the browser.
+// linkifyText escapes the whole string then turns URLs into <a target=_blank>
+// — clickable, but visually still inline (no chip styling per user feedback).
+function linkifyText(s){
+  const src = String(s == null ? '' : s);
+  const rx = /\bhttps?:\/\/[^\s<>"')]+/gi;
+  if(!rx.test(src)){ return escapeHtml(src); }
+  rx.lastIndex = 0;
+  let out = ''; let last = 0; let m;
+  while((m = rx.exec(src)) !== null){
+    if(m.index > last) out += escapeHtml(src.slice(last, m.index));
+    const url = m[0];
+    const safe = escapeHtml(url);
+    out += `<a href="${safe}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(14,165,233,.5);text-underline-offset:2px">${safe}</a>`;
+    last = m.index + url.length;
+  }
+  if(last < src.length) out += escapeHtml(src.slice(last));
+  return out;
 }
 
 // v0.1.144 (reverted): smart-link chips in chat were removed. Only the
@@ -7098,7 +7260,7 @@ async function sendInlineChat(inp){
       const initials = (m.a || '?').slice(0, 2).toUpperCase();
       return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
         <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span>      </div>`;
+        <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>      </div>`;
     }).join('');
     panel.scrollTop = panel.scrollHeight;
   }
@@ -7206,7 +7368,17 @@ function setAssignee(taskId, name){
   if(!t) return;
   t.assignee = name;
   logHist(t, 'assignee', name ? `assigned to ${name}` : 'unassigned');
+  // v0.1.150 (fix #26 reported by tester MR): "В режиме презентации нельзя
+  // сменить ответственного" — the menu was opening over the modal but
+  // setAssignee only re-rendered the list, not the modal header. Push the
+  // change into the modal too. Cloud sync (assignee_id) is intentionally
+  // left as-is for now; in the demo data we store initials, not user IDs.
   render();
+  try {
+    if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === taskId){
+      renderPresent && renderPresent();
+    }
+  } catch(_){}
   if(name) toast('Assigned to ' + name);
 }
 
@@ -7235,6 +7407,8 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="taskMenuCopy('${taskId}')">${ICON_COPY} Copy text</div>
     <div class="tcm-item" onclick="taskMenuCopyPublicLink('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy public link</div>
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
+    <div class="tcm-item" onclick="document.getElementById('_ebTaskMenu').remove();openTmplMenu('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Insert template</div>
+    <div class="tcm-item" onclick="openMoveToWeekMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to week…</div>
     <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
     ${t.deadline ? `<div class="tcm-item" onclick="clearTaskDeadline('${taskId}')">${deadlineIcon}Clear deadline</div>` : ''}
     <div class="tcm-item" onclick="toggleTaskHidden('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>${hiddenLabel}</div>
@@ -7857,6 +8031,30 @@ function _imgToPng(src, maxW){
 
 // Convert pixels to EMU (English Metric Units) — Excel image positioning.
 const _PX_TO_EMU = 9525;
+
+// v0.1.150 (fix #4): "..." kebab on the toolbar — collapses the rarely-used
+// PDF / XLSX exports into one menu so the toolbar is less crowded.
+function openToolbarMore(e){
+  e?.preventDefault?.();
+  document.getElementById('_ebToolbarMenu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = '_ebToolbarMenu';
+  menu.className = 'task-ctx-menu';
+  menu.innerHTML = `
+    <div class="tcm-item" onclick="document.getElementById('_ebToolbarMenu').remove();exportPDF()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Export PDF</div>
+    <div class="tcm-item" onclick="document.getElementById('_ebToolbarMenu').remove();exportCSVWithOptions()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Export XLSX (with screenshots)</div>`;
+  document.body.appendChild(menu);
+  const btn = document.getElementById('toolbarMoreBtn');
+  const r = btn.getBoundingClientRect();
+  const mw = menu.offsetWidth || 240;
+  menu.style.left = Math.max(8, r.right - mw) + 'px';
+  menu.style.top  = (r.bottom + 6) + 'px';
+  setTimeout(() => {
+    document.addEventListener('click', function cl(ev){
+      if(!menu.contains(ev.target) && ev.target !== btn){ menu.remove(); document.removeEventListener('click', cl); }
+    });
+  }, 20);
+}
 
 async function exportCSV(){
   // Tasks currently in scope (respects project filter + search). Hidden tasks
@@ -8982,7 +9180,7 @@ async function askAI(taskId){
       const init = (m.a||'?').slice(0,2).toUpperCase();
       return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
         <span class="av ${init}">${init}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${(m.text||'').replace(/[<>]/g,'')}</span></div>`;
+        <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span></div>`;
     }).join('');
     panel.scrollTop = panel.scrollHeight;
   };
