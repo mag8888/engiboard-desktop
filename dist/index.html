@@ -794,6 +794,22 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
   text-decoration-color:rgba(14,165,233,.5);text-underline-offset:2px;
   transition:text-decoration-color .12s}
 .chat-link:hover{text-decoration-color:var(--acc)}
+/* v0.1.154 (#20 MR): presence stack rendered in the presentation header.
+   Overlapping avatar circles (Google-Docs style) with a count chip when
+   more than 4 viewers. */
+.pres-presence{display:none;align-items:center;margin-left:12px;
+  padding-left:12px;border-left:1px solid var(--line)}
+.pres-presence .presence-av{display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;
+  font-family:var(--mono);border:2px solid var(--surf);box-shadow:0 1px 3px rgba(15,23,42,.18);
+  margin-left:-6px;cursor:default;animation:presence-pop .25s ease-out}
+.pres-presence .presence-av:first-child{margin-left:0}
+.pres-presence .presence-more{margin-left:6px;font-size:11px;font-family:var(--mono);
+  color:var(--t3);font-weight:600}
+@keyframes presence-pop{
+  from{transform:scale(.5);opacity:0}
+  to{transform:scale(1);opacity:1}
+}
 .row .nt-chat-msg .ts{font-size:9px;color:var(--t4);font-family:var(--mono);flex-shrink:0;margin-top:2px;opacity:.7}
 .row .nt-chat-input{
   display:flex;align-items:center;gap:5px;padding:3px;background:var(--surf);border-radius:5px;
@@ -5684,14 +5700,133 @@ function openPresent(taskId){
   const presEl = document.getElementById('present');
   presEl.style.display = '';
   presEl.classList.add('on');
+  // v0.1.154 (#20 MR): join the task's presence channel so other people
+  // viewing this task see our avatar appear in their pres-head, and we see
+  // theirs. Switches channels if user navigates Next/Prev — old channel
+  // dropped, new one joined.
+  if(t._cloud) joinTaskPresence(t.id);
 }
 function closePresent(){
   // v0.1.39: ensure row's inline chat panel reflects messages added inside slideshow
   // before fading the modal out. Without this the user comes back to a row showing
   // stale chat history.
   if(presentTask && presentTask.id) syncTaskRowChat(presentTask.id);
+  leaveTaskPresence();
   document.getElementById('present').classList.remove('on');
   presentTask = null;
+}
+
+// ━━━ TASK PRESENCE (v0.1.154, #20 MR) ━━━
+// Supabase Realtime "presence" — one channel per task; everyone subscribed
+// to task:<id> sees who else is viewing it. We only join when the user
+// opens the presentation modal (lightest possible signal — we don't track
+// presence for every row in the list, that'd be noisy and expensive).
+let _presenceChannel = null;
+let _presenceTaskId = null;
+let _presenceMyId = null;       // cache so updatePresenceUi can skip self
+let _presenceState = {};        // { user_id: [{ user_id, initials, name, color, joined_at }, ...] }
+
+function _presenceColorForUser(uid){
+  // Deterministic colour from user id so the same user looks the same to
+  // everyone in the room. Hash to one of 8 brand-friendly hues.
+  const palette = ['#0EA5E9','#A78BFA','#F472B6','#34D399','#FBBF24','#FB923C','#F87171','#6366F1'];
+  if(!uid) return palette[0];
+  let h = 0;
+  for(let i = 0; i < uid.length; i++) h = (h * 31 + uid.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
+
+async function joinTaskPresence(taskId){
+  if(!sb || !taskId) return;
+  // If already in another task's channel, drop it cleanly first.
+  if(_presenceChannel && _presenceTaskId === taskId) return;
+  leaveTaskPresence();
+  let me = null;
+  try {
+    const u = await db.auth.user();
+    if(!u) return;
+    me = {
+      user_id: u.id,
+      initials: initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name }),
+      name: u.user_metadata?.full_name || u.email || 'Someone',
+      color: _presenceColorForUser(u.id),
+      joined_at: new Date().toISOString()
+    };
+  } catch(e){ return; }
+  if(!me) return;
+  const channel = sb.channel(`task_presence:${taskId}`, {
+    config: { presence: { key: me.user_id } }
+  });
+  channel.on('presence', { event: 'sync' }, () => {
+    try {
+      _presenceState = channel.presenceState() || {};
+      updatePresenceUi();
+    } catch(_){}
+  });
+  channel.on('presence', { event: 'join' }, ({ newPresences }) => {
+    // Soft toast when someone NEW arrives (not self, not on initial sync)
+    try {
+      if(_presenceTaskId !== taskId) return;
+      newPresences.forEach(p => {
+        if(p.user_id && p.user_id !== me.user_id){
+          toast(`${p.name || p.initials} joined`, 2000);
+        }
+      });
+    } catch(_){}
+  });
+  channel.subscribe(async status => {
+    if(status === 'SUBSCRIBED'){
+      try { await channel.track(me); } catch(_){}
+    }
+  });
+  _presenceChannel = channel;
+  _presenceTaskId = taskId;
+  _presenceMyId = me.user_id;
+}
+
+function leaveTaskPresence(){
+  if(!_presenceChannel) return;
+  try { sb.removeChannel(_presenceChannel); } catch(_){}
+  _presenceChannel = null;
+  _presenceTaskId = null;
+  _presenceMyId = null;
+  _presenceState = {};
+  updatePresenceUi();
+}
+
+// Render the avatar stack into the presentation header. Called by both the
+// presence 'sync' callback and renderPresent (so the stack survives a full
+// modal re-render). Self is omitted — you don't need to see yourself.
+function updatePresenceUi(){
+  const slot = document.getElementById('presPresence');
+  if(!slot) return;
+  let me = null;
+  try {
+    // Recover current user id from any presence entry we tracked
+    Object.keys(_presenceState).forEach(uid => {
+      if((_presenceState[uid][0]?.user_id) === uid){ /* noop, structural check */ }
+    });
+  } catch(_){}
+  const entries = [];
+  Object.entries(_presenceState).forEach(([uid, arr]) => {
+    if(!arr || !arr.length) return;
+    // Skip self — you don't need to see your own avatar in the stack.
+    if(_presenceMyId && uid === _presenceMyId) return;
+    entries.push(arr[0]);
+  });
+  if(entries.length === 0){
+    slot.innerHTML = '';
+    slot.style.display = 'none';
+    return;
+  }
+  slot.style.display = 'inline-flex';
+  // Cap at 4 visible avatars, show "+N" for the rest
+  const visible = entries.slice(0, 4);
+  const extras = entries.length - visible.length;
+  slot.innerHTML = visible.map(p => `
+    <span class="presence-av" title="${(p.name || p.initials || 'Someone').replace(/"/g,'&quot;')} · viewing now"
+      style="background:${p.color || '#0EA5E9'}">${p.initials || '?'}</span>
+  `).join('') + (extras > 0 ? `<span class="presence-more">+${extras}</span>` : '');
 }
 function presentNext(){
   const tasks = getFilteredTasks();
@@ -5838,6 +5973,9 @@ function renderPresent(){
         <span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>
       </div>
       ${renderAssignee(t)}
+      <!-- v0.1.154 (#20 MR): live presence stack — populated by
+           updatePresenceUi() after the realtime channel sync. -->
+      <span id="presPresence" class="pres-presence" style="display:none"></span>
       <button class="pres-close" onclick="closePresent()" style="margin-left:auto">×</button>
     </div>
     <div class="pres-body-grid" id="presBodyGrid">
@@ -5884,6 +6022,8 @@ function renderPresent(){
   }
   const notesEl = document.getElementById('presNotes');
   if(notesEl && _prevNotesScroll > 0) notesEl.scrollTop = _prevNotesScroll;
+  // v0.1.154: presence stack re-renders into the freshly-built header.
+  try { updatePresenceUi(); } catch(_){}
   // Patch SVG srcs stripped by security sandbox (defer so onerror fires first)
   const shots = [t.shot1, t.shot2];
   setTimeout(() => {
