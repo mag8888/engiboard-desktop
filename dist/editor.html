@@ -467,21 +467,73 @@ function makeAnnotEl(a,prev=false){
   if(a.type==='rect'){const d=document.createElement('div');d.className='ashape';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='circle'){const d=document.createElement('div');d.className='ashape';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};border-radius:50%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='arrow'||a.type==='line'){
-    const ang=Math.atan2(a.h,a.w)*180/Math.PI;
-    const len=Math.sqrt(a.w*a.w+a.h*a.h);
-    const wrap=document.createElement('div');
-    wrap.className='arrow-wrap';
-    wrap.style.cssText=`left:${a.x}%;top:${a.y}%;width:${len}%;height:0;transform:rotate(${ang}deg);opacity:${op}`;
-    const line=document.createElement('div');
-    line.style.cssText=`height:${a.sw}px;background:${a.color};width:100%`;
-    wrap.appendChild(line);
+    // v0.1.151 (fix #7 #8 reported by DB): previous implementation used a
+    // rotated <div> with width sized in % of paper width — that's wrong
+    // because the line vector's length mixes x% (paper width) and y% (paper
+    // height), so on a non-square canvas the line drifted away from the
+    // cursor (#8) and the arrow head was a hand-painted CSS triangle that
+    // looked chunky (#7). Switch to SVG: the fhSvg layer has viewBox 0 0
+    // 100 100 with preserveAspectRatio="none", so the % coords map exactly
+    // 1:1 to the same percentage system used by relPos(). Both the line
+    // body and arrow head are drawn as a single SVG path so they share
+    // stroke / aa behaviour and never separate.
+    const ns='http://www.w3.org/2000/svg';
+    const g=document.createElementNS(ns,'g');
+    g.style.opacity=op;
+    const x1=a.x, y1=a.y, x2=a.x+a.w, y2=a.y+a.h;
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke',a.color);
+    line.setAttribute('stroke-width',a.sw);
+    line.setAttribute('stroke-linecap','round');
+    // vector-effect keeps stroke width constant regardless of viewBox scale —
+    // otherwise the line would thin out on wide paper.
+    line.setAttribute('vector-effect','non-scaling-stroke');
+    g.appendChild(line);
     if(a.type==='arrow'){
-      const tip=document.createElement('div');
-      const hs=4+a.sw;
-      tip.style.cssText=`position:absolute;right:0;top:50%;transform:translateY(-50%);width:0;height:0;border-left:${8+a.sw*2}px solid ${a.color};border-top:${hs}px solid transparent;border-bottom:${hs}px solid transparent`;
-      wrap.appendChild(tip);
+      // Compute arrowhead in pixel space so it doesn't squish with aspect
+      // ratio. We use the SVG's CTM to map back to viewBox %.
+      const rect=fhSvg.getBoundingClientRect();
+      const px=(rect.width||1)/100, py=(rect.height||1)/100;
+      const dxPx=(x2-x1)*px, dyPx=(y2-y1)*py;
+      const lenPx=Math.sqrt(dxPx*dxPx+dyPx*dyPx) || 1;
+      const headLenPx=10 + a.sw*2;    // arrowhead size scales with stroke
+      const headHalfPx=5 + a.sw*1.2;
+      const ux=dxPx/lenPx, uy=dyPx/lenPx;
+      const perpX=-uy, perpY=ux;
+      const tipX=x2, tipY=y2;
+      const baseXPx=x2*px - ux*headLenPx;
+      const baseYPx=y2*py - uy*headLenPx;
+      const leftX =(baseXPx + perpX*headHalfPx)/px;
+      const leftY =(baseYPx + perpY*headHalfPx)/py;
+      const rightX=(baseXPx - perpX*headHalfPx)/px;
+      const rightY=(baseYPx - perpY*headHalfPx)/py;
+      const head=document.createElementNS(ns,'path');
+      head.setAttribute('d', `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${rightX} ${rightY} Z`);
+      head.setAttribute('fill', a.color);
+      head.setAttribute('stroke','none');
+      g.appendChild(head);
+      // Shorten the visible line so it ends at the arrowhead base — keeps
+      // the join clean instead of poking out through the tip.
+      const baseXFrac=(baseXPx)/px, baseYFrac=(baseYPx)/py;
+      line.setAttribute('x2', baseXFrac);
+      line.setAttribute('y2', baseYFrac);
     }
-    return{el:wrap,layer:'div'};
+    if(sel){
+      // Selection highlight: render a fat translucent stroke under the line
+      // so the user knows what they're about to drag/delete.
+      const halo=document.createElementNS(ns,'line');
+      halo.setAttribute('x1',x1); halo.setAttribute('y1',y1);
+      halo.setAttribute('x2',x2); halo.setAttribute('y2',y2);
+      halo.setAttribute('stroke',a.color);
+      halo.setAttribute('stroke-width',a.sw+6);
+      halo.setAttribute('stroke-opacity','0.25');
+      halo.setAttribute('stroke-linecap','round');
+      halo.setAttribute('vector-effect','non-scaling-stroke');
+      g.insertBefore(halo, g.firstChild);
+    }
+    return{el:g,layer:'svg'};
   }
   if(a.type==='blur'){const d=document.createElement('div');d.className='blur-box';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
