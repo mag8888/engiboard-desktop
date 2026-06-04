@@ -1706,6 +1706,21 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .week-hdr:first-child{margin-top:0}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
   outline:1px dashed rgba(14,165,233,.5);border-radius:4px}
+/* v0.1.152 (#18 DB): completed week — green check leading the row,
+   subtle green tint background, strike-through on the week tag so the
+   user immediately sees "this is closed". drop-forbidden overrides the
+   drop-target highlight with a red dashed outline so the cursor knows
+   the drop will be rejected before the user releases. */
+.week-hdr.complete .week-name{text-decoration:line-through;color:var(--t4)}
+.week-hdr.complete .week-ct{opacity:.6}
+.week-hdr.complete{background:rgba(22,163,74,.06);border-radius:4px;padding:4px 8px}
+.week-hdr.drop-forbidden{background:rgba(220,38,38,.10);color:#DC2626;
+  outline:1px dashed rgba(220,38,38,.55)}
+.week-done-btn{margin-left:auto;border:none;background:transparent;cursor:pointer;
+  padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;
+  color:var(--t3);transition:background .12s}
+.week-done-btn:hover{background:rgba(15,23,42,.05)}
+body.dark-mode .week-done-btn:hover{background:rgba(255,255,255,.06)}
 /* v0.1.152 (#17 DB): pinned section header reuses week-hdr but with the
    amber pin colour so it reads as a distinct sticky section instead of
    another week. */
@@ -3942,6 +3957,28 @@ function toggleWeek(projId, w){
   render();
 }
 
+// v0.1.152 (#18 DB): per-week "complete" flag. Like the collapse state,
+// persisted locally per project — completed weeks render a green check
+// and refuse drag-drop. Functional but local-only for now; can promote to
+// a cloud column later if teams need shared completion state.
+function _ebDoneKey(projId){ return 'eb_done_weeks_' + projId; }
+function isWeekComplete(projId, w){
+  if(!w) return false;
+  try { return (JSON.parse(localStorage.getItem(_ebDoneKey(projId)) || '[]')).includes(w); }
+  catch(_){ return false; }
+}
+function toggleWeekComplete(projId, w){
+  if(!w) return;
+  let set;
+  try { set = new Set(JSON.parse(localStorage.getItem(_ebDoneKey(projId)) || '[]')); }
+  catch(_){ set = new Set(); }
+  const wasComplete = set.has(w);
+  if(wasComplete) set.delete(w); else set.add(w);
+  localStorage.setItem(_ebDoneKey(projId), JSON.stringify([...set]));
+  toast(wasComplete ? `Week ${w} reopened` : `Week ${w} marked complete`);
+  render();
+}
+
 // "Hidden" tasks are internal questions/bugs the user has stashed away. They
 // stay in the project (not deleted), but the main list skips them unless the
 // user flips the "Show hidden" toggle in the filter bar.
@@ -4249,10 +4286,16 @@ function render(){
         const tasks = groups.get(w);
         const label = w || 'Unscheduled';
         const collapsed = isWeekCollapsed(proj.id, w);
-        html += `<div class="week-hdr${collapsed?' collapsed':''}" data-week="${w}" onclick="toggleWeek('${proj.id}','${w}')">
+        const complete = w && isWeekComplete(proj.id, w);
+        const checkTitle = complete ? 'Mark week as in progress' : 'Mark week as complete';
+        const checkIcon = complete
+          ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>`
+          : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+        html += `<div class="week-hdr${collapsed?' collapsed':''}${complete?' complete':''}" data-week="${w}" onclick="toggleWeek('${proj.id}','${w}')">
           <span class="week-caret">${collapsed ? '▸' : '▾'}</span>
           <span class="week-name">${label}</span>
           <span class="week-ct">${tasks.length}</span>
+          ${w ? `<button class="week-done-btn" title="${checkTitle}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>` : ''}
         </div>`;
         if(!collapsed){
           tasks.forEach(t => { html += renderRow(t); });
@@ -4442,6 +4485,11 @@ function moveTaskToWeek(taskId, week){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   if((t.w || '') === week){ return; }
+  // v0.1.152 (#18 DB): mirror the drag-drop guard for the context-menu path.
+  if(week && isWeekComplete(t.proj, week)){
+    toast(`Week ${week} is complete — reopen it first`, 4000);
+    return;
+  }
   t.w = week || '';
   if(typeof logHist === 'function') logHist(t, 'week', `moved to ${t.w || 'Unscheduled'}`);
   if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: t.w || null }).catch(()=>{});
@@ -5379,8 +5427,15 @@ function _mDragMove(e){
     h.classList.remove('drop-target'));
   // v0.1.147: prefer a week-hdr if the cursor is over one — lets the user
   // drop directly onto a folder label (including collapsed weeks).
+  // v0.1.152 (#18 DB): if the target week is marked complete, refuse the
+  // drop visually so the user can see it before releasing.
   const hdr = document.elementFromPoint(e.clientX, e.clientY)?.closest('.week-hdr');
   if(hdr){
+    if(hdr.classList.contains('complete')){
+      hdr.classList.add('drop-target','drop-forbidden');
+      _mDragLastTgt = { weekHdr: true, week: hdr.dataset.week || '', forbidden: true };
+      return;
+    }
     hdr.classList.add('drop-target');
     _mDragLastTgt = { weekHdr: true, week: hdr.dataset.week || '' };
     return;
@@ -5400,16 +5455,23 @@ function _mDragUp(e){
   document.querySelectorAll('.row').forEach(r =>
     r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
   document.querySelectorAll('.week-hdr').forEach(h =>
-    h.classList.remove('drop-target'));
+    h.classList.remove('drop-target','drop-forbidden'));
   if(!_mDragging){ _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null; return; }
 
   // v0.1.147: if the cursor (or last hover) was over a week header, treat
   // it as a folder drop — reassign the task's week tag without changing
   // row order. Useful for collapsed weeks where there's nothing to drop on.
+  // v0.1.152 (#18 DB): if the target week was marked complete, abort the
+  // drop and tell the user instead of silently moving the task.
   const hoveredHdr = document.elementFromPoint(e.clientX, e.clientY)?.closest('.week-hdr');
   const hdrDrop = hoveredHdr
     || (_mDragLastTgt?.weekHdr ? document.querySelector(`.week-hdr[data-week="${_mDragLastTgt.week}"]`) : null);
   if(hdrDrop && _mDragId){
+    if(hdrDrop.classList.contains('complete')){
+      toast(`Week ${hdrDrop.dataset.week} is complete — reopen it first`, 4000);
+      _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
+      return;
+    }
     const targetWeek = hdrDrop.dataset.week || '';
     const item = TASKS.find(t => t.id === _mDragId);
     if(item && (item.w || '') !== targetWeek){
@@ -5445,6 +5507,15 @@ function _mDragUp(e){
       const ins = TASKS.findIndex(t => t.id === tgt.dataset.taskId);
       if(ins >= 0){
         const target = TASKS[ins];
+        // v0.1.152 (#18 DB): refuse drop if the target row belongs to a
+        // complete week — restore the item to its previous position.
+        if(target && target.w && isWeekComplete(target.proj, target.w)){
+          TASKS.splice(fromIdx, 0, item);
+          toast(`Week ${target.w} is complete — reopen it first`, 4000);
+          _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
+          render();
+          return;
+        }
         // v0.1.147: drag between week folders — if the drop target lives in
         // a different week than the dragged item (and we're inside a single
         // project), reassign item.w so the task lands in that week's group.
