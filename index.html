@@ -65,10 +65,13 @@ body.dark-mode{
   --surf:#18181b;
   --line:rgba(255,255,255,.06);
   --line-2:rgba(255,255,255,.10);
+  /* v0.1.150 fix: dark-mode scale used to set --t2 and --t4 to the same
+     value (#A1A1AA), collapsing two tiers. Re-space the scale so each
+     step has a real luminance gap. */
   --t1:#FAFAFA;
-  --t2:#A1A1AA;
-  --t3:#71717A;
-  --t4:#A1A1AA;
+  --t2:#D4D4D8;
+  --t3:#A1A1AA;
+  --t4:#71717A;
 }
 body.dark-mode .row{box-shadow:none}
 body.dark-mode .row:hover{box-shadow:0 4px 14px rgba(14,165,233,.15)}
@@ -771,6 +774,13 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 .row .nt-chat-msg .av.AI{background:linear-gradient(135deg,#6366F1,#4F46E5)}
 .row .nt-chat-msg .txt{flex:1;min-width:0;color:var(--t2);word-break:break-word}
 .row .nt-chat-msg .txt b{color:var(--t1);font-weight:600;margin-right:3px}
+/* v0.1.150 (HoD review): linkified URLs in chat — inherit text color,
+   subtle accent underline, brightens on hover. Used in row chat, present
+   chat, lightbox comments. */
+.chat-link{color:inherit;text-decoration:underline;
+  text-decoration-color:rgba(14,165,233,.5);text-underline-offset:2px;
+  transition:text-decoration-color .12s}
+.chat-link:hover{text-decoration-color:var(--acc)}
 .row .nt-chat-msg .ts{font-size:9px;color:var(--t4);font-family:var(--mono);flex-shrink:0;margin-top:2px;opacity:.7}
 .row .nt-chat-input{
   display:flex;align-items:center;gap:5px;padding:3px;background:var(--surf);border-radius:5px;
@@ -2072,10 +2082,11 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       <!-- v0.1.150 (fix #4 reported by DB): export buttons are used rarely, so
            collapse them into a single "More" kebab on the right of the toolbar.
            Click opens a small menu with Export PDF / Export XLSX. -->
-      <button class="chip" id="toolbarMoreBtn" onclick="openToolbarMore(event)" title="More actions"
+      <button class="chip" id="toolbarMoreBtn" onclick="openToolbarMore(event)"
+        title="More actions" aria-label="More actions"
         style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;padding:6px 8px;
                display:inline-flex;align-items:center;color:var(--t3)">
-        <svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>
+        <svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>
       </button>
       <!-- v0.1.123: card view-mode toggle — List (compact) + Expanded only -->
       <div class="cv-toggle" id="cvToggle">
@@ -4337,9 +4348,9 @@ function moveTaskToWeek(taskId, week){
   if(!t) return;
   if((t.w || '') === week){ return; }
   t.w = week || '';
-  if(typeof logHist === 'function') logHist(t, 'week', `moved to ${t.w || 'unscheduled'}`);
+  if(typeof logHist === 'function') logHist(t, 'week', `moved to ${t.w || 'Unscheduled'}`);
   if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: t.w || null }).catch(()=>{});
-  toast(`Moved to ${t.w || 'unscheduled'}`);
+  toast(`Moved to ${t.w || 'Unscheduled'}`);
   render();
 }
 function promptNewWeekForTask(taskId){
@@ -4353,11 +4364,17 @@ function promptNewWeekForTask(taskId){
   const yearStart = new Date(Date.UTC(ref.getUTCFullYear(),0,1));
   const wkNum = Math.ceil((((ref - yearStart) / 86400000) + 1)/7);
   const def = `${yr}W${String(wkNum).padStart(2,'0')}`;
-  const v = prompt('New week tag (e.g. 26W23):', def);
+  const v = prompt('Week tag (format YYWNN, e.g. 26W23)', def);
   if(v === null) return;
   const tag = v.trim().toUpperCase();
-  if(!/^\d{2}W\d{1,2}$/.test(tag)){ toast('Expected format like 26W23'); return; }
-  moveTaskToWeek(taskId, tag);
+  const m = tag.match(/^(\d{2})W(\d{1,2})$/);
+  if(!m){ toast('Use format YYWNN, e.g. 26W23'); return; }
+  // ISO weeks max out at 53 (rare — most years 52). Reject 0 and 54+.
+  const wk = parseInt(m[2], 10);
+  if(wk < 1 || wk > 53){ toast('Week number must be 1–53'); return; }
+  // Normalise to two-digit week (06 not 6).
+  const normTag = `${m[1]}W${String(wk).padStart(2,'0')}`;
+  moveTaskToWeek(taskId, normTag);
 }
 
 function setTaskDeadline(taskId){
@@ -5438,6 +5455,11 @@ function renderPresent(){
   // Both BEFORE and AFTER are shown together; click either to open editor.
   const t = presentTask;
   if(!t) return;
+  // v0.1.150 (Lead UX review): on partial re-renders (e.g. assignee change,
+  // editor save) the whole modal body is rebuilt — capture the comments
+  // scrollTop so we can restore it instead of jumping back to the top.
+  const _prevScrollTop = document.getElementById('presChatMsgs')?.scrollTop || 0;
+  const _prevNotesScroll = document.getElementById('presNotes')?.scrollTop || 0;
   const allTasks = getFilteredTasks();
   const taskIdx = allTasks.findIndex(x => x.id === t.id);
   const taskNum = taskIdx >= 0 ? taskIdx + 1 : '?';
@@ -5523,9 +5545,16 @@ function renderPresent(){
       <button class="pres-nav-arrow" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
       <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:14px">+ Add screenshot</button>
     </div>`;
-  // Auto-scroll chat to bottom
+  // v0.1.150: restore previous scroll positions (Lead UX review). If the
+  // chat panel was scrolled to the bottom already we keep auto-scrolling
+  // to the bottom on new messages; otherwise we honour the user's position.
   const msgsEl = document.getElementById('presChatMsgs');
-  if(msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+  if(msgsEl){
+    if(_prevScrollTop > 0) msgsEl.scrollTop = _prevScrollTop;
+    else msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+  const notesEl = document.getElementById('presNotes');
+  if(notesEl && _prevNotesScroll > 0) notesEl.scrollTop = _prevNotesScroll;
   // Patch SVG srcs stripped by security sandbox (defer so onerror fires first)
   const shots = [t.shot1, t.shot2];
   setTimeout(() => {
@@ -5589,6 +5618,11 @@ async function sendPresChat(){
     _clientId: clientId
   };
   t.chat.push(localMsg);
+  // Remember the original text so we can restore it on send failure (Lead UX
+  // review v0.1.150: clearing inp.value before the server confirms means a
+  // rejected message vanishes and the user loses their words). Restore is
+  // done in the .catch branch below.
+  const sentText = text;
   inp.value = '';
   renderPresent();
   syncTaskRowChat(t.id);
@@ -5596,7 +5630,7 @@ async function sendPresChat(){
   if(t._cloud && db && db.ready){
     if(!authorId){
       // Auth disappeared — keep the local msg but warn the user.
-      toast('Not signed in — comment kept locally only', 3500);
+      toast('Not signed in — comment kept locally only', 5000);
       return;
     }
     db.taskComments.create({ task_id: t.id, body: text, author_id: authorId })
@@ -5604,9 +5638,13 @@ async function sendPresChat(){
         if(error){
           const i = t.chat.indexOf(localMsg);
           if(i >= 0) t.chat.splice(i, 1);
-          toast('Comment not saved: ' + error.message, 3500);
+          console.error('comment save failed', error);
+          toast('Comment not saved — try again', 5000);
           renderPresent();
           syncTaskRowChat(t.id);
+          // Restore the typed text so the user can retry without re-typing.
+          const restoreEl = document.getElementById('presChatInput');
+          if(restoreEl && !restoreEl.value) restoreEl.value = sentText;
           return;
         }
         const idx = t.chat.indexOf(localMsg);
@@ -5843,16 +5881,35 @@ function escapeHtml(s){
 // — clickable, but visually still inline (no chip styling per user feedback).
 function linkifyText(s){
   const src = String(s == null ? '' : s);
-  const rx = /\bhttps?:\/\/[^\s<>"')]+/gi;
+  // v0.1.150 fix (Lead UX review): the earlier regex stopped at ')' which
+  // killed Wikipedia/Notion-style URLs that legitimately contain parens.
+  // Now we greedily capture URL chars including parens, then strip
+  // trailing punctuation (.,;:!?) and unbalanced trailing ')' so a
+  // sentence-ending URL still renders cleanly.
+  const rx = /\bhttps?:\/\/[^\s<>"']+/gi;
   if(!rx.test(src)){ return escapeHtml(src); }
   rx.lastIndex = 0;
   let out = ''; let last = 0; let m;
   while((m = rx.exec(src)) !== null){
     if(m.index > last) out += escapeHtml(src.slice(last, m.index));
-    const url = m[0];
+    let url = m[0];
+    // Strip trailing punctuation that's almost never part of a URL.
+    let trailing = '';
+    while(url.length){
+      const ch = url[url.length - 1];
+      if(/[.,;:!?]/.test(ch)){ trailing = ch + trailing; url = url.slice(0, -1); continue; }
+      // Trim a ')' only if it doesn't have a matching '(' inside the URL.
+      if(ch === ')'){
+        const opens = (url.match(/\(/g) || []).length;
+        const closes = (url.match(/\)/g) || []).length;
+        if(closes > opens){ trailing = ch + trailing; url = url.slice(0, -1); continue; }
+      }
+      break;
+    }
     const safe = escapeHtml(url);
-    out += `<a href="${safe}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-decoration-color:rgba(14,165,233,.5);text-underline-offset:2px">${safe}</a>`;
-    last = m.index + url.length;
+    out += `<a href="${safe}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="chat-link">${safe}</a>`;
+    if(trailing) out += escapeHtml(trailing);
+    last = m.index + m[0].length;
   }
   if(last < src.length) out += escapeHtml(src.slice(last));
   return out;
@@ -7236,8 +7293,11 @@ async function sendInlineChat(inp){
           // Roll the optimistic message back so the user knows it didn't send
           const i = t.chat.indexOf(localMsg);
           if(i >= 0) t.chat.splice(i, 1);
-          toast('⚠ Message not sent: ' + error.message, 3000);
+          console.error('inline comment save failed', error);
+          toast('Comment not saved — try again', 5000);
           render();
+          // Restore the typed text in the row input so the user can retry.
+          if(inp && !inp.value) inp.value = text;
           return;
         }
         const idx = t.chat.indexOf(localMsg);
