@@ -598,6 +598,15 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 .row input,.row textarea,.row [contenteditable]{-webkit-user-select:text;user-select:text}
 .row:hover{border-color:rgba(14,165,233,.3);box-shadow:0 4px 14px rgba(14,165,233,.08)}
 .row.selected{border-color:var(--acc) !important;box-shadow:0 0 0 2px rgba(14,165,233,.25),0 4px 14px rgba(14,165,233,.18)}
+/* v0.1.151 (#11): archived tasks shown when Archived filter is ON read as
+   muted-but-clearly-different, so the user immediately understands these
+   rows are stashed away vs. mixed with live work. */
+.row.archived{opacity:.65;background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 12px,rgba(15,23,42,.025) 12px,rgba(15,23,42,.025) 14px)}
+.row.archived::before{content:'ARCHIVED';position:absolute;top:8px;right:8px;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
+  color:var(--t4);background:var(--bg);padding:2px 6px;border-radius:3px;
+  pointer-events:none}
+body.dark-mode .row.archived{background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 12px,rgba(255,255,255,.02) 12px,rgba(255,255,255,.02) 14px)}
 body.select-mode .row{cursor:pointer}
 .row.dragging{opacity:.4}
 .row.drag-over-top{border-top:3px solid var(--acc)!important}
@@ -3905,7 +3914,10 @@ function toggleTaskHidden(taskId){
   if(!t) return;
   t.hidden = !t.hidden;
   document.getElementById('_ebTaskMenu')?.remove();
-  toast(t.hidden ? 'Task hidden' : 'Task restored');
+  // v0.1.151: clearer toast — "archive" carries the right reversibility
+  // signal vs. "hide", and the "Show archived" hint reminds the user how
+  // to find it again (the Hidden→Archived chip in the filter bar).
+  toast(t.hidden ? 'Archived — toggle "Archived" filter to view' : 'Restored from archive', 3500);
   // v0.1.147: persist to Supabase when the task lives in the cloud, so the
   // hidden state survives a reload and is shared across team members.
   if(db?.ready && t._cloud) db.tasks.update(t.id, { hidden: t.hidden }).catch(()=>{});
@@ -3952,12 +3964,23 @@ function renderFilters(){
       : `color:${s.c};border-color:${s.c};background:transparent`;
     chips.push(`<button class="chip" data-f="${s.id}" style="${style}">${s.l}</button>`);
   });
-  // "Hidden" toggle — shows tasks the user explicitly stashed.
+  // v0.1.151 (fix #11 reported by DB): "Hidden" was unclear. Rename to
+  // "Archived" (universal pattern), surface the count so the user knows
+  // there's stashed content, and switch the colour to a neutral grey
+  // instead of an arbitrary slate so it reads as a "show/hide" mode
+  // toggle rather than another filter.
   const hideOn = _showHidden;
-  const hideStyle = hideOn
-    ? 'background:#475569;color:#fff;border-color:#475569;margin-left:6px'
-    : 'color:#475569;border-color:#475569;background:transparent;margin-left:6px';
-  chips.push(`<button class="chip" onclick="toggleShowHidden()" style="${hideStyle}" title="Toggle hidden tasks (internal questions)">${hideOn ? 'Hidden ON' : 'Hidden'}</button>`);
+  const archivedCount = (currentProject === 'all'
+    ? TASKS
+    : TASKS.filter(t => t.proj === currentProject)).filter(t => t.hidden).length;
+  if(archivedCount > 0 || hideOn){
+    const hideStyle = hideOn
+      ? 'background:#475569;color:#fff;border-color:#475569;margin-left:6px'
+      : 'color:#475569;border-color:#475569;background:transparent;margin-left:6px';
+    const archIcon = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>`;
+    const label = hideOn ? `${archIcon}Archived (showing)` : `${archIcon}Archived <span style="opacity:.7">·</span> ${archivedCount}`;
+    chips.push(`<button class="chip" onclick="toggleShowHidden()" style="${hideStyle};display:inline-flex;align-items:center" title="Show or hide archived tasks (these are tasks you have stashed away — they stay in the project but skip the main list).">${label}</button>`);
+  }
   box.innerHTML = chips.join('');
 }
 
@@ -4465,7 +4488,7 @@ function renderRow(t){
   const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
     onmousedown="${selectMode ? '' : `rowDragDown(event,'${t.id}')`}"
     oncontextmenu="showTaskMenu(event,'${t.id}')"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
@@ -7458,7 +7481,9 @@ function showTaskMenu(e, taskId){
   menu.id = '_ebTaskMenu';
   menu.dataset.taskId = String(taskId);
   menu.className = 'task-ctx-menu';
-  const hiddenLabel = t.hidden ? 'Unhide' : 'Hide (internal)';
+  // v0.1.151: rename "Hide (internal)" → "Archive" — DB feedback was that
+  // the original copy felt vague and the action didn't feel reversible.
+  const hiddenLabel = t.hidden ? 'Unarchive' : 'Archive task';
   const deadlineLabel = t.deadline ? `Change deadline (${_fmtDeadline(t.deadline)})` : 'Set deadline';
   const deadlineIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
   menu.innerHTML = `
@@ -7471,7 +7496,7 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="openMoveToWeekMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to week…</div>
     <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
     ${t.deadline ? `<div class="tcm-item" onclick="clearTaskDeadline('${taskId}')">${deadlineIcon}Clear deadline</div>` : ''}
-    <div class="tcm-item" onclick="toggleTaskHidden('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg>${hiddenLabel}</div>
+    <div class="tcm-item" onclick="toggleTaskHidden('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>${hiddenLabel}</div>
     <div class="tcm-sep"></div>
     <div class="tcm-item danger" onclick="taskMenuDelete('${taskId}')">${ICON_TRASH} Delete</div>`;
   document.body.appendChild(menu);
@@ -9396,6 +9421,70 @@ function outOfScope(feature){
   }
 }
 function closeOOS(){ /* no-op, modal removed */ }
+
+// ━━━ TOOLTIPS (v0.1.151, fix #22 reported by MR) ━━━
+// Native browser `title=""` tooltips have a ~1s delay, system-styled gray
+// box, and are easy to miss. Replace them with a single floating div that
+// pops on mouseenter, follows the cursor, and inherits the app's color
+// scheme. To avoid having to touch every button, we read `title` directly
+// and swallow the native tooltip by stashing the value in `data-eb-tt`.
+(function setupTooltips(){
+  if(document.getElementById('_ebTip')) return;
+  const tip = document.createElement('div');
+  tip.id = '_ebTip';
+  tip.setAttribute('aria-hidden','true');
+  tip.style.cssText = 'position:fixed;z-index:99999;pointer-events:none;background:#0F172A;color:#FAFAFA;font-size:11px;line-height:1.35;padding:6px 9px;border-radius:6px;box-shadow:0 8px 24px rgba(15,23,42,.25);max-width:280px;opacity:0;transform:translateY(2px);transition:opacity .12s,transform .12s;font-family:inherit;white-space:normal';
+  document.body.appendChild(tip);
+  let showTimer = null, hideTimer = null, currentEl = null;
+  function position(e){
+    const x = e.clientX + 14;
+    const y = e.clientY + 18;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = Math.min(x, window.innerWidth - tw - 8) + 'px';
+    tip.style.top  = Math.min(y, window.innerHeight - th - 8) + 'px';
+  }
+  function show(el, text, e){
+    currentEl = el;
+    tip.textContent = text;
+    position(e);
+    tip.style.opacity = '1';
+    tip.style.transform = 'translateY(0)';
+  }
+  function hide(){
+    currentEl = null;
+    tip.style.opacity = '0';
+    tip.style.transform = 'translateY(2px)';
+  }
+  document.addEventListener('mouseover', e => {
+    let el = e.target;
+    // Walk up to find the closest element with a title (or stashed copy).
+    while(el && el !== document.body){
+      if(el.dataset && el.dataset.ebTt){ break; }
+      if(el.getAttribute && el.getAttribute('title')){
+        // First time we see this element — stash and clear the native title.
+        el.dataset.ebTt = el.getAttribute('title');
+        el.removeAttribute('title');
+        break;
+      }
+      el = el.parentElement;
+    }
+    if(!el || el === document.body || !el.dataset?.ebTt) return;
+    if(currentEl === el) return;
+    clearTimeout(hideTimer); clearTimeout(showTimer);
+    const text = el.dataset.ebTt;
+    if(!text) return;
+    showTimer = setTimeout(() => show(el, text, e), 250);
+    const moveHandler = ev => position(ev);
+    const leaveHandler = () => {
+      el.removeEventListener('mousemove', moveHandler);
+      el.removeEventListener('mouseleave', leaveHandler);
+      clearTimeout(showTimer);
+      hideTimer = setTimeout(hide, 80);
+    };
+    el.addEventListener('mousemove', moveHandler);
+    el.addEventListener('mouseleave', leaveHandler);
+  }, true);
+})();
 </script>
 
 </body>
