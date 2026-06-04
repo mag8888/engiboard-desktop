@@ -1706,14 +1706,16 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .week-hdr:first-child{margin-top:0}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
   outline:1px dashed rgba(14,165,233,.5);border-radius:4px}
-/* v0.1.152 (#18 DB): completed week — green check leading the row,
-   subtle green tint background, strike-through on the week tag so the
-   user immediately sees "this is closed". drop-forbidden overrides the
-   drop-target highlight with a red dashed outline so the cursor knows
-   the drop will be rejected before the user releases. */
-.week-hdr.complete .week-name{text-decoration:line-through;color:var(--t4)}
+/* v0.1.152 (#18 DB): completed week — green check leading the row + subtle
+   green tint background. v0.1.153 (UX): dropped the strike-through —
+   light --t4 fails WCAG 1.4.3 for body text, and the check + tint are
+   already a clear signal. drop-forbidden overrides the drop-target
+   highlight with a red dashed outline so the cursor knows the drop will
+   be rejected before the user releases. */
+.week-hdr.complete .week-name{color:var(--t3)}
 .week-hdr.complete .week-ct{opacity:.6}
 .week-hdr.complete{background:rgba(22,163,74,.06);border-radius:4px;padding:4px 8px}
+body.dark-mode .week-hdr.complete{background:rgba(22,163,74,.12)}
 .week-hdr.drop-forbidden{background:rgba(220,38,38,.10);color:#DC2626;
   outline:1px dashed rgba(220,38,38,.55)}
 .week-done-btn{margin-left:auto;border:none;background:transparent;cursor:pointer;
@@ -1728,11 +1730,13 @@ body.dark-mode .week-done-btn:hover{background:rgba(255,255,255,.06)}
   border-radius:4px;padding:4px 8px}
 body.dark-mode .week-hdr.pinned-hdr{color:#FCD34D;background:rgba(245,158,11,.10)}
 /* v0.1.152: pinned task row — amber accent on the left edge + small pin
-   glyph at top-right so the user knows why this task is at the top. */
+   glyph at top-LEFT (v0.1.153 fix: was top:10px/right:12px which clashed
+   with deadline chip / link badges already living in the card header). */
 .row.pinned{border-left:3px solid #F59E0B}
-.row.pinned::after{content:'';position:absolute;top:10px;right:12px;width:8px;height:8px;
-  background:#F59E0B;border-radius:50%;box-shadow:0 0 0 3px rgba(245,158,11,.18);
+.row.pinned::after{content:'';position:absolute;top:10px;left:4px;width:6px;height:6px;
+  background:#F59E0B;border-radius:50%;
   pointer-events:none}
+body.dark-mode .row.pinned::after{background:#FCD34D}
 .week-hdr:hover{color:var(--t1)}
 .week-hdr.collapsed{opacity:.7}
 .week-hdr .week-caret{font-size:9px;color:var(--t3);flex-shrink:0;width:8px}
@@ -2103,9 +2107,9 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <span data-t="sb.projects">Projects</span>
           <span class="sb-ct" id="sbProjCount">3</span>
         </div>
-        <div class="sb-i" data-sec="shortcuts" data-label="Shortcuts" onclick="setSection('shortcuts')">
+        <div class="sb-i" data-sec="shortcuts" data-label="Keyboard" onclick="setSection('shortcuts')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
-          <span data-t="sb.shortcuts">Shortcuts</span>
+          <span data-t="sb.shortcuts">Keyboard</span>
         </div>
         <div class="sb-i" data-sec="recordings" data-label="Recordings" onclick="setSection('recordings')" style="display:none">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -2358,7 +2362,7 @@ const I18N = {
     'placeholder.newtaskProj':'+ Type task and press Enter…',
     // Sidebar
     'sb.dashboard':'Dashboard', 'sb.projects':'Projects',
-    'sb.shortcuts':'Shortcuts', 'sb.profile':'Profile', 'sb.darkmode':'Dark mode',
+    'sb.shortcuts':'Keyboard', 'sb.profile':'Profile', 'sb.darkmode':'Dark mode',
     'sb.lang':'Language',
     // Misc
     'col.statusWk':'Status / Wk', 'col.before':'Before', 'col.after':'After',
@@ -3997,14 +4001,35 @@ function toggleTaskPinned(taskId){
   if(!t) return;
   t.pinned = !t.pinned;
   document.getElementById('_ebTaskMenu')?.remove();
+  // v0.1.153 (Fullstack review): pin/unpin now writes to history for
+  // audit-trail parity with status, deadline, week-move actions.
+  if(typeof logHist === 'function') logHist(t, 'pin', t.pinned ? 'pinned to top' : 'unpinned');
   toast(t.pinned ? 'Pinned' : 'Unpinned');
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { pinned: t.pinned }).catch(()=>{});
+  if(db?.ready && t._cloud){
+    db.tasks.update(t.id, { pinned: t.pinned }).then(({ error }) => {
+      if(error){
+        console.error('pin sync failed', error);
+        toast('Pin not saved — try again', 4000);
+      }
+    }).catch(err => {
+      console.error('pin sync rejected', err);
+      toast('Pin not saved — try again', 4000);
+    });
+  }
   render();
 }
 
 function toggleTaskHidden(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
+  // v0.1.153 (Lead QA review): un-archiving a task back into a completed
+  // week silently re-introduces work into a closed milestone. Block it
+  // with the same guard used by drag-drop and Move-to-week.
+  if(t.hidden && t.w && isWeekComplete(t.proj, t.w)){
+    toast(`Week ${t.w} is closed — reopen the week first, or unarchive from a different week`, 5000);
+    document.getElementById('_ebTaskMenu')?.remove();
+    return;
+  }
   t.hidden = !t.hidden;
   document.getElementById('_ebTaskMenu')?.remove();
   // v0.1.151: clearer toast — "archive" carries the right reversibility
@@ -4209,6 +4234,13 @@ function render(){
   // explicitly flipped the "Show hidden" chip in the filter bar.
   if(!_showHidden) allTasks = allTasks.filter(t => !t.hidden);
 
+  // v0.1.153 (P0 fix from QA review): pinned tasks are extracted BEFORE any
+  // status/search filter so they stay sticky regardless of what the user is
+  // filtering by — matches Telegram pinned-chat behaviour. Hidden filter
+  // still applies (an archived task is gone from both Pinned and Weeks).
+  const _pinnedSticky = allTasks.filter(t => t.pinned);
+  allTasks = allTasks.filter(t => !t.pinned);
+
   // v0.1.46: filter by status int (0..7) when curFilter is numeric.
   if(curFilter !== 'all' && curFilter !== ''){
     const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
@@ -4228,8 +4260,10 @@ function render(){
     );
   }
 
-  // Empty state for filter
-  if(allTasks.length === 0){
+  // Empty state for filter — only when BOTH the filtered list and the
+  // sticky pinned list are empty (v0.1.153: a project with pins but no
+  // matching results should still show the Pinned section, not "no tasks").
+  if(allTasks.length === 0 && _pinnedSticky.length === 0){
     if(!isAllMode){
       // Single-project mode but no tasks (yet) — show inline empty input
       list.innerHTML = renderEmptyRowForProject(currentProject);
@@ -4249,19 +4283,24 @@ function render(){
       currentProject = 'all';
       return render();
     }
-    // v0.1.152 (#17 DB): pinned tasks always render at the very top of the
-    // project, ahead of week-folder grouping. Visual delimiter via a
-    // dedicated "Pinned" header so the user sees the section explicitly.
-    const pinnedTasks = allTasks.filter(t => t.pinned);
-    const unpinned = allTasks.filter(t => !t.pinned);
-    if(pinnedTasks.length){
-      html += `<div class="week-hdr pinned-hdr" data-week="__pinned__">
+    // v0.1.152 (#17 DB) / v0.1.153 (QA): pinned tasks come from _pinnedSticky
+    // — extracted before filters so they always render at the very top.
+    // Collapsible per-project state (Telegram-style fold). data-week stays
+    // "__pinned__" so the drag-drop handler recognises it as a pin target.
+    if(_pinnedSticky.length){
+      const pinCollapsed = isWeekCollapsed(proj.id, '__pinned__');
+      html += `<div class="week-hdr pinned-hdr${pinCollapsed?' collapsed':''}" data-week="__pinned__" onclick="toggleWeek('${proj.id}','__pinned__')">
+        <span class="week-caret">${pinCollapsed ? '▸' : '▾'}</span>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#F59E0B"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/></svg>
         <span class="week-name">Pinned</span>
-        <span class="week-ct">${pinnedTasks.length}</span>
+        <span class="week-ct">${_pinnedSticky.length}</span>
       </div>`;
-      pinnedTasks.forEach(t => { html += renderRow(t); });
+      if(!pinCollapsed){
+        _pinnedSticky.forEach(t => { html += renderRow(t); });
+      }
     }
+    const pinnedTasks = _pinnedSticky;
+    const unpinned = allTasks;
     // v0.1.142: group remaining (unpinned) tasks by week tag (t.w). Each
     // week is a collapsible folder. Tasks without a week go into
     // "Unscheduled". Collapsed state persists per project in localStorage.
@@ -4295,7 +4334,7 @@ function render(){
           <span class="week-caret">${collapsed ? '▸' : '▾'}</span>
           <span class="week-name">${label}</span>
           <span class="week-ct">${tasks.length}</span>
-          ${w ? `<button class="week-done-btn" title="${checkTitle}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>` : ''}
+          ${w ? `<button type="button" class="week-done-btn" title="${checkTitle}" aria-label="${checkTitle}" aria-pressed="${complete ? 'true' : 'false'}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>` : ''}
         </div>`;
         if(!collapsed){
           tasks.forEach(t => { html += renderRow(t); });
@@ -4310,7 +4349,22 @@ function render(){
     return;
   }
 
-  // 'All' mode — accordion view (existing behavior)
+  // v0.1.153 (P0 from QA): in All-projects mode, pinned tasks from every
+  // project surface at the very top in a global Pinned section before any
+  // project group. Click a pinned row to drill into it as usual.
+  if(_pinnedSticky.length){
+    const pinCollapsed = isWeekCollapsed('__all__', '__pinned__');
+    html += `<div class="week-hdr pinned-hdr${pinCollapsed?' collapsed':''}" data-week="__pinned__" onclick="toggleWeek('__all__','__pinned__')">
+      <span class="week-caret">${pinCollapsed ? '▸' : '▾'}</span>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#F59E0B"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/></svg>
+      <span class="week-name">Pinned · across projects</span>
+      <span class="week-ct">${_pinnedSticky.length}</span>
+    </div>`;
+    if(!pinCollapsed){
+      _pinnedSticky.forEach(t => { html += renderRow(t); });
+    }
+  }
+  // 'All' mode — accordion view (existing behavior). Unpinned only.
   PROJECTS.forEach(proj => {
     if(proj.archived) return;  // v0.1.117: hide archived projects from the list
     const projTasks = allTasks.filter(t => t.proj === proj.id);
@@ -4512,25 +4566,39 @@ function promptNewWeekForTask(taskId){
   // to commit + Esc to cancel matches the rest of the UI.
   const modal = document.createElement('div');
   modal.id = '_ebNewWeekModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', '_ebNewWeekTitle');
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10010;display:flex;align-items:center;justify-content:center';
   modal.innerHTML = `
     <div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:320px;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.35)">
-      <div style="font-weight:700;font-size:14px;margin-bottom:6px">New week</div>
-      <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Use format YYWNN, e.g. 26W23. Week numbers 1–53.</div>
+      <div id="_ebNewWeekTitle" style="font-weight:700;font-size:14px;margin-bottom:6px">New week</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Format: YYWNN (e.g. 26W23). Week numbers 1–53.</div>
       <input id="_ebNewWeekInp" type="text" value="${def}" autocomplete="off" spellcheck="false"
+        aria-describedby="_ebNewWeekErr"
         style="width:100%;border:1px solid var(--line-2);background:var(--bg);color:var(--t1);
                padding:8px 12px;border-radius:6px;font-family:var(--mono);font-size:14px;
                text-transform:uppercase;letter-spacing:.05em;outline:none">
-      <div id="_ebNewWeekErr" style="font-size:11px;color:#DC2626;margin-top:6px;min-height:14px"></div>
+      <div id="_ebNewWeekErr" role="status" aria-live="polite" style="font-size:11px;color:#DC2626;margin-top:6px;min-height:14px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-        <button id="_ebNewWeekCancel" class="chip" style="font-size:12px;padding:6px 14px">Cancel</button>
-        <button id="_ebNewWeekOk" class="chip" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#fff;border-color:var(--acc)">Create</button>
+        <button id="_ebNewWeekCancel" type="button" class="chip" style="font-size:12px;padding:6px 14px">Cancel</button>
+        <button id="_ebNewWeekOk" type="button" class="chip" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#fff;border-color:var(--acc)">Create</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
   const inp = modal.querySelector('#_ebNewWeekInp');
   const err = modal.querySelector('#_ebNewWeekErr');
-  const close = () => modal.remove();
+  // v0.1.153 (UX review): global Esc handler so the modal closes from
+  // anywhere, not just when the input has focus. Cancel button also has
+  // Esc/Enter support via the global keydown.
+  const globalKey = e => {
+    if(e.key === 'Escape'){ e.preventDefault(); close(); }
+  };
+  document.addEventListener('keydown', globalKey, true);
+  const close = () => {
+    document.removeEventListener('keydown', globalKey, true);
+    modal.remove();
+  };
   const commit = () => {
     const tag = (inp.value || '').trim().toUpperCase();
     const m = tag.match(/^(\d{2})W(\d{1,2})$/);
@@ -5473,6 +5541,24 @@ function _mDragUp(e){
       return;
     }
     const targetWeek = hdrDrop.dataset.week || '';
+    // v0.1.153 (P0 fix from QA review): Pinned section header is rendered
+    // with data-week="__pinned__" as a UI marker; without this guard,
+    // dropping a row onto it silently corrupted t.w to the literal
+    // "__pinned__" string. Treat the drop as a pin action instead.
+    if(targetWeek === '__pinned__'){
+      const item = TASKS.find(t => t.id === _mDragId);
+      if(item && !item.pinned){
+        item.pinned = true;
+        if(typeof logHist === 'function') logHist(item, 'pin', 'pinned to top');
+        if(db?.ready && item._cloud) db.tasks.update(item.id, { pinned: true }).catch(()=>{});
+        toast('Pinned to top');
+      }
+      render();
+      _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
+      _suppressNextRowClick = true;
+      setTimeout(() => { _suppressNextRowClick = false; }, 200);
+      return;
+    }
     const item = TASKS.find(t => t.id === _mDragId);
     if(item && (item.w || '') !== targetWeek){
       item.w = targetWeek;
@@ -5674,19 +5760,26 @@ function renderPresent(){
       // CTA so the user immediately understands what to do. Click anywhere
       // on the panel kicks off captureScreenshot for this slot.
       const lower = label.toLowerCase();
-      return `<div class="pres-pic pres-pic-empty" style="min-height:440px;cursor:pointer"
+      // v0.1.153 (P0 a11y from UX review): empty-state used to be a div
+      // with onclick, invisible to Tab and silent to screen readers.
+      // Switch to role=button, tabindex=0, Enter/Space activation, and an
+      // explicit aria-label so the affordance is reachable by keyboard.
+      const heroAria = `Add ${lower} screenshot. Click, paste, or drop an image.`;
+      return `<div class="pres-pic pres-pic-empty" role="button" tabindex="0"
+        aria-label="${heroAria}"
+        style="min-height:440px;cursor:pointer"
         onclick="event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}})"
-        title="Click to capture or paste an image">
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}});}">
         <div class="lbl">${label}</div>
         <div class="pres-pic-empty-inner">
           <div class="pres-pic-empty-ico">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
           </div>
-          <div class="pres-pic-empty-h">No ${lower} yet</div>
-          <div class="pres-pic-empty-s">Click to capture · paste · drop an image</div>
+          <div class="pres-pic-empty-h">No ${lower} image</div>
+          <div class="pres-pic-empty-s">Capture, paste, or drop</div>
         </div>
       </div>`;
     }
@@ -6503,12 +6596,35 @@ async function assignShotToSlot(t, slot, dataUrl){
 }
 
 // P1-2: add new screenshot to currently-presented task's shots[] array
+// v0.1.153 (P0 fix from QA review): the empty-state hero in the
+// presentation modal calls captureScreenshot with a targetSlot of 0
+// (Before) or 1 (After). Before this fix, the result silently flowed into
+// t.shots[] (extras) instead of t.shot1/t.shot2. The fromPresent path
+// stashes the requested slot here and addShotToPresentTask honours it.
+let pendingPresentSlot = null;
 function addShotToPresentTask(dataUrl){
   if(!presentTask || !dataUrl) return;
+  if(pendingPresentSlot === 0){
+    presentTask.shot1 = dataUrl;
+    pendingPresentSlot = null;
+    renderPresent();
+    toast('Before screenshot saved');
+    if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot1_url: dataUrl }).catch(()=>{});
+    return;
+  }
+  if(pendingPresentSlot === 1){
+    presentTask.shot2 = dataUrl;
+    pendingPresentSlot = null;
+    renderPresent();
+    toast('After screenshot saved');
+    if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot2_url: dataUrl }).catch(()=>{});
+    return;
+  }
+  // No specific slot requested — append to extras (legacy behaviour).
   if(!Array.isArray(presentTask.shots)) presentTask.shots = [];
   presentTask.shots.push(dataUrl);
   renderPresent();
-  toast('✓ Screenshot added to task');
+  toast('Screenshot added to task');
 }
 
 document.addEventListener('dragover', e => {
@@ -7080,6 +7196,13 @@ function captureScreenshot(opts){
   // will directly call addShotToPresentTask without needing the user to click target.
   if(opts && opts.fromPresent && presentTask){
     pendingPresentAttach = true;
+    // v0.1.153: empty-state hero passes targetSlot 0/1 so the result goes
+    // into shot1/shot2 instead of the extras pile.
+    if(typeof opts.targetSlot === 'number' && (opts.targetSlot === 0 || opts.targetSlot === 1)){
+      pendingPresentSlot = opts.targetSlot;
+    } else {
+      pendingPresentSlot = null;
+    }
   }
   // Hide window briefly so it doesn't appear in screenshot
   const invoke = window.__TAURI__.core?.invoke || window.__TAURI__.invoke;
@@ -9679,7 +9802,12 @@ function closeOOS(){ /* no-op, modal removed */ }
       if(el.dataset && el.dataset.ebTt){ break; }
       if(el.getAttribute && el.getAttribute('title')){
         // First time we see this element — stash and clear the native title.
-        el.dataset.ebTt = el.getAttribute('title');
+        // v0.1.153 (UX a11y): also copy into aria-label so screen readers
+        // still announce the action, otherwise the element becomes silent
+        // once the native title is gone.
+        const original = el.getAttribute('title');
+        el.dataset.ebTt = original;
+        if(!el.getAttribute('aria-label')) el.setAttribute('aria-label', original);
         el.removeAttribute('title');
         break;
       }
