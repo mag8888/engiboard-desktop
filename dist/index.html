@@ -1436,6 +1436,20 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   padding:18px 22px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;
   align-items:stretch;background:var(--bg);flex-shrink:0
 }
+/* v0.1.151 (#2 DB): carousel of all screenshots attached to the task.
+   Spans both grid columns under the Before/After pair. Horizontal scroll
+   on overflow, snap to thumbs so trackpad swipes land cleanly. */
+.pres-carousel{grid-column:1 / -1;display:flex;gap:10px;overflow-x:auto;
+  scroll-snap-type:x mandatory;padding:6px 2px 2px;border-top:1px dashed var(--line)}
+.pres-thumb{flex:0 0 auto;width:120px;height:80px;border:1px solid var(--line);
+  border-radius:6px;overflow:hidden;background:var(--surf);padding:0;cursor:pointer;
+  position:relative;scroll-snap-align:start;transition:border-color .12s,transform .12s}
+.pres-thumb:hover{border-color:var(--acc);transform:translateY(-1px)}
+.pres-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.pres-thumb-lbl{position:absolute;bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(0,0,0,.75));
+  color:#fff;font-size:10px;font-weight:600;letter-spacing:.04em;
+  font-family:var(--mono);padding:8px 6px 4px;text-align:center}
 /* Draggable divider between pics and chat */
 .pres-vsplit{
   height:8px;flex-shrink:0;cursor:row-resize;background:var(--surf);
@@ -5509,6 +5523,29 @@ function renderPresent(){
   };
   const beforeHTML = pic(t.shot1, 'BEFORE', 0);
   const afterHTML  = pic(t.shot2, 'AFTER', 1);
+  // v0.1.151 (fix #2 reported by DB): collect every image attached to the
+  // task into one carousel-style thumbnail strip rendered below the
+  // Before/After pair. Click any thumb → opens that shot in the existing
+  // editor (so users can annotate / zoom). Empty extras gracefully skipped.
+  const allShots = [];
+  if(t.shot1 && t.shot1.length > 32) allShots.push({ src: t.shot1, label: 'Before', slotIdx: 0 });
+  if(t.shot2 && t.shot2.length > 32) allShots.push({ src: t.shot2, label: 'After',  slotIdx: 1 });
+  if(Array.isArray(t.shots)){
+    t.shots.forEach((s, i) => {
+      if(s && typeof s === 'string' && s.length > 32){
+        allShots.push({ src: s, label: `#${i+1}`, slotIdx: i + 2 });
+      }
+    });
+  }
+  const carouselHTML = allShots.length > 2 ? `
+    <div class="pres-carousel" role="list" aria-label="All screenshots for this task">
+      ${allShots.map(sh => `
+        <button class="pres-thumb" role="listitem" title="Open ${sh.label} in editor" onclick="openExistingShotEditor('${t.id}',${sh.slotIdx})">
+          <img src="${sh.src}" alt="" loading="lazy">
+          <span class="pres-thumb-lbl">${sh.label}</span>
+        </button>
+      `).join('')}
+    </div>` : '';
 
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
@@ -5539,6 +5576,7 @@ function renderPresent(){
       <div class="pres-pics-pair">
         ${beforeHTML}
         ${afterHTML}
+        ${carouselHTML}
       </div>
       <div class="pres-vsplit" onmousedown="startPresSplit(event)" title="Drag to resize"></div>
       <aside class="pres-chat-col">
