@@ -42,7 +42,7 @@
      genuinely faded tier. --t2 also tightened from slate-600 to
      slate-700 to widen the gap and keep the hierarchy. */
   --t3:#475569;
-  --t4:#64748B;
+  --t4:#94A3B8;
   --acc:#0EA5E9;
   --acc-2:#38BDF8;
   --acc-d:#0284C7;
@@ -67,7 +67,11 @@ body.dark-mode{
   --line-2:rgba(255,255,255,.10);
   /* v0.1.150 fix: dark-mode scale used to set --t2 and --t4 to the same
      value (#A1A1AA), collapsing two tiers. Re-space the scale so each
-     step has a real luminance gap. */
+     step has a real luminance gap.
+     v0.1.152 (HoD): light-mode --t4 (#64748B, slate-500) collapsed onto
+     --t3 (#475569, slate-600) after the #21 contrast lift — see :root
+     above. Push light --t4 to slate-400 #94A3B8 so the muted/disabled
+     gap re-opens. */
   --t1:#FAFAFA;
   --t2:#D4D4D8;
   --t3:#A1A1AA;
@@ -1376,6 +1380,17 @@ body.dark-mode .pres-pic{ background:#1e2531; }
   border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.05em;z-index:2
 }
 .pres-pic img{width:100%;height:100%;object-fit:contain;box-shadow:0 2px 16px rgba(0,0,0,.18)}
+/* v0.1.152 (Lead UX): presentation empty-state hero — communicates the
+   action ("click to capture") instead of the previous bare em-dash. */
+.pres-pic-empty{background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 16px,var(--bg) 16px,var(--bg) 18px);
+  border:2px dashed var(--line-2);transition:border-color .15s,background-color .15s}
+.pres-pic-empty:hover{border-color:var(--acc);background:rgba(14,165,233,.04)}
+.pres-pic-empty-inner{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;gap:10px;color:var(--t3);padding:24px}
+.pres-pic-empty-ico{color:var(--t4);opacity:.7;transition:color .15s,opacity .15s}
+.pres-pic-empty:hover .pres-pic-empty-ico{color:var(--acc);opacity:1}
+.pres-pic-empty-h{font-size:15px;font-weight:600;color:var(--t2)}
+.pres-pic-empty-s{font-size:11px;color:var(--t3);font-family:var(--mono);letter-spacing:.04em}
 .pres-pic-empty{color:var(--t3);font-size:13px}
 .pres-nav{
   display:flex;justify-content:center;align-items:center;gap:16px;
@@ -1691,6 +1706,18 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .week-hdr:first-child{margin-top:0}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
   outline:1px dashed rgba(14,165,233,.5);border-radius:4px}
+/* v0.1.152 (#17 DB): pinned section header reuses week-hdr but with the
+   amber pin colour so it reads as a distinct sticky section instead of
+   another week. */
+.week-hdr.pinned-hdr{color:#92400E;background:rgba(245,158,11,.06);
+  border-radius:4px;padding:4px 8px}
+body.dark-mode .week-hdr.pinned-hdr{color:#FCD34D;background:rgba(245,158,11,.10)}
+/* v0.1.152: pinned task row — amber accent on the left edge + small pin
+   glyph at top-right so the user knows why this task is at the top. */
+.row.pinned{border-left:3px solid #F59E0B}
+.row.pinned::after{content:'';position:absolute;top:10px;right:12px;width:8px;height:8px;
+  background:#F59E0B;border-radius:50%;box-shadow:0 0 0 3px rgba(245,158,11,.18);
+  pointer-events:none}
 .week-hdr:hover{color:var(--t1)}
 .week-hdr.collapsed{opacity:.7}
 .week-hdr .week-caret{font-size:9px;color:var(--t3);flex-shrink:0;width:8px}
@@ -2939,6 +2966,7 @@ async function loadFromSupabase(){
       // migration 0017. Deadline arrives as ISO date string; normalise to
       // YYYY-MM-DD so it round-trips with the local prompt format.
       hidden: !!t.hidden,
+      pinned: !!t.pinned,
       deadline: t.deadline ? String(t.deadline).slice(0, 10) : undefined,
       notes: t.notes || '',
       _cloud: true
@@ -3923,6 +3951,20 @@ function toggleShowHidden(){
   if(typeof renderFilters === 'function') renderFilters();
   if(typeof render === 'function') render();
 }
+// v0.1.152 (#17 reported by DB): pin a task so it stays at the top of the
+// list and shows up in the Pinned sidebar section across projects. Like
+// Telegram channel pins — sticky entry point for the things you keep
+// coming back to. Persisted via the `pinned` column in migration 0018.
+function toggleTaskPinned(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  t.pinned = !t.pinned;
+  document.getElementById('_ebTaskMenu')?.remove();
+  toast(t.pinned ? 'Pinned' : 'Unpinned');
+  if(db?.ready && t._cloud) db.tasks.update(t.id, { pinned: t.pinned }).catch(()=>{});
+  render();
+}
+
 function toggleTaskHidden(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
@@ -4170,11 +4212,24 @@ function render(){
       currentProject = 'all';
       return render();
     }
-    // v0.1.142: group tasks by week tag (t.w). Each week is a collapsible
-    // folder. Tasks without a week go into "Unscheduled". Collapsed state
-    // persists per project in localStorage.
+    // v0.1.152 (#17 DB): pinned tasks always render at the very top of the
+    // project, ahead of week-folder grouping. Visual delimiter via a
+    // dedicated "Pinned" header so the user sees the section explicitly.
+    const pinnedTasks = allTasks.filter(t => t.pinned);
+    const unpinned = allTasks.filter(t => !t.pinned);
+    if(pinnedTasks.length){
+      html += `<div class="week-hdr pinned-hdr" data-week="__pinned__">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#F59E0B"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/></svg>
+        <span class="week-name">Pinned</span>
+        <span class="week-ct">${pinnedTasks.length}</span>
+      </div>`;
+      pinnedTasks.forEach(t => { html += renderRow(t); });
+    }
+    // v0.1.142: group remaining (unpinned) tasks by week tag (t.w). Each
+    // week is a collapsible folder. Tasks without a week go into
+    // "Unscheduled". Collapsed state persists per project in localStorage.
     const groups = new Map();
-    allTasks.forEach(t => {
+    unpinned.forEach(t => {
       const w = t.w || '';
       if(!groups.has(w)) groups.set(w, []);
       groups.get(w).push(t);
@@ -4188,7 +4243,7 @@ function render(){
     });
     if(weekKeys.length <= 1){
       // Single week (or no weeks) — render flat, as before, no folder chrome.
-      allTasks.forEach(t => { html += renderRow(t); });
+      unpinned.forEach(t => { html += renderRow(t); });
     } else {
       for(const w of weekKeys){
         const tasks = groups.get(w);
@@ -4358,9 +4413,12 @@ function openMoveToWeekMenu(e, taskId){
   const menu = document.createElement('div');
   menu.id = '_ebWeekMenu';
   menu.className = 'task-ctx-menu';
+  // v0.1.152 (Lead UX review): bare ● dot didn't communicate "this is the
+  // current week" — replace with an explicit "current" tag right-aligned
+  // so the meaning is unambiguous.
   const item = (w, label, isCurrent) => {
-    const dot = isCurrent ? '<span style="color:var(--acc);margin-right:4px">●</span>' : '<span style="display:inline-block;width:11px"></span>';
-    return `<div class="tcm-item" onclick="moveTaskToWeek('${taskId}','${w}')">${dot}${label}</div>`;
+    const tag = isCurrent ? '<span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--acc);letter-spacing:.06em">CURRENT</span>' : '';
+    return `<div class="tcm-item" style="display:flex;align-items:center;gap:8px" onclick="moveTaskToWeek('${taskId}','${w}')">${label}${tag}</div>`;
   };
   let html = weeks.map(w => item(w, w, w === (t.w || ''))).join('');
   html += item('', 'Unscheduled', !t.w);
@@ -4392,26 +4450,58 @@ function moveTaskToWeek(taskId, week){
 }
 function promptNewWeekForTask(taskId){
   document.getElementById('_ebWeekMenu')?.remove();
-  // Default suggestion = ISO week of today (e.g. 26W23).
+  document.getElementById('_ebNewWeekModal')?.remove();
+  // ISO week number — approximate but matches the app's existing tags.
   const now = new Date();
   const yr = now.getUTCFullYear().toString().slice(2);
-  // ISO week number — approximate but matches the app's existing tags.
   const ref = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   ref.setUTCDate(ref.getUTCDate() + 4 - (ref.getUTCDay()||7));
   const yearStart = new Date(Date.UTC(ref.getUTCFullYear(),0,1));
   const wkNum = Math.ceil((((ref - yearStart) / 86400000) + 1)/7);
   const def = `${yr}W${String(wkNum).padStart(2,'0')}`;
-  const v = prompt('Week tag (format YYWNN, e.g. 26W23)', def);
-  if(v === null) return;
-  const tag = v.trim().toUpperCase();
-  const m = tag.match(/^(\d{2})W(\d{1,2})$/);
-  if(!m){ toast('Use format YYWNN, e.g. 26W23'); return; }
-  // ISO weeks max out at 53 (rare — most years 52). Reject 0 and 54+.
-  const wk = parseInt(m[2], 10);
-  if(wk < 1 || wk > 53){ toast('Week number must be 1–53'); return; }
-  // Normalise to two-digit week (06 not 6).
-  const normTag = `${m[1]}W${String(wk).padStart(2,'0')}`;
-  moveTaskToWeek(taskId, normTag);
+  // v0.1.152 (Lead UX): the native prompt() was jarring vs. the app's
+  // visual language and unstylable. Inline modal with autofocus + Enter
+  // to commit + Esc to cancel matches the rest of the UI.
+  const modal = document.createElement('div');
+  modal.id = '_ebNewWeekModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10010;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:320px;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.35)">
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px">New week</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Use format YYWNN, e.g. 26W23. Week numbers 1–53.</div>
+      <input id="_ebNewWeekInp" type="text" value="${def}" autocomplete="off" spellcheck="false"
+        style="width:100%;border:1px solid var(--line-2);background:var(--bg);color:var(--t1);
+               padding:8px 12px;border-radius:6px;font-family:var(--mono);font-size:14px;
+               text-transform:uppercase;letter-spacing:.05em;outline:none">
+      <div id="_ebNewWeekErr" style="font-size:11px;color:#DC2626;margin-top:6px;min-height:14px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button id="_ebNewWeekCancel" class="chip" style="font-size:12px;padding:6px 14px">Cancel</button>
+        <button id="_ebNewWeekOk" class="chip" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#fff;border-color:var(--acc)">Create</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const inp = modal.querySelector('#_ebNewWeekInp');
+  const err = modal.querySelector('#_ebNewWeekErr');
+  const close = () => modal.remove();
+  const commit = () => {
+    const tag = (inp.value || '').trim().toUpperCase();
+    const m = tag.match(/^(\d{2})W(\d{1,2})$/);
+    if(!m){ err.textContent = 'Use format YYWNN, e.g. 26W23'; return; }
+    const wk = parseInt(m[2], 10);
+    if(wk < 1 || wk > 53){ err.textContent = 'Week number must be 1–53'; return; }
+    const normTag = `${m[1]}W${String(wk).padStart(2,'0')}`;
+    close();
+    moveTaskToWeek(taskId, normTag);
+  };
+  modal.querySelector('#_ebNewWeekCancel').onclick = close;
+  modal.querySelector('#_ebNewWeekOk').onclick = commit;
+  modal.addEventListener('click', e => { if(e.target === modal) close(); });
+  inp.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); commit(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); close(); }
+  });
+  inp.focus();
+  inp.select();
 }
 
 function setTaskDeadline(taskId){
@@ -4502,7 +4592,7 @@ function renderRow(t){
   const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}${t.pinned ? ' pinned' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
     onmousedown="${selectMode ? '' : `rowDragDown(event,'${t.id}')`}"
     oncontextmenu="showTaskMenu(event,'${t.id}')"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
@@ -5508,10 +5598,24 @@ function renderPresent(){
   // For extras (t.shots[]) the pair is (slide[i], slide[i+1] || slide[i]).
   const pic = (src, label, slotIdx) => {
     if(!src || typeof src !== 'string' || src.length < 32){
-      return `<div class="pres-pic" style="min-height:440px"><div class="lbl">${label}</div>
-        <div class="pres-pic-empty" style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px">
-          <div style="font-size:32px;opacity:.4">—</div>
-          <div>No ${label.toLowerCase()} yet</div>
+      // v0.1.152 (Lead UX review): empty-state used to be just "—" and a
+      // line of text — looked broken on a stable modal. Add an explicit
+      // CTA so the user immediately understands what to do. Click anywhere
+      // on the panel kicks off captureScreenshot for this slot.
+      const lower = label.toLowerCase();
+      return `<div class="pres-pic pres-pic-empty" style="min-height:440px;cursor:pointer"
+        onclick="event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}})"
+        title="Click to capture or paste an image">
+        <div class="lbl">${label}</div>
+        <div class="pres-pic-empty-inner">
+          <div class="pres-pic-empty-ico">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </div>
+          <div class="pres-pic-empty-h">No ${lower} yet</div>
+          <div class="pres-pic-empty-s">Click to capture · paste · drop an image</div>
         </div>
       </div>`;
     }
@@ -7522,6 +7626,9 @@ function showTaskMenu(e, taskId){
   // v0.1.151: rename "Hide (internal)" → "Archive" — DB feedback was that
   // the original copy felt vague and the action didn't feel reversible.
   const hiddenLabel = t.hidden ? 'Unarchive' : 'Archive task';
+  // v0.1.152: Pin/Unpin label + icon (DB #17).
+  const pinLabel = t.pinned ? 'Unpin' : 'Pin to top';
+  const pinIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${t.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`;
   const deadlineLabel = t.deadline ? `Change deadline (${_fmtDeadline(t.deadline)})` : 'Set deadline';
   const deadlineIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
   menu.innerHTML = `
@@ -7530,6 +7637,7 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="taskMenuCopy('${taskId}')">${ICON_COPY} Copy text</div>
     <div class="tcm-item" onclick="taskMenuCopyPublicLink('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy public link</div>
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
+    <div class="tcm-item" onclick="toggleTaskPinned('${taskId}')">${pinIcon}${pinLabel}</div>
     <div class="tcm-item" onclick="document.getElementById('_ebTaskMenu').remove();openTmplMenu('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Insert template</div>
     <div class="tcm-item" onclick="openMoveToWeekMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to week…</div>
     <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
