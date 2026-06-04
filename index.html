@@ -3997,6 +3997,10 @@ function toggleWeekComplete(projId, w){
   localStorage.setItem(_ebDoneKey(projId), JSON.stringify([...set]));
   toast(wasComplete ? `Week ${w} reopened` : `Week ${w} marked complete`);
   render();
+  // v0.1.154 (#19 phase 2): record for undo. Inverse re-toggles, suppressed.
+  pushUndo(wasComplete ? `Reopen week ${w}` : `Close week ${w}`,
+    () => toggleWeekComplete(projId, w),
+    () => toggleWeekComplete(projId, w));
 }
 
 // "Hidden" tasks are internal questions/bugs the user has stashed away. They
@@ -4692,41 +4696,49 @@ function promptNewWeekForTask(taskId){
   inp.select();
 }
 
+// v0.1.154 (#19 phase 2): shared core for deadline mutation so set + clear +
+// undo all route through the same path. Skips pushUndo when called from
+// the inverse callback via the _suppressUndoPush flag.
+function _applyDeadline(t, value){
+  const prev = t.deadline || null;
+  if(value === null || value === undefined || value === '') delete t.deadline;
+  else t.deadline = value;
+  if(typeof logHist === 'function') logHist(t, 'deadline', value ? `set to ${value}` : 'cleared');
+  if(db?.ready && t._cloud) db.tasks.update(t.id, { deadline: t.deadline || null }).catch(()=>{});
+  if(typeof render === 'function') render();
+  return prev;
+}
 function setTaskDeadline(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  // Default to deadline (or today) in YYYY-MM-DD form for the prompt
   const today = new Date().toISOString().slice(0,10);
   const cur = t.deadline || today;
   const v = prompt('Deadline (YYYY-MM-DD, leave empty to clear):', cur);
-  if(v === null) return; // cancelled
+  if(v === null) return;
   const trimmed = v.trim();
-  if(!trimmed){
-    delete t.deadline;
-    if(typeof logHist === 'function') logHist(t, 'deadline', 'cleared');
-    toast('Deadline cleared');
-  } else if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && !isNaN(new Date(trimmed + 'T00:00:00').getTime())){
-    t.deadline = trimmed;
-    if(typeof logHist === 'function') logHist(t, 'deadline', `set to ${trimmed}`);
-    toast(`Deadline: ${_fmtDeadline(trimmed)}`);
-  } else {
-    toast('Invalid date — expected YYYY-MM-DD');
-    return;
-  }
-  // v0.1.147: persist to Supabase. Postgres `date` accepts NULL for cleared.
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { deadline: t.deadline || null }).catch(()=>{});
+  let next = null;
+  if(!trimmed){ next = null; }
+  else if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && !isNaN(new Date(trimmed + 'T00:00:00').getTime())){ next = trimmed; }
+  else { toast('Invalid date — expected YYYY-MM-DD'); return; }
+  const prev = t.deadline || null;
+  if(prev === next) return;
+  _applyDeadline(t, next);
+  toast(next ? `Deadline: ${_fmtDeadline(next)}` : 'Deadline cleared');
   document.getElementById('_ebTaskMenu')?.remove();
-  if(typeof render === 'function') render();
+  pushUndo(next ? 'Set deadline' : 'Clear deadline',
+    () => _applyDeadline(t, prev),
+    () => _applyDeadline(t, next));
 }
 function clearTaskDeadline(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !t.deadline) return;
-  delete t.deadline;
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { deadline: null }).catch(()=>{});
-  if(typeof logHist === 'function') logHist(t, 'deadline', 'cleared');
+  const prev = t.deadline;
+  _applyDeadline(t, null);
   document.getElementById('_ebTaskMenu')?.remove();
   toast('Deadline cleared');
-  if(typeof render === 'function') render();
+  pushUndo('Clear deadline',
+    () => _applyDeadline(t, prev),
+    () => _applyDeadline(t, null));
 }
 
 function renderRow(t){
@@ -5310,6 +5322,11 @@ function toggleLinksPanel(taskId){
   else expandedLinks.add(taskId);
   render();
 }
+// v0.1.154 (#19 phase 2): shared helper so links cloud-sync stays in one
+// place — also called from the undo callbacks below.
+function _syncLinks(t){
+  if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
+}
 function addLink(taskId, input){
   const url = (input.value || '').trim();
   if(!url) return;
@@ -5318,17 +5335,27 @@ function addLink(taskId, input){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   if(!Array.isArray(t.links)) t.links = [];
-  t.links.push({id:'lnk'+Date.now(), url, title: gdriveTitleFromUrl(url), type: isDrive ? 'gdrive' : 'url'});
+  const entry = { id:'lnk'+Date.now(), url, title: gdriveTitleFromUrl(url), type: isDrive ? 'gdrive' : 'url' };
+  t.links.push(entry);
   input.value = '';
-  if(db?.ready && t._cloud) db.tasks.update(t.id,{links:t.links}).catch(()=>{});
+  _syncLinks(t);
   render();
+  pushUndo('Add link',
+    () => { t.links = (t.links || []).filter(l => l.id !== entry.id); _syncLinks(t); render(); },
+    () => { (t.links = t.links || []).push(entry); _syncLinks(t); render(); });
 }
 function deleteLink(taskId, linkId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !Array.isArray(t.links)) return;
+  const idx = t.links.findIndex(x => x.id === linkId);
+  if(idx < 0) return;
+  const removed = t.links[idx];
   t.links = t.links.filter(x => x.id !== linkId);
-  if(db?.ready && t._cloud) db.tasks.update(t.id,{links:t.links}).catch(()=>{});
+  _syncLinks(t);
   render();
+  pushUndo('Delete link',
+    () => { (t.links = t.links || []).splice(idx, 0, removed); _syncLinks(t); render(); },
+    () => { t.links = (t.links || []).filter(l => l.id !== removed.id); _syncLinks(t); render(); });
 }
 
 // v0.1.145: edit an existing link's URL (prompt-based). If the linkId is
@@ -5377,12 +5404,18 @@ function editDriveLink(taskId, linkId){
   const trimmed = v.trim();
   if(!trimmed){ toast('URL cannot be empty'); return; }
   if(!/^https?:\/\//.test(trimmed)){ toast('URL must start with http(s)://'); return; }
+  const prev = { url: link.url, title: link.title, type: link.type };
   link.url = trimmed;
   link.type = (typeof isGDriveUrl === 'function' && isGDriveUrl(trimmed)) ? 'gdrive' : 'url';
   if(typeof gdriveTitleFromUrl === 'function') link.title = gdriveTitleFromUrl(trimmed);
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
+  const next = { url: link.url, title: link.title, type: link.type };
+  _syncLinks(t);
   toast('Link updated');
   render();
+  // v0.1.154 (#19 phase 2): undo restores the snapshot taken before the edit.
+  pushUndo('Edit link',
+    () => { link.url = prev.url; link.title = prev.title; link.type = prev.type; _syncLinks(t); render(); },
+    () => { link.url = next.url; link.title = next.title; link.type = next.type; _syncLinks(t); render(); });
 }
 function deleteDriveLink(taskId, linkId){
   document.getElementById('_ebDriveMenu')?.remove();
@@ -5390,10 +5423,14 @@ function deleteDriveLink(taskId, linkId){
   if(!t) return;
   const link = _findDriveLink(t, linkId);
   if(!link) return;
+  const idx = (t.links || []).indexOf(link);
   t.links = (t.links || []).filter(l => l !== link);
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
+  _syncLinks(t);
   toast('Link removed');
   render();
+  pushUndo('Remove link',
+    () => { (t.links = t.links || []).splice(idx >= 0 ? idx : 0, 0, link); _syncLinks(t); render(); },
+    () => { t.links = (t.links || []).filter(l => l !== link); _syncLinks(t); render(); });
 }
 function openDriveLinkMenu(e, taskId, linkId){
   e?.preventDefault?.();
@@ -7987,8 +8024,15 @@ function setAssignee(taskId, name){
   document.getElementById('_ebAssignMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
+  const prev = t.assignee || '';
+  if(prev === name) return;
   t.assignee = name;
   logHist(t, 'assignee', name ? `assigned to ${name}` : 'unassigned');
+  // v0.1.154 (#19 phase 2): record for undo. Inverse calls setAssignee
+  // which is suppressed via _suppressUndoPush.
+  pushUndo(name ? `Assign ${name}` : 'Unassign',
+    () => setAssignee(taskId, prev),
+    () => setAssignee(taskId, name));
   // v0.1.150 (fix #26 reported by tester MR): "В режиме презентации нельзя
   // сменить ответственного" — the menu was opening over the modal but
   // setAssignee only re-rendered the list, not the modal header. Push the
