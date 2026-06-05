@@ -422,6 +422,22 @@ body.dark-mode .proj-floating-action{background:rgba(255,255,255,.04)}
   outline:none;font-family:inherit;background:transparent;color:var(--t1)
 }
 .proj-picker-list{flex:1;overflow-y:auto;padding:4px}
+/* v0.1.156 (#37 MR): project picker grouped by client. Header rows
+   collapse the client's projects so a demo to one client only shows
+   that client's work. */
+.pp-client-hdr{display:flex;align-items:center;gap:6px;
+  padding:6px 10px;margin:6px 2px 2px;cursor:pointer;
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;
+  color:var(--t4);text-transform:uppercase;border-radius:4px;user-select:none;
+  transition:background .12s}
+.pp-client-hdr:hover{background:var(--bg)}
+.pp-client-hdr.collapsed{opacity:.7}
+.pp-client-hdr .pp-client-caret{font-size:8px;color:var(--t4)}
+.pp-client-hdr .pp-client-name{flex:1}
+.pp-client-hdr .pp-client-ct{font-size:9px;color:var(--t4);font-weight:600;
+  background:rgba(15,23,42,.05);padding:1px 6px;border-radius:8px}
+body.dark-mode .pp-client-hdr:hover{background:rgba(255,255,255,.04)}
+body.dark-mode .pp-client-hdr .pp-client-ct{background:rgba(255,255,255,.06)}
 .proj-picker-item{
   padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;
   transition:.12s
@@ -7602,38 +7618,85 @@ function captureScreenshot(opts){
 // Replace always-visible accordions with single-project picker (200+ projects friendly).
 // currentProject value 'all' means show full accordion view; otherwise one project.
 
+// v0.1.156 (#37 MR): per-client collapse state for the projects picker.
+// Persisted in localStorage so the user's "fold every client but this one"
+// state survives a reload — matches the meeting-demo workflow where you
+// only want to show one client's projects at a time.
+function _ebClientCollapseKey(){ return 'eb_client_groups_collapsed'; }
+function isClientCollapsed(name){
+  try { return (JSON.parse(localStorage.getItem(_ebClientCollapseKey()) || '[]')).includes(name); }
+  catch(_){ return false; }
+}
+function toggleClientGroup(name){
+  let set;
+  try { set = new Set(JSON.parse(localStorage.getItem(_ebClientCollapseKey()) || '[]')); }
+  catch(_){ set = new Set(); }
+  if(set.has(name)) set.delete(name); else set.add(name);
+  localStorage.setItem(_ebClientCollapseKey(), JSON.stringify([...set]));
+  renderProjPicker();
+}
+function _projItemHtml(it){
+  const actions = it.id !== 'all' ? `<div style="display:flex;gap:2px;margin-left:auto;opacity:0.75" onclick="event.stopPropagation()">
+    <button title="Rename" onclick="document.getElementById('projPicker').classList.remove('open');renameProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg></button>
+    <button title="Archive" onclick="document.getElementById('projPicker').classList.remove('open');archiveProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="14" height="11" rx="1.5"/><path d="M1 4l1.5-2.5h11L15 4"/><line x1="6" y1="9" x2="10" y2="9"/></svg></button>
+    <button title="Delete" onclick="document.getElementById('projPicker').classList.remove('open');deleteProject('${it.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
+  </div>` : '';
+  return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" onclick="selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
+    <span class="ppi-name">${it.name}</span>
+    ${it.code ? `<span class="ppi-code">${it.code}</span>` : ''}
+    <span class="ppi-meta">${it.count}</span>
+    ${actions}
+  </div>`;
+}
 function renderProjPicker(){
   const list = document.getElementById('ppList');
   if(!list) return;
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase().trim();
 
-  const items = [];
-  // 'All projects' option
+  let bodyHtml = '';
+  // 'All projects' option always at the top.
   if(!search || 'all projects'.includes(search) || 'все проекты'.includes(search)){
-    items.push({ id: 'all', name: T('proj.all') || 'All projects', code: '', count: TASKS.length });
+    bodyHtml += _projItemHtml({ id: 'all', name: T('proj.all') || 'All projects', code: '', count: TASKS.length });
   }
-  // Real projects
+  // Build matching projects, then either group by client (default) or
+  // render flat (when the user is searching — folds would hide matches).
+  const matches = [];
   for(const p of PROJECTS){
-    const hay = (p.name + ' ' + (p.code||'')).toLowerCase();
+    const client = (p.client || 'Internal').trim() || 'Internal';
+    const hay = (p.name + ' ' + (p.code || '') + ' ' + client).toLowerCase();
     if(!search || hay.includes(search)){
-      items.push({ id: p.id, name: p.name, code: p.code || '', count: TASKS.filter(t => t.proj === p.id).length });
+      matches.push({ p, client, item: { id: p.id, name: p.name, code: p.code || '', count: TASKS.filter(t => t.proj === p.id).length } });
     }
   }
-
-  const listHtml = items.map(it => {
-    const actions = it.id !== 'all' ? `<div style="display:flex;gap:2px;margin-left:auto;opacity:0.75" onclick="event.stopPropagation()">
-      <button title="Rename" onclick="document.getElementById('projPicker').classList.remove('open');renameProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 2l3 3L5 14H2v-3L11 2z"/></svg></button>
-      <button title="Archive" onclick="document.getElementById('projPicker').classList.remove('open');archiveProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="14" height="11" rx="1.5"/><path d="M1 4l1.5-2.5h11L15 4"/><line x1="6" y1="9" x2="10" y2="9"/></svg></button>
-      <button title="Delete" onclick="document.getElementById('projPicker').classList.remove('open');deleteProject('${it.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
-    </div>` : '';
-    return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" onclick="selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
-      <span class="ppi-name">${it.name}</span>
-      ${it.code ? `<span class="ppi-code">${it.code}</span>` : ''}
-      <span class="ppi-meta">${it.count}</span>
-      ${actions}
-    </div>`;
-  }).join('') || '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
-  list.innerHTML = listHtml + `<div class="pm-add" onclick="document.getElementById('projPicker').classList.remove('open');openNewProjModal()">+ New project</div>`;
+  if(search){
+    bodyHtml += matches.map(m => _projItemHtml(m.item)).join('');
+  } else {
+    // Group by client; sort group names, push 'Internal' to the bottom.
+    const byClient = new Map();
+    matches.forEach(m => {
+      if(!byClient.has(m.client)) byClient.set(m.client, []);
+      byClient.get(m.client).push(m.item);
+    });
+    const clients = [...byClient.keys()].sort((a, b) => {
+      if(a === 'Internal' && b !== 'Internal') return 1;
+      if(b === 'Internal' && a !== 'Internal') return -1;
+      return a.localeCompare(b);
+    });
+    clients.forEach(name => {
+      const items = byClient.get(name);
+      const collapsed = isClientCollapsed(name);
+      bodyHtml += `<div class="pp-client-hdr${collapsed?' collapsed':''}" onclick="toggleClientGroup('${name.replace(/'/g,"\\'")}')">
+        <span class="pp-client-caret">${collapsed ? '▸' : '▾'}</span>
+        <span class="pp-client-name">${name}</span>
+        <span class="pp-client-ct">${items.length}</span>
+      </div>`;
+      if(!collapsed) bodyHtml += items.map(_projItemHtml).join('');
+    });
+  }
+  if(!bodyHtml){
+    bodyHtml = '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
+  }
+  list.innerHTML = bodyHtml + `<div class="pm-add" onclick="document.getElementById('projPicker').classList.remove('open');openNewProjModal()">+ New project</div>`;
 }
 
 function updateProjPickerLabel(){

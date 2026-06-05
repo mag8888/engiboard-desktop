@@ -433,6 +433,14 @@ function setArrowSize(v){
   arrowSize = isFinite(v) ? v : 1;
 }
 function setCol(el){color=el.dataset.c;document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('on'));el.classList.add('on');}
+// v0.1.156 (#30 MR): commit a manual dimension label into the annotation
+// model. Empty string clears the override and falls back to the auto-mm.
+function updateDimLabel(id, value){
+  const a = annotations.find(x => x.id === id);
+  if(!a) return;
+  if(value && value.trim()) a.label = value.trim(); else delete a.label;
+  // Don't full re-render — that would lose the input focus. Just remember.
+}
 function setSW(el){
   sw=+el.dataset.w;
   // Only toggle .on among the stroke-width siblings, not every .sw element
@@ -650,7 +658,27 @@ function makeAnnotEl(a,prev=false){
   if(a.type==='blur'){const d=document.createElement('div');d.className='blur-box';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
   if(a.type==='emoji'){const d=document.createElement('div');d.style.cssText=`position:absolute;left:${a.x}%;top:${a.y}%;transform:translate(-50%,-50%);font-size:${a.size||EMOJI_SIZE}px;line-height:1;opacity:${op};user-select:none${sel?';outline:2px solid #0EA5E9;outline-offset:2px;border-radius:4px':''}`;d.textContent=a.emoji||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
-  if(a.type==='dimension'){const wrap=document.createElement('div');wrap.className='dim-wrap';wrap.style.cssText=`left:${x}%;top:${y}%;width:${w}%;opacity:${op}`;const mm=Math.round(w*4.2);wrap.innerHTML=`<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${a.color}"></div><div style="flex:1;height:${a.sw}px;background:${a.color}"></div><div style="width:1px;height:10px;background:${a.color}"></div></div><div style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px">${mm}mm</div>`;return{el:wrap,layer:'div'};}
+  if(a.type==='dimension'){
+    // v0.1.156 (#30 MR): the auto-computed mm value (width × 4.2) is just
+    // a guess — drawings aren't to scale. Allow the user to override with
+    // an explicit value via a.label. Stored alongside the geometry; the
+    // input below is shown when the annotation is selected.
+    const wrap=document.createElement('div');
+    wrap.className='dim-wrap';
+    wrap.style.cssText=`left:${x}%;top:${y}%;width:${w}%;opacity:${op}`;
+    const fallback = Math.round(w*4.2) + 'mm';
+    const labelText = a.label || fallback;
+    const escaped = String(labelText).replace(/"/g,'&quot;');
+    const editable = sel
+      ? `<input class="dim-label-inp" value="${escaped}" placeholder="${fallback}"
+          oninput="updateDimLabel('${a.id}', this.value)"
+          onclick="event.stopPropagation()"
+          onmousedown="event.stopPropagation()"
+          style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px;width:100%;background:rgba(255,255,255,.85);border:1px dashed ${a.color};border-radius:3px;outline:none;padding:1px 2px">`
+      : `<div style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px">${labelText}</div>`;
+    wrap.innerHTML = `<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${a.color}"></div><div style="flex:1;height:${a.sw}px;background:${a.color}"></div><div style="width:1px;height:10px;background:${a.color}"></div></div>${editable}`;
+    return{el:wrap,layer:'div'};
+  }
   if(a.type==='freehand'){
     if(!a.pts||a.pts.length<2) return null;
     const ns='http://www.w3.org/2000/svg';
