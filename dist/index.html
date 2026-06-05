@@ -1739,6 +1739,14 @@ body.dark-mode .week-hdr.complete{background:rgba(22,163,74,.12)}
   color:var(--t3);transition:background .12s}
 .week-done-btn:hover{background:rgba(15,23,42,.05)}
 body.dark-mode .week-done-btn:hover{background:rgba(255,255,255,.06)}
+/* v0.1.156 (#28 MR): "roll open tasks to next week" double-chevron button.
+   Sits right after the done-btn so the week header has consistent kebab-
+   style trailing actions. */
+.week-roll-btn{border:none;background:transparent;cursor:pointer;
+  padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;
+  color:var(--t3);transition:background .12s,color .12s;margin-left:2px}
+.week-roll-btn:hover{background:rgba(14,165,233,.08);color:var(--acc)}
+body.dark-mode .week-roll-btn:hover{background:rgba(14,165,233,.15)}
 /* v0.1.152 (#17 DB): pinned section header reuses week-hdr but with the
    amber pin colour so it reads as a distinct sticky section instead of
    another week. */
@@ -2163,6 +2171,12 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       </button>
       <span id="filterChips" style="display:contents"></span>
       <span style="flex:1"></span>
+      <!-- v0.1.156 (#1 DB / #27 MR): sort dropdown — Manual / Status / Deadline / Created. Persisted per project. -->
+      <button class="chip" id="sortChip" onclick="openSortMenu(event)" title="Sort tasks"
+        style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:4px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/></svg>
+        <span id="sortChipLabel">Sort</span>
+      </button>
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <!-- v0.1.150 (fix #4 reported by DB): export buttons are used rarely, so
            collapse them into a single "More" kebab on the right of the toolbar.
@@ -3987,6 +4001,64 @@ function isWeekComplete(projId, w){
   try { return (JSON.parse(localStorage.getItem(_ebDoneKey(projId)) || '[]')).includes(w); }
   catch(_){ return false; }
 }
+// v0.1.156 (#28 MR): bulk move open tasks (status 3–7) from this week to
+// the next week tag in the project, creating the next week if it doesn't
+// exist (YYWNN → YYW(NN+1), wrapping into the next year at week 53).
+// Records a single multi-task entry in the undo stack so Cmd+Z rolls them
+// all back at once.
+function _nextWeekTag(w){
+  const m = String(w || '').match(/^(\d{2})W(\d{1,2})$/);
+  if(!m) return null;
+  let yr = parseInt(m[1], 10);
+  let wk = parseInt(m[2], 10) + 1;
+  if(wk > 53){ yr += 1; wk = 1; }
+  return `${String(yr).padStart(2,'0')}W${String(wk).padStart(2,'0')}`;
+}
+function rollForwardWeek(projId, w){
+  const proj = PROJECTS.find(p => p.id === projId);
+  if(!proj) return;
+  const nextW = _nextWeekTag(w);
+  if(!nextW){ toast('Cannot determine next week tag'); return; }
+  if(isWeekComplete(projId, nextW)){
+    toast(`${nextW} is closed — reopen it first`, 4500);
+    return;
+  }
+  // status 3-7 = Review, Info Required, Problem, In Progress, Upcoming
+  const open = TASKS.filter(t => t.proj === projId && (t.w || '') === w
+    && t.s >= 3 && t.s <= 7 && !t.hidden);
+  if(open.length === 0){ toast('Nothing to roll forward', 2000); return; }
+  if(!confirm(`Move ${open.length} open task${open.length === 1 ? '' : 's'} from ${w} to ${nextW}?`)) return;
+  const snapshots = open.map(t => ({ id: t.id, prev: t.w || '' }));
+  open.forEach(t => {
+    t.w = nextW;
+    if(typeof logHist === 'function') logHist(t, 'week', `rolled forward to ${nextW}`);
+    if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: nextW }).catch(()=>{});
+  });
+  toast(`Rolled ${open.length} task${open.length === 1 ? '' : 's'} to ${nextW}`, 3500);
+  render();
+  pushUndo(`Roll ${w} → ${nextW}`,
+    () => {
+      snapshots.forEach(s => {
+        const t = TASKS.find(x => x.id === s.id);
+        if(t){
+          t.w = s.prev;
+          if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: s.prev || null }).catch(()=>{});
+        }
+      });
+      render();
+    },
+    () => {
+      snapshots.forEach(s => {
+        const t = TASKS.find(x => x.id === s.id);
+        if(t){
+          t.w = nextW;
+          if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: nextW }).catch(()=>{});
+        }
+      });
+      render();
+    });
+}
+
 function toggleWeekComplete(projId, w){
   if(!w) return;
   let set;
@@ -4007,6 +4079,38 @@ function toggleWeekComplete(projId, w){
 // stay in the project (not deleted), but the main list skips them unless the
 // user flips the "Show hidden" toggle in the filter bar.
 let _showHidden = false;
+
+// v0.1.156 (#1 DB / #27 MR): per-project task sort mode. 'manual' keeps
+// the user's drag-reorder; the others auto-sort each render. Persisted to
+// localStorage so the choice survives reloads.
+function _ebSortKey(projId){ return 'eb_sort_' + projId; }
+function getSortMode(projId){
+  if(!projId) return 'manual';
+  try { return localStorage.getItem(_ebSortKey(projId)) || 'manual'; } catch(_){ return 'manual'; }
+}
+function setSortMode(projId, mode){
+  if(!projId) return;
+  try { localStorage.setItem(_ebSortKey(projId), mode || 'manual'); } catch(_){}
+  render();
+}
+function _cmpBySortMode(a, b, mode){
+  if(mode === 'status'){
+    return (a.s ?? 0) - (b.s ?? 0) || (a.uid ?? 0) - (b.uid ?? 0);
+  }
+  if(mode === 'deadline'){
+    const ad = a.deadline ? new Date(a.deadline + 'T00:00:00').getTime() : Infinity;
+    const bd = b.deadline ? new Date(b.deadline + 'T00:00:00').getTime() : Infinity;
+    return ad - bd || (a.uid ?? 0) - (b.uid ?? 0);
+  }
+  if(mode === 'created') return (a.uid ?? 0) - (b.uid ?? 0);
+  return 0;
+}
+function _sortMaybe(arr, projId){
+  const mode = getSortMode(projId);
+  if(mode === 'manual') return arr;
+  return arr.slice().sort((a, b) => _cmpBySortMode(a, b, mode));
+}
+
 function toggleShowHidden(){
   _showHidden = !_showHidden;
   if(typeof renderFilters === 'function') renderFilters();
@@ -4422,7 +4526,7 @@ function render(){
     });
     if(weekKeys.length <= 1){
       // Single week (or no weeks) — render flat, as before, no folder chrome.
-      unpinned.forEach(t => { html += renderRow(t); });
+      _sortMaybe(unpinned, proj.id).forEach(t => { html += renderRow(t); });
     } else {
       for(const w of weekKeys){
         const tasks = groups.get(w);
@@ -4437,10 +4541,11 @@ function render(){
           <span class="week-caret">${collapsed ? '▸' : '▾'}</span>
           <span class="week-name">${label}</span>
           <span class="week-ct">${tasks.length}</span>
-          ${w ? `<button type="button" class="week-done-btn" title="${checkTitle}" aria-label="${checkTitle}" aria-pressed="${complete ? 'true' : 'false'}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>` : ''}
+          ${w ? `<button type="button" class="week-done-btn" title="${checkTitle}" aria-label="${checkTitle}" aria-pressed="${complete ? 'true' : 'false'}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>
+          <button type="button" class="week-roll-btn" title="Roll open tasks to next week" aria-label="Roll open tasks to next week" onclick="event.stopPropagation();rollForwardWeek('${proj.id}','${w}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><polyline points="9 18 15 12 9 6"/><polyline points="15 18 21 12 15 6"/></svg></button>` : ''}
         </div>`;
         if(!collapsed){
-          tasks.forEach(t => { html += renderRow(t); });
+          _sortMaybe(tasks, proj.id).forEach(t => { html += renderRow(t); });
         }
       }
     }
@@ -4448,6 +4553,7 @@ function render(){
     replaceListWith(html);
     wireUpEmptyInput();
     setTimeout(patchGuardedImages, 0);
+    try { updateSortChipLabel(); } catch(_){}
     forceCompositorRepaint();
     return;
   }
@@ -4484,6 +4590,8 @@ function render(){
   wireUpEmptyInput();
   setTimeout(patchGuardedImages, 0);
   forceCompositorRepaint();
+  // v0.1.156: keep the Sort chip's label in sync with the current mode.
+  try { updateSortChipLabel(); } catch(_){}
 }
 
 function renderProjGroup(proj, tasks){
@@ -8777,6 +8885,50 @@ function _imgToPng(src, maxW){
 
 // Convert pixels to EMU (English Metric Units) — Excel image positioning.
 const _PX_TO_EMU = 9525;
+
+// v0.1.156 (#1 DB / #27 MR): sort menu — picks how task rows are ordered.
+// Per-project setting persisted in localStorage. In All-projects mode the
+// menu still appears (uses currentProject = 'all' as the key).
+function openSortMenu(e){
+  e?.preventDefault?.();
+  document.getElementById('_ebSortMenu')?.remove();
+  const projId = currentProject || 'all';
+  const cur = getSortMode(projId);
+  const menu = document.createElement('div');
+  menu.id = '_ebSortMenu';
+  menu.className = 'task-ctx-menu';
+  const opts = [
+    { id: 'manual',   label: 'Manual (drag)' },
+    { id: 'status',   label: 'Status (Info → Upcoming)' },
+    { id: 'deadline', label: 'Deadline (soonest first)' },
+    { id: 'created',  label: 'Created' }
+  ];
+  menu.innerHTML = opts.map(o => {
+    const tag = o.id === cur
+      ? '<span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--acc);letter-spacing:.06em">CURRENT</span>'
+      : '';
+    return `<div class="tcm-item" style="display:flex;align-items:center;gap:8px" onclick="setSortMode('${projId}','${o.id}');document.getElementById('_ebSortMenu')?.remove();">${o.label}${tag}</div>`;
+  }).join('');
+  document.body.appendChild(menu);
+  const btn = document.getElementById('sortChip');
+  const r = btn.getBoundingClientRect();
+  const mw = menu.offsetWidth || 220;
+  menu.style.left = Math.max(8, r.right - mw) + 'px';
+  menu.style.top  = (r.bottom + 6) + 'px';
+  setTimeout(() => {
+    document.addEventListener('click', function cl(ev){
+      if(!menu.contains(ev.target) && ev.target !== btn){ menu.remove(); document.removeEventListener('click', cl); }
+    });
+  }, 20);
+}
+function updateSortChipLabel(){
+  const lbl = document.getElementById('sortChipLabel');
+  if(!lbl) return;
+  const mode = getSortMode(currentProject || 'all');
+  lbl.textContent = mode === 'manual' ? 'Sort' :
+    mode === 'status' ? 'Sort: Status' :
+    mode === 'deadline' ? 'Sort: Deadline' : 'Sort: Created';
+}
 
 // v0.1.150 (fix #4): "..." kebab on the toolbar — collapses the rarely-used
 // PDF / XLSX exports into one menu so the toolbar is less crowded.
