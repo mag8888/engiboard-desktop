@@ -4061,6 +4061,40 @@ document.addEventListener('keydown', e => {
   if(e.shiftKey) doRedo(); else doUndo();
 }, true);
 
+// v0.1.156 (#36 MR): Cmd/Ctrl+N focuses the empty-row input so the user
+// can start typing a new task immediately. Bypass the usual "skip in
+// inputs" guard for the global search box and the new-task inputs —
+// otherwise the shortcut feels broken because search has focus by default
+// on page load.
+document.addEventListener('keydown', e => {
+  const k = e.key?.toLowerCase();
+  if(k !== 'n') return;
+  if(!(e.metaKey || e.ctrlKey)) return;
+  const ae = document.activeElement;
+  const tag = (ae?.tagName || '').toLowerCase();
+  const isAllowedSource = ae?.id === 'searchInp' || ae?.id === 'newInp'
+    || ae?.id === 'newInpZero' || ae?.classList?.contains('newInpProj');
+  if(!isAllowedSource && (tag === 'input' || tag === 'textarea' || ae?.isContentEditable)) return;
+  e.preventDefault();
+  // Find any visible new-task input and focus it; fall back to scrolling
+  // to the bottom and focusing whatever ends up there.
+  let inp = document.querySelector('#newInp, #newInpZero, .newInpProj');
+  if(inp){
+    inp.scrollIntoView({ block:'center', behavior:'smooth' });
+    setTimeout(() => inp.focus(), 80);
+    toast('Start typing your task', 1800);
+    return;
+  }
+  // No empty input on screen — likely in a section without a task list.
+  if(currentSection !== 'tasks'){
+    setSection('tasks');
+    setTimeout(() => {
+      const inp2 = document.querySelector('#newInp, #newInpZero, .newInpProj');
+      inp2?.focus();
+    }, 150);
+  }
+}, true);
+
 // v0.1.152 (#17 reported by DB): pin a task so it stays at the top of the
 // list and shows up in the Pinned sidebar section across projects. Like
 // Telegram channel pins — sticky entry point for the things you keep

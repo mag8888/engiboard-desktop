@@ -228,6 +228,27 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="sw on" data-w="2" onclick="setSW(this)"><svg width="16" height="3"><line x1="0" y1="1.5" x2="16" y2="1.5" stroke-width="2"/></svg></button>
     <button class="sw" data-w="3" onclick="setSW(this)"><svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke-width="3"/></svg></button>
     <button class="sw" data-w="5" onclick="setSW(this)"><svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke-width="5"/></svg></button>
+
+    <!-- v0.1.156 (#29 MR): fill toggle for rect/circle. Shows only when one
+         of those tools is active. -->
+    <div class="fb-sep" id="shapeFillSep" style="display:none"></div>
+    <button class="sw" id="shapeFillBtn" data-tip="Fill (toggle)" style="display:none" onclick="toggleShapeFill()" title="Fill shape">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor" id="shapeFillIcoFill" style="opacity:0"/><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    </button>
+
+    <!-- v0.1.156 (#31/#32 MR): arrow direction picker (end / start / both)
+         and head-size slider. Shown only when the arrow tool is active. -->
+    <div class="fb-sep" id="arrowOptsSep" style="display:none"></div>
+    <button class="sw arrow-dir-btn on" id="arrowDirEnd" data-dir="end" style="display:none" onclick="setArrowDir('end')" title="Arrow at end">
+      <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" stroke-width="2"/><path d="M14 1 L19 5 L14 9 Z" fill="currentColor"/></svg>
+    </button>
+    <button class="sw arrow-dir-btn" id="arrowDirStart" data-dir="start" style="display:none" onclick="setArrowDir('start')" title="Arrow at start">
+      <svg width="20" height="10" viewBox="0 0 20 10"><line x1="6" y1="5" x2="20" y2="5" stroke="currentColor" stroke-width="2"/><path d="M6 1 L1 5 L6 9 Z" fill="currentColor"/></svg>
+    </button>
+    <button class="sw arrow-dir-btn" id="arrowDirBoth" data-dir="both" style="display:none" onclick="setArrowDir('both')" title="Arrows at both ends">
+      <svg width="20" height="10" viewBox="0 0 20 10"><line x1="5" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="2"/><path d="M5 1 L0 5 L5 9 Z" fill="currentColor"/><path d="M15 1 L20 5 L15 9 Z" fill="currentColor"/></svg>
+    </button>
+    <input type="range" id="arrowSizeRange" min="0.6" max="2" step="0.1" value="1" style="display:none;width:60px;margin:0 4px" oninput="setArrowSize(parseFloat(this.value))" title="Arrow size">
   </div>
 
   <div class="paper" id="paper" style="width:860px;height:560px">
@@ -288,6 +309,10 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
      (no network dependency, captures the background reliably). -->
 <script>
 let tool='select', color='#FF453A', sw=2, opVal=1;
+// v0.1.156 (#29/#31/#32 MR): per-tool drawing options.
+let shapeFill = false;        // #29 toggle: rect/circle filled vs. stroked
+let arrowDir  = 'end';        // #31: 'end' | 'start' | 'both'
+let arrowSize = 1;             // #32: arrowhead size multiplier (0.6 .. 2.0)
 let pendingEmoji=null;
 const EMOJIS=['👍','👎','✅','❌','🔥','⭐','💯','⚠️','❗','❓','👀','🎉'];
 const EMOJI_SIZE=40;  // glyph size in paper CSS px (scaled up on save to match)
@@ -376,9 +401,46 @@ function setTool(t){
   document.getElementById('sbTool').textContent=`Tool: ${t[0].toUpperCase()+t.slice(1)} (${btn?btn.dataset.key:''})`;
   closeCmtPop();commitText();
   if(t!=='emoji'){const pk=document.getElementById('emojiPicker');if(pk)pk.classList.remove('on');}
+  // v0.1.156: toggle contextual option controls based on the active tool.
+  syncToolOptionsUi();
+}
+function syncToolOptionsUi(){
+  const isShape = tool === 'rect' || tool === 'circle';
+  const isArrow = tool === 'arrow';
+  document.getElementById('shapeFillSep').style.display = isShape ? '' : 'none';
+  document.getElementById('shapeFillBtn').style.display = isShape ? '' : 'none';
+  document.getElementById('shapeFillBtn').classList.toggle('on', shapeFill);
+  document.getElementById('shapeFillIcoFill').style.opacity = shapeFill ? '1' : '0';
+  document.getElementById('arrowOptsSep').style.display = isArrow ? '' : 'none';
+  ['arrowDirEnd','arrowDirStart','arrowDirBoth'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.display = isArrow ? '' : 'none';
+    el.classList.toggle('on', isArrow && arrowDir === el.dataset.dir);
+  });
+  const slider = document.getElementById('arrowSizeRange');
+  slider.style.display = isArrow ? '' : 'none';
+  slider.value = String(arrowSize);
+}
+function toggleShapeFill(){
+  shapeFill = !shapeFill;
+  syncToolOptionsUi();
+}
+function setArrowDir(d){
+  arrowDir = d;
+  syncToolOptionsUi();
+}
+function setArrowSize(v){
+  arrowSize = isFinite(v) ? v : 1;
 }
 function setCol(el){color=el.dataset.c;document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('on'));el.classList.add('on');}
-function setSW(el){sw=+el.dataset.w;document.querySelectorAll('.sw').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function setSW(el){
+  sw=+el.dataset.w;
+  // Only toggle .on among the stroke-width siblings, not every .sw element
+  // (the new contextual controls are also .sw and should stay highlighted
+  // based on their own state).
+  document.querySelectorAll('button.sw[data-w]').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
 // v0.1.29: opacity slider removed — opVal stays at 1.0 always
 function setOp(v){ /* no-op */ }
 
@@ -409,7 +471,10 @@ paper.addEventListener('mousedown',e=>{
   const op=tool==='marker'?0.35:opVal;
   cur=tool==='freehand'||tool==='pen'||tool==='marker'
     ?{id:'a'+Date.now(),type:'freehand',x:p.x,y:p.y,w:0,h:0,color,sw:s,op,pts:[{x:p.x,y:p.y}]}
-    :{id:'a'+Date.now(),type:tool,x:p.x,y:p.y,w:0,h:0,color,sw:s,op};
+    :{id:'a'+Date.now(),type:tool,x:p.x,y:p.y,w:0,h:0,color,sw:s,op,
+       // v0.1.156 (#29/#31/#32 MR): pick up the current toolbar settings.
+       ...(tool==='rect'||tool==='circle' ? { fill: !!shapeFill } : {}),
+       ...(tool==='arrow' ? { headDir: arrowDir || 'end', headSize: arrowSize || 1 } : {})};
 });
 
 paper.addEventListener('mousemove',e=>{
@@ -428,7 +493,29 @@ paper.addEventListener('mousemove',e=>{
   }
   if(!drawing||!cur) return;
   if(cur.type==='freehand') cur={...cur,pts:[...(cur.pts||[]),{x:p.x,y:p.y}]};
-  else cur={...cur,w:p.x-startPos.x,h:p.y-startPos.y};
+  else {
+    let w = p.x - startPos.x;
+    let h = p.y - startPos.y;
+    // v0.1.156 (#34 MR): hold Shift to constrain drawing.
+    // - Lines/arrows: snap angle to nearest 0° / 45° / 90°.
+    // - Rectangles/circles: equal sides (square / round circle), pivoting on
+    //   the longer axis so the cursor still drives the size.
+    if(e.shiftKey){
+      if(cur.type === 'line' || cur.type === 'arrow'){
+        const ang = Math.atan2(h, w);
+        const snapped = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4);
+        const len = Math.sqrt(w*w + h*h);
+        w = Math.cos(snapped) * len;
+        h = Math.sin(snapped) * len;
+      } else if(cur.type === 'rect' || cur.type === 'circle'){
+        const ax = Math.abs(w), ay = Math.abs(h);
+        const side = Math.max(ax, ay);
+        w = (w < 0 ? -1 : 1) * side;
+        h = (h < 0 ? -1 : 1) * side;
+      }
+    }
+    cur = { ...cur, w, h };
+  }
   renderPrev();
 });
 
@@ -464,8 +551,18 @@ function makeAnnotEl(a,prev=false){
   const w=Math.abs(a.w),h=Math.abs(a.h);
   const op=prev?0.6:(a.op??1);
   const sel=!prev&&a.id===selId;
-  if(a.type==='rect'){const d=document.createElement('div');d.className='ashape';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
-  if(a.type==='circle'){const d=document.createElement('div');d.className='ashape';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};border-radius:50%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
+  if(a.type==='rect'){
+    // v0.1.156 (#29 MR): rectangle can be filled. The fill colour is the
+    // shape colour at 25% alpha so the stroke is still visible on top.
+    const d=document.createElement('div');d.className='ashape';
+    const fillCss = a.fill ? `background:${a.color}40;` : '';
+    d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};${fillCss}opacity:${op}`;
+    if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
+  if(a.type==='circle'){
+    const d=document.createElement('div');d.className='ashape';
+    const fillCss = a.fill ? `background:${a.color}40;` : '';
+    d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};border-radius:50%;${fillCss}opacity:${op}`;
+    if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='arrow'||a.type==='line'){
     // v0.1.151 (fix #7 #8 reported by DB): previous implementation used a
     // rotated <div> with width sized in % of paper width — that's wrong
@@ -492,33 +589,48 @@ function makeAnnotEl(a,prev=false){
     line.setAttribute('vector-effect','non-scaling-stroke');
     g.appendChild(line);
     if(a.type==='arrow'){
-      // Compute arrowhead in pixel space so it doesn't squish with aspect
-      // ratio. We use the SVG's CTM to map back to viewBox %.
+      // v0.1.156 (#31/#32 MR): arrow now supports configurable direction
+      // (end / start / both) and an arrowSize multiplier. Defaults match
+      // the previous behaviour ('end' direction, size 1.0).
+      const dir = a.headDir || 'end';
+      const sizeMul = (typeof a.headSize === 'number' ? a.headSize : 1) || 1;
       const rect=fhSvg.getBoundingClientRect();
       const px=(rect.width||1)/100, py=(rect.height||1)/100;
       const dxPx=(x2-x1)*px, dyPx=(y2-y1)*py;
       const lenPx=Math.sqrt(dxPx*dxPx+dyPx*dyPx) || 1;
-      const headLenPx=10 + a.sw*2;    // arrowhead size scales with stroke
-      const headHalfPx=5 + a.sw*1.2;
+      const headLenPx=(10 + a.sw*2) * sizeMul;
+      const headHalfPx=(5 + a.sw*1.2) * sizeMul;
       const ux=dxPx/lenPx, uy=dyPx/lenPx;
       const perpX=-uy, perpY=ux;
-      const tipX=x2, tipY=y2;
-      const baseXPx=x2*px - ux*headLenPx;
-      const baseYPx=y2*py - uy*headLenPx;
-      const leftX =(baseXPx + perpX*headHalfPx)/px;
-      const leftY =(baseYPx + perpY*headHalfPx)/py;
-      const rightX=(baseXPx - perpX*headHalfPx)/px;
-      const rightY=(baseYPx - perpY*headHalfPx)/py;
-      const head=document.createElementNS(ns,'path');
-      head.setAttribute('d', `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${rightX} ${rightY} Z`);
-      head.setAttribute('fill', a.color);
-      head.setAttribute('stroke','none');
-      g.appendChild(head);
-      // Shorten the visible line so it ends at the arrowhead base — keeps
-      // the join clean instead of poking out through the tip.
-      const baseXFrac=(baseXPx)/px, baseYFrac=(baseYPx)/py;
-      line.setAttribute('x2', baseXFrac);
-      line.setAttribute('y2', baseYFrac);
+      // Helper — append one arrowhead at (tipX,tipY) pointing AWAY from the
+      // opposite end (uxDir signed). Returns the base point so we can clip
+      // the line cleanly at each tip.
+      function drawHead(tipX, tipY, signX, signY){
+        const tipPxX = tipX*px, tipPxY = tipY*py;
+        const baseXPx = tipPxX - signX*ux*headLenPx;
+        const baseYPx = tipPxY - signY*uy*headLenPx;
+        const leftX  = (baseXPx + perpX*headHalfPx)/px;
+        const leftY  = (baseYPx + perpY*headHalfPx)/py;
+        const rightX = (baseXPx - perpX*headHalfPx)/px;
+        const rightY = (baseYPx - perpY*headHalfPx)/py;
+        const head = document.createElementNS(ns,'path');
+        head.setAttribute('d', `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${rightX} ${rightY} Z`);
+        head.setAttribute('fill', a.color);
+        head.setAttribute('stroke','none');
+        g.appendChild(head);
+        return { baseFracX: baseXPx/px, baseFracY: baseYPx/py };
+      }
+      let endX2 = x2, endY2 = y2, endX1 = x1, endY1 = y1;
+      if(dir === 'end' || dir === 'both'){
+        const b = drawHead(x2, y2, 1, 1);
+        endX2 = b.baseFracX; endY2 = b.baseFracY;
+      }
+      if(dir === 'start' || dir === 'both'){
+        const b = drawHead(x1, y1, -1, -1);
+        endX1 = b.baseFracX; endY1 = b.baseFracY;
+      }
+      line.setAttribute('x1', endX1); line.setAttribute('y1', endY1);
+      line.setAttribute('x2', endX2); line.setAttribute('y2', endY2);
     }
     if(sel){
       // Selection highlight: render a fat translucent stroke under the line
@@ -606,7 +718,11 @@ function showCmtPopUI(e){
   const r=paper.getBoundingClientRect();
   const px=Math.min(e.clientX-r.left+14,r.width-260);
   const py=Math.max(e.clientY-r.top-52,4);
-  pop.style.cssText=`display:block;left:${px}px;top:${py}px;z-index:16;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
+  // v0.1.156 (#33 MR): the comment input used to scale with the paper
+  // because it's a child of the zoom-scaled #paper. Counter-scale it so
+  // the user always types into a constant-size input regardless of zoom.
+  const counter = (_edScale && _edScale !== 0) ? (1 / _edScale) : 1;
+  pop.style.cssText=`display:block;left:${px}px;top:${py}px;z-index:16;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);transform:scale(${counter});transform-origin:top left`;
   inp.value='';setTimeout(()=>inp.focus(),10);
 }
 function closeCmtPop(){document.getElementById('cmtPop').style.display='none';cmtPos=null;}
