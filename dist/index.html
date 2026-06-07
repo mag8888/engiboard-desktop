@@ -621,7 +621,13 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 /* v0.1.151 (#11): archived tasks shown when Archived filter is ON read as
    muted-but-clearly-different, so the user immediately understands these
    rows are stashed away vs. mixed with live work. */
-.row.archived{opacity:.65;background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 12px,rgba(15,23,42,.025) 12px,rgba(15,23,42,.025) 14px)}
+/* v0.1.158 (P1 from review): dropped opacity:.65 because it stacks with
+   .card-archive's opacity (~.585 effective) and made the Unarchive button
+   look disabled. Use desaturated text colour + the diagonal stripe
+   pattern as the "muted" visual cue instead — interactive controls stay
+   at full alpha. */
+.row.archived{background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 12px,rgba(15,23,42,.025) 12px,rgba(15,23,42,.025) 14px)}
+.row.archived .title-text, .row.archived .num{color:var(--t3)}
 .row.archived::before{content:'ARCHIVED';position:absolute;top:8px;right:8px;
   font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
   color:var(--t4);background:var(--bg);padding:2px 6px;border-radius:3px;
@@ -873,7 +879,7 @@ body.dark-mode .card-kebab:hover{background:rgba(255,255,255,.08)}
 .card-archive{margin-left:auto;width:26px;height:26px;border:none;background:transparent;color:var(--t3);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.12s}
 .card-archive:hover{background:rgba(15,23,42,.06);color:var(--t1)}
 body.dark-mode .card-archive:hover{background:rgba(255,255,255,.08)}
-.row.archived .card-archive{color:var(--acc);opacity:.9}
+.row.archived .card-archive{color:var(--acc)}
 
 /* Task right-click context menu */
 .task-ctx-menu{position:fixed;z-index:10002;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,.2);padding:5px;min-width:180px}
@@ -930,9 +936,12 @@ body.dark-mode .cl-panel{background:rgba(255,255,255,.025)}
 .link-item:hover .link-item-handle{opacity:1}
 .link-item.drag-over{background:rgba(14,165,233,.10);
   outline:1px dashed rgba(14,165,233,.45);border-radius:4px}
-.link-item-title[contenteditable="true"]{cursor:text;outline:none}
+/* v0.1.158 (P1 from review): dark-mode drop zone needed a brighter wash
+   so the highlight reads against the darker panel background. */
+body.dark-mode .link-item.drag-over{background:rgba(14,165,233,.18);
+  outline-color:rgba(14,165,233,.65)}
 .link-item-title[contenteditable="true"]:focus{
-  background:rgba(14,165,233,.06);border-radius:3px}
+  background:rgba(14,165,233,.06);border-radius:3px;outline:none}
 /* GDrive links panel (v0.1.78) */
 .links-panel{
   grid-column:1/-1;padding:7px 12px 9px 24px;
@@ -948,10 +957,15 @@ body.dark-mode .links-panel{background:rgba(14,165,233,.04)}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer
 }
 .link-item-title:hover{text-decoration:underline}
-.link-item-del{
+/* v0.1.158: title is non-editable by default; double-click flips
+   contenteditable=true and the :focus rule above paints the edit box. */
+.link-item-edit, .link-item-del{
   border:none;background:none;color:var(--t4);cursor:pointer;
-  padding:0 4px;font-size:13px;opacity:0;transition:opacity .12s;line-height:1;flex-shrink:0
+  padding:0 4px;font-size:13px;opacity:0;transition:opacity .12s;line-height:1;flex-shrink:0;
+  display:flex;align-items:center
 }
+.link-item-edit:hover, .link-item-del:hover{color:var(--t1)}
+.link-item:hover .link-item-edit,
 .link-item:hover .link-item-del{opacity:1}
 .links-add{display:flex;align-items:center;gap:6px;padding:4px 0 0}
 .links-add input{
@@ -4884,6 +4898,15 @@ function _applyDeadline(t, value){
   if(typeof logHist === 'function') logHist(t, 'deadline', value ? `set to ${value}` : 'cleared');
   if(db?.ready && t._cloud) db.tasks.update(t.id, { deadline: t.deadline || null }).catch(()=>{});
   if(typeof render === 'function') render();
+  // v0.1.158 (P0 from review): if the presentation modal is open on this
+  // task, surgically patch the deadline chip so the user doesn't have to
+  // close + reopen to see the new date.
+  try {
+    if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === t.id
+       && typeof patchPresent === 'function'){
+      patchPresent({ deadline: true });
+    }
+  } catch(_){}
   return prev;
 }
 function setTaskDeadline(taskId){
@@ -4990,7 +5013,8 @@ function renderRow(t){
              and unbox-with-arrow (restore) based on current state. -->
         <button class="card-archive" onclick="event.stopPropagation();toggleTaskHidden('${t.id}')"
           title="${t.hidden ? 'Restore from archive' : 'Archive task'}"
-          aria-label="${t.hidden ? 'Restore from archive' : 'Archive task'}">
+          aria-label="${t.hidden ? 'Restore from archive' : 'Archive task'}"
+          aria-pressed="${t.hidden ? 'true' : 'false'}">
           ${t.hidden
             ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><path d="M9 15l3 -3 3 3"/><line x1="12" y1="18" x2="12" y2="12"/></svg>'
             : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
@@ -5529,6 +5553,14 @@ function onLinkDragStart(e, taskId, linkId){
   _linkDragTask = taskId; _linkDragId = linkId;
   try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', linkId); } catch(_){}
 }
+// v0.1.158 (P1 from review): always clear drag globals on dragend, even if
+// the drop landed outside any valid target (e.g. user released over the
+// window chrome). Without this, the next render() saw stale state and a
+// second drag would no-op on the first frame.
+function onLinkDragEnd(){
+  _linkDragTask = null;
+  _linkDragId = null;
+}
 function onLinkDrop(e, taskId, dropOnId){
   const srcTask = _linkDragTask, srcId = _linkDragId;
   _linkDragTask = null; _linkDragId = null;
@@ -5557,8 +5589,16 @@ function renameLink(taskId, linkId, newTitle){
   const cleaned = (newTitle || '').trim();
   if(cleaned === (link.title || '')) return;
   const prev = link.title;
+  // v0.1.158 (P0 from review): if cleaned is empty we fall back to the
+  // auto-derived title — toast the user so they know it wasn't ignored.
+  const wasReset = !cleaned;
   link.title = cleaned || (typeof gdriveTitleFromUrl === 'function' ? gdriveTitleFromUrl(link.url) : 'Link');
   _syncLinks(t);
+  if(wasReset) toast('Link title reset to URL', 2500);
+  // Always re-render: the contenteditable still shows the user's stale
+  // typed text after blur, including the empty case where we filled in
+  // an auto-title.
+  render();
   pushUndo('Rename link',
     () => { link.title = prev; _syncLinks(t); render(); },
     () => { link.title = cleaned; _syncLinks(t); render(); });
@@ -5711,20 +5751,32 @@ function renderLinksPanel(t){
   // Sheets — grab the handle, drop on another row, list re-orders and the
   // change syncs to Supabase. Editable title via contenteditable; blur
   // commits the change.
+  // v0.1.158 (P1 from review): old behaviour was single-click = open link.
+  // v0.1.157 inverted it (contenteditable=true made single-click drop a
+  // caret into rename mode), and DB called that out as a regression.
+  // Restored: single-click opens the link, double-click enters rename
+  // (contenteditable toggled on then off in onblur). A tiny pencil icon
+  // gives a discoverable second affordance for the rename action.
   const items = links.map((lnk, i) => `<div class="link-item" draggable="true"
     ondragstart="event.stopPropagation();onLinkDragStart(event,'${t.id}','${lnk.id}')"
+    ondragend="onLinkDragEnd()"
     ondragover="event.preventDefault();event.stopPropagation();this.classList.add('drag-over')"
     ondragleave="this.classList.remove('drag-over')"
     ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('drag-over');onLinkDrop(event,'${t.id}','${lnk.id}')">
     <span class="link-item-handle" title="Drag to reorder" draggable="false">⋮⋮</span>
     <span class="link-item-ico">${gdriveFaviconHTML(lnk.url)}</span>
-    <a class="link-item-title" contenteditable="true" spellcheck="false"
-      onblur="event.stopPropagation();renameLink('${t.id}','${lnk.id}',this.textContent)"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();} else event.stopPropagation();"
+    <a class="link-item-title" contenteditable="false" spellcheck="false"
+      data-url="${lnk.url.replace(/"/g,'&quot;')}"
+      onblur="if(this.isContentEditable){this.contentEditable='false';renameLink('${t.id}','${lnk.id}',this.textContent);}"
+      onkeydown="if(this.isContentEditable){if(event.key==='Enter'){event.preventDefault();this.blur();} else if(event.key==='Escape'){event.preventDefault();this.textContent=${JSON.stringify(lnk.title||lnk.url)};this.blur();} else event.stopPropagation();}"
       ondragstart="event.preventDefault()"
-      onclick="event.stopPropagation()"
-      ondblclick="event.stopPropagation();openLink('${lnk.url.replace(/'/g,"\\'")}')"
-      title="Double-click to open · single-click to rename">${(lnk.title||lnk.url).replace(/[<>]/g,'')}</a>
+      onclick="event.stopPropagation();if(!this.isContentEditable) openLink(this.dataset.url)"
+      ondblclick="event.stopPropagation();this.contentEditable='true';this.focus();document.execCommand('selectAll',false,null)"
+      title="Click to open · double-click or pencil to rename">${(lnk.title||lnk.url).replace(/[<>]/g,'')}</a>
+    <button class="link-item-edit" title="Rename" aria-label="Rename link"
+      onclick="event.stopPropagation();const el=this.parentNode.querySelector('.link-item-title');el.contentEditable='true';el.focus();document.execCommand('selectAll',false,null)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    </button>
     <button class="link-item-del" onclick="event.stopPropagation();deleteLink('${t.id}','${lnk.id}')">×</button>
   </div>`).join('');
   return `<div class="links-panel${isOpen?' open':''}" onclick="event.stopPropagation()">
@@ -6051,8 +6103,18 @@ function patchPresent(fields){
       const st = STATUSES[t.s] || STATUSES[0];
       stEl.className = 'pres-status tc-status ' + (st.cls || '');
       stEl.innerHTML = `<span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>`;
-      if(!st.cls) stEl.setAttribute('style', `cursor:pointer;position:relative;background:${st.c}22;color:${st.c}`);
-      else stEl.setAttribute('style', 'cursor:pointer;position:relative');
+      // v0.1.158 (P1 from review): set individual style props instead of
+      // wholesale .setAttribute('style', ...) so we don't accidentally nuke
+      // other inline styles (e.g. position/cursor added by drop handlers).
+      stEl.style.cursor = 'pointer';
+      stEl.style.position = 'relative';
+      if(!st.cls){
+        stEl.style.background = st.c + '22';
+        stEl.style.color = st.c;
+      } else {
+        stEl.style.background = '';
+        stEl.style.color = '';
+      }
     }
   }
   // ASSIGNEE chip
@@ -6384,7 +6446,7 @@ function renderPresent(){
       <div class="pres-status tc-status ${st.cls}" onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change status" style="cursor:pointer;position:relative${st.cls?'':`;background:${st.c}22;color:${st.c}`}">
         <span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>
       </div>
-      ${renderAssignee(t)}
+      ${renderAssignee(t)}${renderDeadline(t)}
       <!-- v0.1.154 (#20 MR): live presence stack — populated by
            updatePresenceUi() after the realtime channel sync. -->
       <span id="presPresence" class="pres-presence" style="display:none"></span>
@@ -8439,9 +8501,11 @@ function showTaskMenu(e, taskId){
   menu.id = '_ebTaskMenu';
   menu.dataset.taskId = String(taskId);
   menu.className = 'task-ctx-menu';
-  // v0.1.151: rename "Hide (internal)" → "Archive" — DB feedback was that
-  // the original copy felt vague and the action didn't feel reversible.
-  const hiddenLabel = t.hidden ? 'Unarchive' : 'Archive task';
+  // v0.1.158 (P1 from review): the menu used to expose Archive/Unarchive as
+  // a row in the context menu (v0.1.151), but the action moved to the
+  // per-row .card-archive button in v0.1.155. The local `hiddenLabel`
+  // string was left behind and never referenced — dropped to keep the
+  // menu builder honest.
   // v0.1.152: Pin/Unpin label + icon (DB #17).
   const pinLabel = t.pinned ? 'Unpin' : 'Pin to top';
   const pinIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${t.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`;

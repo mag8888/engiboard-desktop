@@ -985,7 +985,10 @@ async function discard(){
   await forceCloseEditor();
 }
 
-const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',d:'dimension',b:'blur',q:'comment',m:'marker'};
+// v0.1.158 (P0 from review): 'd' shortcut for the removed Dimension tool
+// is dropped — pressing D used to activate the tool even after the button
+// was hidden in v0.1.157.
+const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',b:'blur',q:'comment',m:'marker'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();
