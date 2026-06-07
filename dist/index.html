@@ -743,7 +743,10 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 }
 .chat-col .chat-list{
   /* v0.1.46: chat fills full row height (was max-height:64px) */
-  flex:1 1 auto;min-height:0;overflow-y:auto;
+  /* v0.1.157 (N5 from 2026-06-05): when the user resizes a row taller via
+     the image cell, the chat used to squish to nothing. Floor it at 60px
+     (≈ 3 messages) so the panel stays usable. */
+  flex:1 1 auto;min-height:60px;overflow-y:auto;
   display:flex;flex-direction:column;gap:5px;
   background:var(--bg);border-radius:6px;border:1px solid var(--line);
   padding:5px 6px;transition:.12s
@@ -861,9 +864,16 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 .card-assignee .ca-av{width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;font-size:8px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .task-ctx-menu .ca-av{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,var(--acc-2),var(--acc));color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 /* Kebab button — sits at the right end of the card header (chat column) */
-.card-kebab{margin-left:auto;width:26px;height:26px;border:none;background:transparent;color:var(--t3);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.12s}
+.card-kebab{width:26px;height:26px;border:none;background:transparent;color:var(--t3);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.12s}
 .card-kebab:hover{background:rgba(15,23,42,.06);color:var(--t1)}
 body.dark-mode .card-kebab:hover{background:rgba(255,255,255,.08)}
+/* v0.1.157 (N1): visible archive toggle on the card header. Pushed to the
+   right via margin-left:auto so status / assignee / deadline stay grouped
+   on the left. */
+.card-archive{margin-left:auto;width:26px;height:26px;border:none;background:transparent;color:var(--t3);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.12s}
+.card-archive:hover{background:rgba(15,23,42,.06);color:var(--t1)}
+body.dark-mode .card-archive:hover{background:rgba(255,255,255,.08)}
+.row.archived .card-archive{color:var(--acc);opacity:.9}
 
 /* Task right-click context menu */
 .task-ctx-menu{position:fixed;z-index:10002;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,.2);padding:5px;min-width:180px}
@@ -913,6 +923,16 @@ body.dark-mode .cl-panel{background:rgba(255,255,255,.025)}
   border-radius:3px;background:rgba(14,165,233,.12);color:var(--acc);font-weight:700
 }
 .ic-btn.cl-ic.active{color:var(--acc)}
+/* v0.1.157 (#12): drag-handle + drop highlight for the links panel. */
+.link-item-handle{font-family:var(--mono);color:var(--t4);cursor:grab;
+  font-size:9px;letter-spacing:-1px;line-height:1;user-select:none;
+  padding:0 4px 0 0;flex-shrink:0;opacity:.55;transition:opacity .12s}
+.link-item:hover .link-item-handle{opacity:1}
+.link-item.drag-over{background:rgba(14,165,233,.10);
+  outline:1px dashed rgba(14,165,233,.45);border-radius:4px}
+.link-item-title[contenteditable="true"]{cursor:text;outline:none}
+.link-item-title[contenteditable="true"]:focus{
+  background:rgba(14,165,233,.06);border-radius:3px}
 /* GDrive links panel (v0.1.78) */
 .links-panel{
   grid-column:1/-1;padding:7px 12px 9px 24px;
@@ -4963,6 +4983,19 @@ function renderRow(t){
           <span class="pip" style="background:${st.c}"></span>${st.l}
         </span>
         ${renderAssignee(t)}${renderDeadline(t)}
+        <!-- v0.1.157 (N1 from 2026-06-05 follow-up): Archive moved out of
+             the kebab onto the visible card header per DB's request — it's
+             a frequently used action and was getting lost in a 11-item
+             dropdown. Toggle icon flips between box-with-line (archive)
+             and unbox-with-arrow (restore) based on current state. -->
+        <button class="card-archive" onclick="event.stopPropagation();toggleTaskHidden('${t.id}')"
+          title="${t.hidden ? 'Restore from archive' : 'Archive task'}"
+          aria-label="${t.hidden ? 'Restore from archive' : 'Archive task'}">
+          ${t.hidden
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><path d="M9 15l3 -3 3 3"/><line x1="12" y1="18" x2="12" y2="12"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
+          }
+        </button>
         <button class="card-kebab" onclick="event.stopPropagation();showTaskMenuAt(event,'${t.id}')" title="More actions">${ICON_KEBAB}</button>
       </div>
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
@@ -5198,11 +5231,12 @@ window.addEventListener('message', ev => {
       try { render && render(); } catch(_){}
       // v0.1.150 (fix #6/#24 reported by DB+MR): when the editor was opened
       // from presentation mode the row was re-rendered but the modal kept
-      // showing the stale <img>. Refresh the modal too so the new annotation
-      // is visible immediately, without exiting and re-entering the task.
+      // showing the stale <img>. v0.1.157 (N4): use the surgical patch
+      // instead of the full rebuild so the modal doesn't flash / lose its
+      // scroll position when the user comes back from the editor.
       try {
         if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === taskId){
-          renderPresent && renderPresent();
+          patchPresent && patchPresent({ photo: true });
         }
       } catch(_){}
       toast('Annotation saved');
@@ -5390,9 +5424,11 @@ function changeStatus(taskId, sid){
       () => changeStatus(taskId, sid));
     closeStMenu();
     render();
-    // v0.1.114: if presentation mode is open for this task, refresh it too
+    // v0.1.157 (N4): use the surgical patch so the modal doesn't flash /
+    // scroll to top when the user picks a new status from the in-present
+    // menu — DB demonstrated the issue on the 2026-06-05 follow-up call.
     if(presentTask && presentTask.id === taskId && document.getElementById('present')?.classList.contains('on')){
-      renderPresent();
+      patchPresent({ status: true });
     }
     toast('Status: ' + STATUSES[sid].l);
     // P2-1 webhook hook — fire on transitions to Done(1) or Problem(5)
@@ -5484,6 +5520,48 @@ function toggleLinksPanel(taskId){
 // place — also called from the undo callbacks below.
 function _syncLinks(t){
   if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
+}
+// v0.1.157 (#12 from older DEBUG xlsx): drag-reorder + rename links.
+// Drag state lives in module globals — only one drag at a time so this is
+// safe. onLinkDragStart records source, onLinkDrop reorders both arrays.
+let _linkDragTask = null, _linkDragId = null;
+function onLinkDragStart(e, taskId, linkId){
+  _linkDragTask = taskId; _linkDragId = linkId;
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', linkId); } catch(_){}
+}
+function onLinkDrop(e, taskId, dropOnId){
+  const srcTask = _linkDragTask, srcId = _linkDragId;
+  _linkDragTask = null; _linkDragId = null;
+  if(!srcTask || !srcId || srcTask !== taskId || srcId === dropOnId) return;
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.links)) return;
+  const srcIdx = t.links.findIndex(l => l.id === srcId);
+  const dstIdx = t.links.findIndex(l => l.id === dropOnId);
+  if(srcIdx < 0 || dstIdx < 0) return;
+  const prev = t.links.slice();
+  const [moved] = t.links.splice(srcIdx, 1);
+  // Re-find destination after the splice (indices may shift).
+  const dstAfter = t.links.findIndex(l => l.id === dropOnId);
+  t.links.splice(dstAfter, 0, moved);
+  _syncLinks(t);
+  render();
+  pushUndo('Reorder link',
+    () => { t.links = prev.slice(); _syncLinks(t); render(); },
+    () => { t.links.splice(srcIdx, 1); t.links.splice(dstAfter, 0, moved); _syncLinks(t); render(); });
+}
+function renameLink(taskId, linkId, newTitle){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const link = (t.links || []).find(l => l.id === linkId);
+  if(!link) return;
+  const cleaned = (newTitle || '').trim();
+  if(cleaned === (link.title || '')) return;
+  const prev = link.title;
+  link.title = cleaned || (typeof gdriveTitleFromUrl === 'function' ? gdriveTitleFromUrl(link.url) : 'Link');
+  _syncLinks(t);
+  pushUndo('Rename link',
+    () => { link.title = prev; _syncLinks(t); render(); },
+    () => { link.title = cleaned; _syncLinks(t); render(); });
 }
 function addLink(taskId, input){
   const url = (input.value || '').trim();
@@ -5629,11 +5707,24 @@ function openLink(url){
 function renderLinksPanel(t){
   const links = Array.isArray(t.links) ? t.links : [];
   const isOpen = expandedLinks.has(t.id);
-  const items = links.map(lnk => `<div class="link-item">
+  // v0.1.157 (#12 from older DEBUG xlsx): drag-reorder links like Google
+  // Sheets — grab the handle, drop on another row, list re-orders and the
+  // change syncs to Supabase. Editable title via contenteditable; blur
+  // commits the change.
+  const items = links.map((lnk, i) => `<div class="link-item" draggable="true"
+    ondragstart="event.stopPropagation();onLinkDragStart(event,'${t.id}','${lnk.id}')"
+    ondragover="event.preventDefault();event.stopPropagation();this.classList.add('drag-over')"
+    ondragleave="this.classList.remove('drag-over')"
+    ondrop="event.preventDefault();event.stopPropagation();this.classList.remove('drag-over');onLinkDrop(event,'${t.id}','${lnk.id}')">
+    <span class="link-item-handle" title="Drag to reorder" draggable="false">⋮⋮</span>
     <span class="link-item-ico">${gdriveFaviconHTML(lnk.url)}</span>
-    <a class="link-item-title" onclick="event.stopPropagation();openLink('${lnk.url.replace(/'/g,"\\'")}')">
-      ${(lnk.title||lnk.url).replace(/[<>]/g,'')}
-    </a>
+    <a class="link-item-title" contenteditable="true" spellcheck="false"
+      onblur="event.stopPropagation();renameLink('${t.id}','${lnk.id}',this.textContent)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();} else event.stopPropagation();"
+      ondragstart="event.preventDefault()"
+      onclick="event.stopPropagation()"
+      ondblclick="event.stopPropagation();openLink('${lnk.url.replace(/'/g,"\\'")}')"
+      title="Double-click to open · single-click to rename">${(lnk.title||lnk.url).replace(/[<>]/g,'')}</a>
     <button class="link-item-del" onclick="event.stopPropagation();deleteLink('${t.id}','${lnk.id}')">×</button>
   </div>`).join('');
   return `<div class="links-panel${isOpen?' open':''}" onclick="event.stopPropagation()">
@@ -5942,6 +6033,70 @@ function onRowClick(e, taskId){
 }
 
 // ━━━ PRESENT ━━━
+// v0.1.157 (N4 from 2026-06-05 follow-up): DB demonstrated the
+// presentation modal "flashing" / scrolling to top whenever a status or
+// photo changed. Cause: every change called renderPresent(), which does
+// card.innerHTML = ... — a full rebuild. patchPresent does surgical DOM
+// updates for the parts that actually change, preserving scroll, focus,
+// and visual continuity. The full rebuild is still used for openPresent
+// and navigation between tasks.
+function patchPresent(fields){
+  const t = presentTask;
+  if(!t) return;
+  const fs = fields || { status: true, assignee: true, photo: true, deadline: true };
+  // STATUS pill
+  if(fs.status){
+    const stEl = document.querySelector('#presCard .pres-status');
+    if(stEl){
+      const st = STATUSES[t.s] || STATUSES[0];
+      stEl.className = 'pres-status tc-status ' + (st.cls || '');
+      stEl.innerHTML = `<span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>`;
+      if(!st.cls) stEl.setAttribute('style', `cursor:pointer;position:relative;background:${st.c}22;color:${st.c}`);
+      else stEl.setAttribute('style', 'cursor:pointer;position:relative');
+    }
+  }
+  // ASSIGNEE chip
+  if(fs.assignee){
+    const head = document.querySelector('#presCard .pres-head');
+    const old = head?.querySelector('.card-assignee');
+    if(old){
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderAssignee(t).trim();
+      const next = tmp.firstElementChild;
+      if(next) old.replaceWith(next);
+    }
+  }
+  // DEADLINE chip — there may or may not be one; sync next to assignee
+  if(fs.deadline){
+    const head = document.querySelector('#presCard .pres-head');
+    const oldDeadline = head?.querySelector('.card-deadline');
+    const newHtml = renderDeadline(t).trim();
+    if(oldDeadline && newHtml){
+      const tmp = document.createElement('div'); tmp.innerHTML = newHtml;
+      oldDeadline.replaceWith(tmp.firstElementChild);
+    } else if(oldDeadline && !newHtml){
+      oldDeadline.remove();
+    } else if(!oldDeadline && newHtml){
+      const assigneeEl = head?.querySelector('.card-assignee');
+      if(assigneeEl){
+        const tmp = document.createElement('div'); tmp.innerHTML = newHtml;
+        assigneeEl.after(tmp.firstElementChild);
+      }
+    }
+  }
+  // PHOTOS: re-set img src without rebuilding the panel
+  if(fs.photo){
+    const beforeImg = document.querySelector('#presCard .pres-pics-pair .pres-pic:nth-child(1) img');
+    const afterImg  = document.querySelector('#presCard .pres-pics-pair .pres-pic:nth-child(2) img');
+    if(beforeImg && t.shot1 && beforeImg.getAttribute('src') !== t.shot1){
+      beforeImg.setAttribute('src', t.shot1);
+    }
+    if(afterImg && t.shot2 && afterImg.getAttribute('src') !== t.shot2){
+      afterImg.setAttribute('src', t.shot2);
+    }
+  }
+}
+
 function openPresent(taskId){
   // v0.1.43: режим презентации вернули — это спринт 1.4 ТЗ.
   // v0.1.150 (fix #28 reported by tester MR): the modal used to abort with
@@ -6779,6 +6934,21 @@ function renderDashboard(){
 function openNewProjModal(){
   document.getElementById('newProjModal').classList.add('on');
   setTimeout(() => document.getElementById('npmName').focus(), 100);
+  // v0.1.157 (N6 from 2026-06-05): the new-project modal had no Enter
+  // handler, so the user had to mouse the Create button. Wire Enter on
+  // every input → create, Esc → cancel. Use a flag so we don't double-bind
+  // on subsequent opens.
+  if(!openNewProjModal._wired){
+    openNewProjModal._wired = true;
+    ['npmName','npmCode','npmClient','npmLang'].forEach(id => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){ e.preventDefault(); createNewProject(); }
+        else if(e.key === 'Escape'){ e.preventDefault(); closeNewProjModal(); }
+      });
+    });
+  }
 }
 function closeNewProjModal(){
   document.getElementById('newProjModal').classList.remove('on');
@@ -8246,7 +8416,8 @@ function setAssignee(taskId, name){
   render();
   try {
     if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === taskId){
-      renderPresent && renderPresent();
+      // v0.1.157 (N4): surgical assignee update so the modal doesn't flash.
+      patchPresent && patchPresent({ assignee: true });
     }
   } catch(_){}
   if(name) toast('Assigned to ' + name);
@@ -8287,7 +8458,6 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="openMoveToWeekMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to week…</div>
     <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
     ${t.deadline ? `<div class="tcm-item" onclick="clearTaskDeadline('${taskId}')">${deadlineIcon}Clear deadline</div>` : ''}
-    <div class="tcm-item" onclick="toggleTaskHidden('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>${hiddenLabel}</div>
     <div class="tcm-sep"></div>
     <div class="tcm-item danger" onclick="taskMenuDelete('${taskId}')">${ICON_TRASH} Delete</div>`;
   document.body.appendChild(menu);
