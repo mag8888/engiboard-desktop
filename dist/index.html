@@ -3609,7 +3609,30 @@ function formatWeek(dateStr){
   } catch(_){ return ''; }
 }
 
+// v0.1.160 (security Phase 2): включи в `true`, когда лицензии
+// созданы для всех тестеров и пользователей. Пока выключено — UX
+// идентичен предыдущим релизам, license-gate не открывается. При
+// `true`: после signin проверяется keychain; если JWT нет — редирект
+// на license-gate.html. См. docs/LICENSE_OPERATIONS.md.
+const LICENSE_GATE_ENABLED = false;
+
+async function ensureLicenseGate(){
+  if(!LICENSE_GATE_ENABLED) return true;
+  if(!window.__TAURI__) return true; // веб-превью без Tauri — пропускаем
+  // demo-аккаунт без облака и так работает офлайн, лицензия ему не нужна
+  if(localStorage.getItem('eb_account') === 'demo') return true;
+  try {
+    const stored = await window.__TAURI__.core.invoke('license_get_stored');
+    if(stored && stored.jwt) return true;
+  } catch(_){ /* fall through */ }
+  location.href = 'license-gate.html';
+  return false;
+}
+
 async function showApp(){
+  // v0.1.160 (security Phase 2): gate-check ДО показа основного UI,
+  // чтобы пользователь без активной лицензии не увидел данные.
+  if(!(await ensureLicenseGate())) return;
   document.getElementById('LP').classList.add('hide');
   document.getElementById('APP').classList.add('on');
   // Pull the user's role from the cloud profile so UI gates stay correct

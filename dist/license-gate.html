@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EngiBoard · Activate</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --surf: #ffffff; --line: #e5e7eb; --line-2: #d1d5db;
+    --t1: #0f172a; --t2: #475569; --t3: #64748b; --t4: #94a3b8;
+    --acc: #0ea5e9; --acc-2: #0284c7;
+    --err: #dc2626; --err-bg: #fef2f2;
+    --ok: #059669; --ok-bg: #ecfdf5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --rad: 12px;
+  }
+  body.dark-mode {
+    --bg: #0b1220; --surf: #111827; --line: #1f2937; --line-2: #374151;
+    --t1: #f1f5f9; --t2: #cbd5e1; --t3: #94a3b8; --t4: #64748b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", sans-serif;
+    background: var(--bg); color: var(--t1);
+    display: flex; align-items: center; justify-content: center;
+    -webkit-user-select: none; user-select: none;
+  }
+  .card {
+    background: var(--surf); border: 1px solid var(--line);
+    border-radius: var(--rad); padding: 36px 32px;
+    width: 420px; max-width: 92vw;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, .06);
+  }
+  .logo {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--acc) 0%, #6366f1 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 24px;
+    font-family: var(--mono); margin-bottom: 20px;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; }
+  p.sub { color: var(--t2); font-size: 14px; line-height: 1.45; margin: 0 0 24px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--t2);
+          letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+  input[type=text], input[type=email], input[type=password] {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--line-2);
+    border-radius: 8px; background: var(--surf); color: var(--t1);
+    font-size: 14px; font-family: var(--mono);
+    outline: none; transition: border-color .12s, box-shadow .12s;
+    -webkit-user-select: text; user-select: text;
+  }
+  input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(14,165,233,.15); }
+  .field { margin-bottom: 16px; }
+  button.primary {
+    width: 100%; padding: 12px; border: none; border-radius: 8px;
+    background: var(--acc); color: white; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background .12s;
+  }
+  button.primary:hover { background: var(--acc-2); }
+  button.primary:disabled { background: var(--t4); cursor: wait; }
+  .row-buttons { display: flex; gap: 8px; margin-top: 10px; }
+  button.ghost {
+    flex: 1; padding: 9px; border: 1px solid var(--line-2);
+    background: transparent; color: var(--t2); border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+  }
+  button.ghost:hover { color: var(--t1); border-color: var(--t3); }
+  .alert {
+    margin: 14px 0 0; padding: 10px 12px; border-radius: 8px;
+    font-size: 13px; line-height: 1.4;
+  }
+  .alert.err { background: var(--err-bg); color: var(--err); }
+  .alert.ok { background: var(--ok-bg); color: var(--ok); }
+  .meta {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--t3); line-height: 1.5;
+  }
+  .meta b { color: var(--t2); font-weight: 600; }
+  .fingerprint {
+    font-family: var(--mono); font-size: 11px; color: var(--t4);
+    word-break: break-all;
+  }
+  .step-2 { display: none; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">E</div>
+
+  <div id="step-1">
+    <h1>Activate EngiBoard</h1>
+    <p class="sub">Enter the license key you received by email. This device will be bound to your subscription.</p>
+
+    <div class="field">
+      <label for="key">License key</label>
+      <input type="text" id="key" placeholder="EB-XXXX-YYYY-ZZZZ" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="label">Device name (optional)</label>
+      <input type="text" id="label" placeholder="My MacBook Pro" autocomplete="off">
+    </div>
+
+    <button class="primary" id="activate">Activate</button>
+    <div id="msg"></div>
+
+    <div class="row-buttons">
+      <button class="ghost" id="trial">Start 14-day trial</button>
+      <button class="ghost" id="signin-different">Use a different account</button>
+    </div>
+
+    <div class="meta">
+      <div><b>Account:</b> <span id="user-email">…</span></div>
+      <div><b>Device:</b> <span id="os-info">…</span></div>
+      <div class="fingerprint" id="fp">…</div>
+    </div>
+  </div>
+
+  <div id="step-2" class="step-2">
+    <h1>Activated</h1>
+    <p class="sub">Your subscription is active on this device.</p>
+    <div class="meta">
+      <div><b>Plan:</b> <span id="plan">…</span></div>
+      <div><b>Valid until:</b> <span id="valid-until">…</span></div>
+    </div>
+    <button class="primary" id="continue" style="margin-top: 18px">Continue to EngiBoard</button>
+  </div>
+</div>
+
+<script>
+// На этой странице — только UI + invoke. Никакого Supabase-SDK напрямую:
+// Rust-сторона делает все HTTP-вызовы, чтобы пиратская копия не могла
+// замокать ответ через DevTools (которые в release-сборке всё равно
+// отключены, но defense-in-depth).
+
+const TAURI = window.__TAURI__ || null;
+if (!TAURI) {
+  document.body.innerHTML = '<div class="card"><h1>License gate</h1><p class="sub">This screen runs only inside the EngiBoard desktop app.</p></div>';
+  throw new Error('not a tauri window');
+}
+const invoke = TAURI.core.invoke;
+const APP_VERSION = '0.1.160';
+
+(async () => {
+  const fp = await invoke('license_machine_fingerprint');
+  document.getElementById('fp').textContent = fp.slice(0, 32) + '…';
+
+  // user email — пользователь уже залогинен в Supabase (на основном экране).
+  // Мы получаем email из localStorage, куда основной app кладёт сессию.
+  // Если пользователя нет — отправляем обратно на signin.
+  let session = null;
+  try {
+    const raw = localStorage.getItem('sb-gselxucvcomqlfyogidz-auth-token');
+    if (raw) session = JSON.parse(raw);
+  } catch (_) {}
+  const email = session?.user?.email || session?.currentSession?.user?.email || 'not signed in';
+  document.getElementById('user-email').textContent = email;
+  document.getElementById('os-info').textContent =
+    navigator.platform + ' · EngiBoard ' + APP_VERSION;
+})();
+
+document.getElementById('activate').addEventListener('click', async (ev) => {
+  ev.preventDefault();
+  const btn = ev.currentTarget;
+  const key = document.getElementById('key').value.trim();
+  const label = document.getElementById('label').value.trim() ||
+                ('EngiBoard on ' + navigator.platform);
+
+  const msgEl = document.getElementById('msg');
+  msgEl.innerHTML = '';
+
+  if (!key) {
+    showMsg('License key is required', 'err');
+    return;
+  }
+
+  // достаём supabase access token из локалки
+  let accessToken = null;
+  try {
+    const raw = localStorage.getItem('sb-gselxucvcomqlfyogidz-auth-token');
+    const sess = raw ? JSON.parse(raw) : null;
+    accessToken = sess?.access_token || sess?.currentSession?.access_token || null;
+  } catch (_) {}
+  if (!accessToken) {
+    showMsg('You need to sign in to EngiBoard first.', 'err');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Activating…';
+  try {
+    const res = await invoke('license_activate', {
+      licenseKey: key,
+      machineLabel: label,
+      supabaseAccessToken: accessToken,
+      appVersion: APP_VERSION,
+    });
+    document.getElementById('plan').textContent = res.license?.plan || '—';
+    document.getElementById('valid-until').textContent =
+      new Date(res.license?.expires_at || res.expires_at).toLocaleDateString();
+    document.getElementById('step-1').style.display = 'none';
+    document.getElementById('step-2').style.display = 'block';
+  } catch (e) {
+    const human = friendlyError(String(e));
+    showMsg(human, 'err');
+    btn.disabled = false; btn.textContent = 'Activate';
+  }
+});
+
+document.getElementById('continue').addEventListener('click', () => {
+  // Возвращаемся в основной app
+  location.href = 'index.html';
+});
+
+document.getElementById('signin-different').addEventListener('click', async () => {
+  // Чистим licence + auth и перезагружаем основной app — там покажется signin
+  try { await invoke('license_clear'); } catch (_) {}
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('sb-'))
+      .forEach(k => localStorage.removeItem(k));
+  } catch (_) {}
+  location.href = 'index.html';
+});
+
+document.getElementById('trial').addEventListener('click', () => {
+  // Trial-флоу — отдельная Edge Function /functions/v1/request-trial.
+  // Пока что (v0.1.160) — заглушка: показываем email и просим написать.
+  showMsg('Trial keys are issued manually for now — write to hello@stepikin.studio.', 'ok');
+});
+
+function showMsg(text, kind) {
+  const el = document.getElementById('msg');
+  el.innerHTML = '<div class="alert ' + (kind || 'err') + '">' + escapeHtml(text) + '</div>';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+function friendlyError(raw) {
+  const map = {
+    'license_not_found': 'This license key does not exist.',
+    'license_belongs_to_other_user': 'This key belongs to a different EngiBoard account.',
+    'expired': 'This license has expired. Renew it in your account.',
+    'suspended': 'This license is suspended. Contact support.',
+    'revoked': 'This license was revoked.',
+    'no_free_seats': 'No free seats on this license. Deactivate the key on another device first.',
+    'missing_fields': 'Missing fields.',
+    'no_auth': 'You need to sign in to EngiBoard first.',
+    'bad_auth': 'Your session expired. Sign in again.',
+    'network: ': 'No internet connection. Try again in a moment.',
+  };
+  for (const k in map) {
+    if (raw.toLowerCase().includes(k)) return map[k];
+  }
+  return 'Activation failed: ' + raw;
+}
+
+// Dark mode follow main app (localStorage flag)
+try {
+  if (localStorage.getItem('eb_dark_mode') === '1') {
+    document.body.classList.add('dark-mode');
+  }
+} catch (_) {}
+</script>
+</body>
+</html>

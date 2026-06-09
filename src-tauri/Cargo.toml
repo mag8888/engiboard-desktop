@@ -1,6 +1,6 @@
 [package]
 name = "engiboard"
-version = "0.1.159"
+version = "0.1.160"
 description = "EngiBoard — Engineering Task Tracker"
 authors = ["EngiBoard"]
 edition = "2021"
@@ -27,6 +27,19 @@ tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# v0.1.160 (security Phase 2): license-gate dependencies.
+# - keyring: хранение JWT в OS keychain (macOS Keychain / Win Credential Manager / Linux Secret Service)
+# - sha2 + hex: хэш machine fingerprint (machine_id + hostname + arch)
+# - hostname: чтение имени хоста кросс-OS
+# - reqwest: вызов Supabase Edge Functions из Rust (минуем JS, чтобы нельзя было замокать)
+# - tokio: уже неявно идёт через tauri, но нужны фичи rt для тикера heartbeat
+keyring = "3"
+sha2 = "0.10"
+hex = "0.4"
+hostname = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["macros", "rt", "time"] }
 
 # Cross-platform screen capture (v0.1.35) — used on Windows + Linux
 # macOS keeps using native screencapture binary for better Retina handling

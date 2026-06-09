@@ -1,4 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// v0.1.160 (security Phase 2): license-gate.
+// Модуль регистрирует команды (license_machine_fingerprint /
+// license_activate / license_heartbeat / license_get_stored / license_clear),
+// доступные JS через `invoke()`. Тикер heartbeat запускается в setup()
+// и пингует сервер каждые 60 минут — если в keychain нет JWT,
+// тикер тихо no-op-ит. См. docs/SECURITY_PLAN.md.
+mod license;
+
 use tauri::Emitter;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -848,10 +857,24 @@ fn main() {
                 });
             }
 
+            // v0.1.160 (security Phase 2): запустить heartbeat-тикер.
+            // Если в keychain ещё нет JWT (gate выключен или пользователь
+            // не активировал) — тикер тихо no-op-ит. См. license::spawn_heartbeat_ticker.
+            license::spawn_heartbeat_ticker(h.clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url, read_file_bytes, flush_repaint
+            show_main, open_editor_with_image, open_sniper, sniper_done, capture_region, close_editor, open_screen_recording_settings, get_pending_editor_data, open_url, read_file_bytes, flush_repaint,
+            // v0.1.160 (security Phase 2) — license-gate commands. Доступны
+            // JS-стороне через invoke; сам экран gate скрыт за константой
+            // LICENSE_GATE_ENABLED в dist/index.html, чтобы не ломать
+            // тестирование. См. docs/SECURITY_PLAN.md и docs/LICENSE_OPERATIONS.md.
+            license::license_machine_fingerprint,
+            license::license_get_stored,
+            license::license_activate,
+            license::license_heartbeat,
+            license::license_clear
         ])
         .run(tauri::generate_context!())
         .expect("error");
