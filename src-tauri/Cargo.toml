@@ -1,6 +1,6 @@
 [package]
 name = "engiboard"
-version = "0.1.158"
+version = "0.1.159"
 description = "EngiBoard — Engineering Task Tracker"
 authors = ["EngiBoard"]
 edition = "2021"
@@ -9,8 +9,16 @@ rust-version = "1.77"
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+[features]
+# v0.1.159 (security Phase 1): включается локально для отладки
+# (`cargo tauri dev --features dev-tools`), но в CI/release-билде
+# флаг не задан, и инспектор недоступен — пиратская копия не может
+# открыть DevTools и прочитать window.__TAURI__/state.
+default = []
+dev-tools = ["tauri/devtools"]
+
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "image-png", "devtools"] }
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon", "image-png"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-shell = "2"
