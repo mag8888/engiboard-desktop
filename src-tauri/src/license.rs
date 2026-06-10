@@ -20,6 +20,19 @@ use sha2::{Digest, Sha256};
 const KEYCHAIN_SERVICE: &str = "com.engiboard.desktop";
 const KEYCHAIN_ACCOUNT_JWT: &str = "license_jwt";
 const KEYCHAIN_ACCOUNT_EXP: &str = "license_jwt_exp";
+// unix-секунды последнего успешного activate/heartbeat. Используется
+// для оффлайн-grace: если связи с сервером не было дольше OFFLINE_GRACE_SECS,
+// gate перестаёт пускать в app и требует переактивации.
+const KEYCHAIN_ACCOUNT_LAST_OK: &str = "license_last_ok";
+// 30 дней (план field-pro). См. docs/SECURITY_PLAN.md §3.1.
+const OFFLINE_GRACE_SECS: u64 = 30 * 24 * 60 * 60;
+
+fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
 
 // Supabase project — приклеен в коде, нет смысла прятать (всё равно
 // торчит в трафике). Защита — серверная: без валидной auth + ключа
@@ -127,20 +140,6 @@ pub fn keychain_clear(account: &str) -> Result<(), String> {
 // HTTP CALLS to Supabase Edge Functions
 // ============================================================
 
-#[derive(Serialize)]
-struct ActivateBody<'a> {
-    license_key: &'a str,
-    machine_fingerprint: &'a str,
-    machine_label: &'a str,
-    os: &'a str,
-    app_version: &'a str,
-}
-
-#[derive(Serialize)]
-struct HeartbeatBody<'a> {
-    machine_fingerprint: &'a str,
-}
-
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct LicenseInfo {
     #[serde(default)]
@@ -162,8 +161,6 @@ pub struct LicenseResponse {
 #[derive(Deserialize, Debug)]
 struct ErrResponse {
     error: Option<String>,
-    #[serde(default)]
-    detail: Option<String>,
 }
 
 async fn call_supabase_fn(
@@ -207,14 +204,46 @@ pub fn license_machine_fingerprint() -> String {
     get_machine_fingerprint()
 }
 
+// Записать успешную активацию/heartbeat: jwt + exp + момент времени.
+// last_ok нужен gate-у, чтобы посчитать оффлайн-grace.
+fn store_success(jwt: &str, expires_at: &str) -> Result<(), String> {
+    keychain_store(KEYCHAIN_ACCOUNT_JWT, jwt)?;
+    keychain_store(KEYCHAIN_ACCOUNT_EXP, expires_at)?;
+    keychain_store(KEYCHAIN_ACCOUNT_LAST_OK, &now_unix().to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn license_get_stored() -> Result<Option<LicenseStoredState>, String> {
     let jwt = keychain_load(KEYCHAIN_ACCOUNT_JWT)?;
     let exp = keychain_load(KEYCHAIN_ACCOUNT_EXP)?;
-    match (jwt, exp) {
-        (Some(jwt), Some(exp)) => Ok(Some(LicenseStoredState { jwt, expires_at: exp })),
-        _ => Ok(None),
+    let (jwt, exp) = match (jwt, exp) {
+        (Some(jwt), Some(exp)) => (jwt, exp),
+        _ => return Ok(None),
+    };
+    // Оффлайн-grace: если последнего успешного контакта с сервером не было
+    // дольше OFFLINE_GRACE_SECS — считаем лицензию неактивной на этом
+    // устройстве. Без этой проверки устройство, ушедшее в вечный офлайн,
+    // оставалось бы разблокированным навсегда (заявленный "30 дней без
+    // сети → блок" не работал бы).
+    let last_ok = keychain_load(KEYCHAIN_ACCOUNT_LAST_OK)?
+        .and_then(|s| s.parse::<u64>().ok());
+    match last_ok {
+        Some(ts) => {
+            let now = now_unix();
+            // now < ts — часы отмотали назад; считаем контакт свежим, не блокируем.
+            if now > ts && now - ts > OFFLINE_GRACE_SECS {
+                return Ok(None);
+            }
+        }
+        // Нет таймстемпа (старая активация до этого фикса) — проставим
+        // сейчас, чтобы grace отсчитывался от первого запуска новой версии,
+        // а не блокировал немедленно.
+        None => {
+            let _ = keychain_store(KEYCHAIN_ACCOUNT_LAST_OK, &now_unix().to_string());
+        }
     }
+    Ok(Some(LicenseStoredState { jwt, expires_at: exp }))
 }
 
 #[derive(Serialize)]
@@ -242,8 +271,7 @@ pub async fn license_activate(
     let raw = call_supabase_fn("license-activate", &supabase_access_token, body).await?;
     let resp: LicenseResponse =
         serde_json::from_value(raw).map_err(|e| format!("bad_response: {}", e))?;
-    keychain_store(KEYCHAIN_ACCOUNT_JWT, &resp.jwt)?;
-    keychain_store(KEYCHAIN_ACCOUNT_EXP, &resp.expires_at)?;
+    store_success(&resp.jwt, &resp.expires_at)?;
     Ok(resp)
 }
 
@@ -256,8 +284,7 @@ pub async fn license_heartbeat() -> Result<LicenseResponse, String> {
     let raw = call_supabase_fn("license-heartbeat", &jwt, body).await?;
     let resp: LicenseResponse =
         serde_json::from_value(raw).map_err(|e| format!("bad_response: {}", e))?;
-    keychain_store(KEYCHAIN_ACCOUNT_JWT, &resp.jwt)?;
-    keychain_store(KEYCHAIN_ACCOUNT_EXP, &resp.expires_at)?;
+    store_success(&resp.jwt, &resp.expires_at)?;
     Ok(resp)
 }
 
@@ -265,6 +292,7 @@ pub async fn license_heartbeat() -> Result<LicenseResponse, String> {
 pub fn license_clear() -> Result<(), String> {
     let _ = keychain_clear(KEYCHAIN_ACCOUNT_JWT);
     let _ = keychain_clear(KEYCHAIN_ACCOUNT_EXP);
+    let _ = keychain_clear(KEYCHAIN_ACCOUNT_LAST_OK);
     Ok(())
 }
 

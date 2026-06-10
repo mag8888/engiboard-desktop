@@ -139,7 +139,20 @@ if (!TAURI) {
   throw new Error('not a tauri window');
 }
 const invoke = TAURI.core.invoke;
-const APP_VERSION = '0.1.160';
+const APP_VERSION = '0.1.161';
+
+// ВАЖНО: основной app создаёт Supabase-клиент с
+//   storageKey: 'eb_supabase_session'
+// (см. dist/index.html). Раньше тут стоял дефолтный ключ
+// 'sb-<ref>-auth-token', которого в localStorage НЕТ — из-за чего
+// activate всегда падал с "sign in first". Читаем правильный ключ.
+const SB_STORAGE_KEY = 'eb_supabase_session';
+function readSbSession() {
+  try {
+    const raw = localStorage.getItem(SB_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
 
 (async () => {
   const fp = await invoke('license_machine_fingerprint');
@@ -148,11 +161,7 @@ const APP_VERSION = '0.1.160';
   // user email — пользователь уже залогинен в Supabase (на основном экране).
   // Мы получаем email из localStorage, куда основной app кладёт сессию.
   // Если пользователя нет — отправляем обратно на signin.
-  let session = null;
-  try {
-    const raw = localStorage.getItem('sb-gselxucvcomqlfyogidz-auth-token');
-    if (raw) session = JSON.parse(raw);
-  } catch (_) {}
+  const session = readSbSession();
   const email = session?.user?.email || session?.currentSession?.user?.email || 'not signed in';
   document.getElementById('user-email').textContent = email;
   document.getElementById('os-info').textContent =
@@ -175,12 +184,8 @@ document.getElementById('activate').addEventListener('click', async (ev) => {
   }
 
   // достаём supabase access token из локалки
-  let accessToken = null;
-  try {
-    const raw = localStorage.getItem('sb-gselxucvcomqlfyogidz-auth-token');
-    const sess = raw ? JSON.parse(raw) : null;
-    accessToken = sess?.access_token || sess?.currentSession?.access_token || null;
-  } catch (_) {}
+  const sess = readSbSession();
+  const accessToken = sess?.access_token || sess?.currentSession?.access_token || null;
   if (!accessToken) {
     showMsg('You need to sign in to EngiBoard first.', 'err');
     return;
@@ -215,9 +220,8 @@ document.getElementById('signin-different').addEventListener('click', async () =
   // Чистим licence + auth и перезагружаем основной app — там покажется signin
   try { await invoke('license_clear'); } catch (_) {}
   try {
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('sb-'))
-      .forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem(SB_STORAGE_KEY);
+    localStorage.removeItem('eb_account');
   } catch (_) {}
   location.href = 'index.html';
 });
