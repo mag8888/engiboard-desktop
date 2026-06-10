@@ -88,10 +88,60 @@ fn read_machine_id() -> Option<String> {
     None
 }
 
+// Windows: запускаем дочерний процесс БЕЗ всплывающего консольного окна.
+// Без CREATE_NO_WINDOW GUI-приложение (windows_subsystem="windows") мигает
+// чёрной консолью при каждом спавне — заметно при вычислении fingerprint
+// на старте.
+#[cfg(target_os = "windows")]
+fn no_window_command(program: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut c = std::process::Command::new(program);
+    c.creation_flags(CREATE_NO_WINDOW);
+    c
+}
+
 #[cfg(target_os = "windows")]
 fn read_machine_id() -> Option<String> {
-    use std::process::Command;
-    let out = Command::new("wmic")
+    // Primary: реестр MachineGuid. Стабилен на всех версиях Windows,
+    // переживает перезагрузки и НЕ зависит от wmic (удалён в Win11 24H2+).
+    if let Some(id) = reg_machine_guid() {
+        return Some(id);
+    }
+    // Fallback: wmic — для старых систем, где реестр почему-то недоступен.
+    wmic_uuid()
+}
+
+#[cfg(target_os = "windows")]
+fn reg_machine_guid() -> Option<String> {
+    // `/reg:64` — явно читаем 64-битное представление (Tauri-бинарь 64-bit).
+    let out = no_window_command("reg")
+        .args([
+            "query",
+            r"HKLM\SOFTWARE\Microsoft\Cryptography",
+            "/v",
+            "MachineGuid",
+            "/reg:64",
+        ])
+        .output()
+        .ok()?;
+    let s = String::from_utf8_lossy(&out.stdout);
+    for line in s.lines() {
+        if line.contains("MachineGuid") {
+            // строка вида: "    MachineGuid    REG_SZ    <guid>"
+            if let Some(tok) = line.split_whitespace().last() {
+                if !tok.is_empty() && tok != "MachineGuid" {
+                    return Some(tok.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn wmic_uuid() -> Option<String> {
+    let out = no_window_command("wmic")
         .args(["csproduct", "get", "uuid"])
         .output()
         .ok()?;
