@@ -22,6 +22,9 @@ const TYPES = {
 
 http.createServer((req, res) => {
   let urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
+  // браузер сам дёргает /favicon.ico — отдаём пустой 204, чтобы не было
+  // 404-шума в консоли (в Tauri-сборке фавикона нет, это артефакт сервера).
+  if (urlPath === '/favicon.ico') { res.writeHead(204); res.end(); return; }
   if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
   const filePath = path.join(ROOT, path.normalize(urlPath));
   // не выпускаем за пределы dist/

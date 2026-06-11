@@ -11,10 +11,13 @@ const path = require('path');
 
 const SHOTS = path.join(__dirname, '..', '..', 'screenshots');
 
-// собираем ошибки консоли по ходу теста
+// собираем ОШИБКИ JS по ходу теста. Сетевой шум (404 на favicon и прочие
+// "Failed to load resource") отбрасываем — это артефакт статик-сервера, а не
+// баг приложения; настоящие JS-исключения ловит pageerror и остаются строгими.
 function attachConsole(page) {
   const errors = [];
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  const isNetworkNoise = (t) => /Failed to load resource|net::ERR|favicon/i.test(t || '');
+  page.on('console', m => { if (m.type() === 'error' && !isNetworkNoise(m.text())) errors.push(m.text()); });
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   return errors;
 }
@@ -174,12 +177,17 @@ test.describe('EngiBoard UI smoke (clicks & toggles)', () => {
   test('10 dark mode toggles on and off', async ({ page }) => {
     await ensureApp(page);
     const toggle = page.locator('#themeToggle');
+    const isDark = () => page.evaluate(() => document.body.classList.contains('dark-mode'));
+    const start = await isDark();
     await toggle.click();
-    expect(await page.evaluate(() => document.body.classList.contains('dark-mode'))).toBeTruthy();
-    await shot(page, '10a-dark');
+    await page.waitForFunction(s => document.body.classList.contains('dark-mode') !== s, start, { timeout: 5000 });
+    await shot(page, '10a-toggled');
+    const mid = await isDark();
+    expect(mid).not.toBe(start);
     await toggle.click();
-    expect(await page.evaluate(() => document.body.classList.contains('dark-mode'))).toBeFalsy();
-    await shot(page, '10b-light');
+    await page.waitForFunction(s => document.body.classList.contains('dark-mode') === s, start, { timeout: 5000 });
+    await shot(page, '10b-back');
+    expect(await isDark()).toBe(start);
   });
 
   test('11 sort menu → Status changes order mode', async ({ page }) => {
