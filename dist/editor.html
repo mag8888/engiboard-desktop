@@ -73,20 +73,20 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .emoji-picker button:hover{background:rgba(255,255,255,.16)}
 
 /* Tooltip */
+/* v0.1.163 (DB): подсказки рисовались СВЕРХУ кнопок (bottom:100%), а тулбар
+   у самого верха окна — поэтому обрезались. Переносим ПОД кнопки (top:100%),
+   снизу место всегда есть. */
+/* v0.1.163 (DB): подсказка и клавиша были двумя отдельными бейджами и
+   накладывались друг на друга. Теперь одна строка: "Comment  Q" —
+   data-tip + клавиша из data-key через ::after content. ::before убран. */
 .fb::after{
-  content:attr(data-tip);position:absolute;bottom:calc(100% + 10px);left:50%;
+  content:attr(data-tip) "   " attr(data-key);position:absolute;top:calc(100% + 10px);left:50%;
   transform:translateX(-50%);background:#000;color:#fff;
   font-size:10px;font-weight:500;padding:4px 9px;border-radius:5px;
   white-space:nowrap;pointer-events:none;opacity:0;transition:.12s;z-index:100;
   border:1px solid var(--line2)
 }
-.fb::before{
-  content:attr(data-key);position:absolute;bottom:calc(100% + 10px);right:6px;
-  background:rgba(255,255,255,.15);color:#fff;font-family:var(--mono);
-  font-size:9px;padding:1px 5px;border-radius:3px;
-  pointer-events:none;opacity:0;transition:.12s;z-index:101;transform:translateX(0)
-}
-.fb:hover::after,.fb:hover::before{opacity:1}
+.fb:hover::after{opacity:1}
 
 /* Colors */
 .cdot{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.15s;flex-shrink:0;position:relative}
@@ -209,7 +209,7 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="fb" data-id="arrow" data-tip="Arrow" data-key="A" onclick="setTool('arrow')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg></button>
     <button class="fb" data-id="line" data-tip="Line" data-key="L" onclick="setTool('line')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" stroke-linecap="round"/></svg></button>
     <button class="fb" data-id="freehand" data-tip="Freehand" data-key="P" onclick="setTool('freehand')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
-    <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 9l4 4-4 4-4-4 4-4zM7 17l-2 2M9 11L21 3M14 6l5 5"/></svg></button>
+    <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
     <div class="fb-sep"></div>
     <button class="fb" data-id="text" data-tip="Text" data-key="T" onclick="setTool('text')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg></button>
     <!-- v0.1.157 (N7 from 2026-06-05 follow-up): DB asked to remove the
@@ -237,8 +237,11 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <!-- v0.1.156 (#29 MR): fill toggle for rect/circle. Shows only when one
          of those tools is active. -->
     <div class="fb-sep" id="shapeFillSep" style="display:none"></div>
-    <button class="sw" id="shapeFillBtn" data-tip="Fill (toggle)" style="display:none" onclick="toggleShapeFill()" title="Fill shape">
-      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor" id="shapeFillIcoFill" style="opacity:0"/><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    <!-- v0.1.163 (DB): иконка заливки серая (была currentColor — терялась на
+         активном фоне). Это выбор-тоггл: пусто = только контур, залито = с
+         заливкой. -->
+    <button class="sw" id="shapeFillBtn" data-tip="Fill (toggle)" style="display:none" onclick="toggleShapeFill()" title="Fill shape (toggle outline / filled)">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2" fill="#9ca3af" id="shapeFillIcoFill" style="opacity:0"/><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="#9ca3af" stroke-width="2"/></svg>
     </button>
 
     <!-- v0.1.156 (#31/#32 MR): arrow direction picker (end / start / both)
@@ -520,14 +523,21 @@ paper.addEventListener('mousemove',e=>{
         const len = Math.sqrt(w*w + h*h);
         w = Math.cos(snapped) * len;
         h = Math.sin(snapped) * len;
-      } else if(cur.type === 'rect' || cur.type === 'circle'){
+      } else if(cur.type === 'rect' || cur.type === 'circle' || cur.type === 'blur'){
         const ax = Math.abs(w), ay = Math.abs(h);
         const side = Math.max(ax, ay);
         w = (w < 0 ? -1 : 1) * side;
         h = (h < 0 ? -1 : 1) * side;
       }
     }
-    cur = { ...cur, w, h };
+    // v0.1.163 (DB): зажать Alt/Option — рисовать ИЗ ЦЕНТРА (точка нажатия =
+    // центр фигуры, растёт симметрично во все стороны), как в Figma.
+    // Shift = равносторонняя; Shift+Alt = равносторонняя из центра.
+    if(e.altKey){
+      cur = { ...cur, x: startPos.x - w, y: startPos.y - h, w: 2*w, h: 2*h };
+    } else {
+      cur = { ...cur, x: startPos.x, y: startPos.y, w, h };
+    }
   }
   renderPrev();
 });
@@ -762,8 +772,13 @@ function closeCmtPop(){document.getElementById('cmtPop').style.display='none';cm
 function onCmtKey(e){if(e.key==='Enter') submitCmt();if(e.key==='Escape') closeCmtPop();e.stopPropagation();}
 function submitCmt(){const inp=document.getElementById('cmtInp');if(!cmtPos||!inp.value.trim()){closeCmtPop();return;}comments.push({id:++commentCount,num:commentCount,px:cmtPos.x,py:cmtPos.y,color,text:inp.value.trim(),av:'AS'});closeCmtPop();renderAll();updateList();updateCount();}
 function toggleBubble(c){
+  // v0.1.163 (DB): настоящий toggle — повторный клик по пину закрывает пузырь
+  // (как в Figma: ткнул — открылось/почиталось, ткнул ещё — закрылось).
+  const alreadyOpen = document.querySelector(`.cbbl-r[data-cmt-id="${c.id}"]`);
   document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
+  if(alreadyOpen) return;
   const bub=document.createElement('div');
+  bub.dataset.cmtId = c.id;
   bub.className='cbbl cbbl-r';
   bub.style.cssText=`left:${Math.min(c.px+3,62)}%;top:${c.py-4}%`;
   bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${c.text}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;

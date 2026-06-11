@@ -579,7 +579,8 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   grid-template-columns:24px 1fr 220px 220px;
   min-height:165px;padding:6px 10px;margin:4px 28px;align-items:stretch;
 }
-.list.cv-list .chat-list{max-height:none;overflow:auto}
+/* v0.1.164 (DB): mini-chat — ~2 сообщения в свёрнутом виде, скролл дальше. */
+.list.cv-list .chat-col .chat-list{min-height:0;max-height:56px;overflow-y:auto}
 .list.cv-list .nt-chat-input{display:none}
 .list.cv-list .chat-row-actions{flex-direction:row;flex-wrap:wrap;gap:6px;align-items:center}
 .list.cv-list .chat-row-actions-r2{display:flex}
@@ -590,7 +591,8 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   grid-template-columns:24px 380px 1fr 1fr;
   min-height:380px;padding:16px;margin:14px 28px;align-items:stretch;
 }
-.list.cv-expanded .chat-list{max-height:220px}
+/* v0.1.164 (DB): mini-chat — ~5 сообщений в развёрнутом виде. */
+.list.cv-expanded .chat-col .chat-list{min-height:0;max-height:128px;overflow-y:auto}
 
 /* View-mode toggle buttons in toolbar */
 .cv-toggle{display:inline-flex;gap:2px;background:var(--bg);border:1px solid var(--line-2);border-radius:7px;padding:2px;margin-left:8px}
@@ -634,9 +636,22 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   pointer-events:none}
 body.dark-mode .row.archived{background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 12px,rgba(255,255,255,.02) 12px,rgba(255,255,255,.02) 14px)}
 body.select-mode .row{cursor:pointer}
-.row.dragging{opacity:.4}
+.row.dragging{opacity:.35}
 .row.drag-over-top{border-top:3px solid var(--acc)!important}
 .row.drag-over-bottom{border-bottom:3px solid var(--acc)!important}
+/* v0.1.163 (DB): drop-slot — при перетаскивании задачи между строками
+   вставляется плашка размером с недельную, строки слегка раздвигаются и
+   видно, куда встанет задача. Лёгкая, чтобы не нагружать интерфейс. */
+.eb-drop-slot{
+  margin:6px 28px;height:30px;border-radius:8px;flex-shrink:0;
+  border:2px dashed var(--acc);
+  background:linear-gradient(rgba(14,165,233,.10),rgba(14,165,233,.06));
+  pointer-events:none;box-sizing:border-box;
+  animation:ebDropIn .12s ease-out}
+@keyframes ebDropIn{from{height:0;opacity:0;margin-top:0;margin-bottom:0}
+  to{height:30px;opacity:1;margin-top:6px;margin-bottom:6px}}
+body.dark-mode .eb-drop-slot{
+  background:linear-gradient(rgba(14,165,233,.18),rgba(14,165,233,.10))}
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
@@ -859,6 +874,11 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 
 /* v0.1.115: card header (status + assignee at top) */
 .card-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+/* v0.1.164 (DB): бейдж «BUG» на карточке задачи-бага. */
+.bug-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;
+  letter-spacing:.04em;color:#DC2626;background:rgba(220,38,38,.10);
+  border:1px solid rgba(220,38,38,.3);border-radius:5px;padding:2px 6px;font-family:var(--mono)}
+body.dark-mode .bug-badge{background:rgba(220,38,38,.16)}
 .card-assignee{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:500;color:var(--t3);background:var(--bg);border:1px solid var(--line);padding:3px 9px 3px 6px;border-radius:14px;cursor:pointer;user-select:none}
 .card-assignee:hover{border-color:var(--acc);color:var(--acc)}
 .card-assignee.has{color:var(--t1)}
@@ -1459,8 +1479,8 @@ body.dark-mode .pres-pic{ background:#1e2531; }
 .pres-pic-empty-s{font-size:11px;color:var(--t3);font-family:var(--mono);letter-spacing:.04em}
 .pres-pic-empty{color:var(--t3);font-size:13px}
 .pres-nav{
-  display:flex;justify-content:center;align-items:center;gap:16px;
-  padding:10px 24px;border-top:1px solid var(--line);background:rgba(248,250,252,.6)
+  display:flex;justify-content:center;align-items:center;gap:18px;
+  padding:12px 24px;border-top:1px solid var(--line);background:rgba(248,250,252,.6)
 }
 .pres-nav button{
   border:1px solid var(--line-2);background:var(--surf);padding:8px 14px;border-radius:7px;
@@ -1468,11 +1488,16 @@ body.dark-mode .pres-pic{ background:#1e2531; }
 }
 .pres-nav button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
 .pres-nav button:disabled{opacity:.4;cursor:not-allowed}
-.pres-counter{font-size:12px;color:var(--t4);font-family:var(--mono);min-width:60px;text-align:center}
-/* v0.1.126: bottom nav arrows */
-.pres-nav-arrow{width:34px;height:34px;border-radius:50%;border:1px solid var(--line-2);background:var(--surf);color:var(--t2);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0}
-.pres-nav-arrow:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
-.pres-nav-arrow:disabled{opacity:.3;cursor:not-allowed}
+.pres-counter{font-size:13px;font-weight:600;color:var(--t2);font-family:var(--mono);min-width:64px;text-align:center}
+/* v0.1.163 (DB): нижние стрелки — крупнее и акцентные (залитые), чтобы их
+   было хорошо видно (боковые убрали). */
+.pres-nav .pres-nav-arrow{width:44px;height:44px;border-radius:50%;border:none;
+  background:var(--acc);color:#fff;font-size:20px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0;
+  box-shadow:0 2px 8px rgba(14,165,233,.35);transition:transform .1s,box-shadow .12s,background .12s}
+.pres-nav .pres-nav-arrow:hover:not(:disabled){background:var(--acc-2);transform:scale(1.08);box-shadow:0 4px 14px rgba(14,165,233,.45)}
+.pres-nav .pres-nav-arrow:disabled{background:var(--line-2);color:var(--t4);box-shadow:none;opacity:.6;cursor:not-allowed}
+.pres-nav .pres-nav-arrow svg{width:22px;height:22px}
 /* v0.1.121: presentation chat uses the SAME mini-chat style as task cards
    (small avatar + bold name + inline text, no bubble, no dates, one side) */
 .pres-chat-msgs .nt-chat-msg{display:flex;align-items:flex-start;gap:6px;font-size:12px;line-height:1.35;border-radius:4px;padding:2px 3px}
@@ -1527,18 +1552,20 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   position:relative;scroll-snap-align:start;transition:border-color .12s,transform .12s}
 .pres-thumb:hover{border-color:var(--acc);transform:translateY(-1px)}
 .pres-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+/* v0.1.163 (DB): правая колонка — вьюер + полоса миниатюр под ним. */
+.pres-after-col{display:flex;flex-direction:column;gap:10px;min-height:0;height:100%}
+.pres-after-thumbs{display:flex;gap:8px;overflow-x:auto;padding:2px;flex-shrink:0;
+  scroll-snap-type:x mandatory}
+.pres-after-thumbs .pres-thumb{width:84px;height:56px;scroll-snap-align:start}
+.pres-thumb.active{border-color:var(--acc);border-width:2px;
+  box-shadow:0 0 0 2px rgba(14,165,233,.25)}
 .pres-thumb-lbl{position:absolute;bottom:0;left:0;right:0;
   background:linear-gradient(transparent,rgba(0,0,0,.75));
   color:#fff;font-size:10px;font-weight:600;letter-spacing:.04em;
   font-family:var(--mono);padding:8px 6px 4px;text-align:center}
-/* Draggable divider between pics and chat */
-.pres-vsplit{
-  height:8px;flex-shrink:0;cursor:row-resize;background:var(--surf);
-  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  display:flex;align-items:center;justify-content:center;position:relative
-}
-.pres-vsplit::before{content:'';width:40px;height:3px;border-radius:2px;background:var(--line-2)}
-.pres-vsplit:hover::before{background:var(--acc)}
+/* v0.1.163: убрали draggable-разделитель pics/chat в режиме презентации —
+   он не работал и был не нужен. Картинки фиксированы на --pres-split (58%),
+   чат заполняет остаток. */
 /* Chat now spans full width at the bottom */
 .pres-chat-col{
   flex:1;background:var(--bg);
@@ -1648,6 +1675,11 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .dproj-arch-btn{flex-shrink:0;border:1px solid var(--line-2);background:none;color:var(--t3);font-size:10px;font-weight:600;padding:3px 9px;border-radius:12px;cursor:pointer;font-family:inherit}
 .dproj-arch-btn:hover{border-color:var(--acc);color:var(--acc)}
 .dash-archive-link{border:none;background:none;color:var(--t3);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;padding:6px 10px;border-radius:7px}
+/* v0.1.164 (DB): кнопка создания проекта на Dashboard. */
+.dash-newproj-btn{display:inline-flex;align-items:center;border:1px solid var(--acc);
+  background:var(--acc);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:inherit;padding:7px 14px;border-radius:8px;transition:background .12s}
+.dash-newproj-btn:hover{background:var(--acc-2)}
 .dash-archive-link:hover{background:var(--bg);color:var(--t1)}
 .dash-back-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--line-2);background:var(--surf);color:var(--t2);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0}
 .dash-back-btn:hover{border-color:var(--acc);color:var(--acc)}
@@ -1764,12 +1796,19 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 /* Week-folder header inside a single project: collapsible group per task
    week. v0.1.143: flat / no chrome — saves vertical space, reads as a
    small mono label rather than a banner. */
-.week-hdr{display:flex;align-items:center;gap:8px;padding:2px 4px;
+.week-hdr{display:flex;align-items:center;gap:8px;
   /* Left margin matches .row's 28px so week labels line up with the task
      cards underneath instead of hugging the container edge. */
-  margin:16px 28px 0;cursor:pointer;font-family:var(--mono);font-size:11px;
-  font-weight:600;letter-spacing:.04em;color:var(--t3);user-select:none}
-.week-hdr:first-child{margin-top:0}
+  margin:5px 28px 0;cursor:pointer;font-family:var(--mono);font-size:11px;
+  font-weight:600;letter-spacing:.04em;color:var(--t3);user-select:none;
+  /* v0.1.163: weeks were nearly invisible as plain text — now each header is
+     a distinct banded "chip" with a border + subtle shadow so sections read
+     as clearly separated. v0.1.163b (DB): сильно уплотнили — отступ между
+     неделями 5px и тоньше паддинг, чтобы влезало больше недель на экран. */
+  padding:5px 12px;background:var(--surf);border:1px solid var(--line-2);
+  border-radius:7px;box-shadow:0 1px 1px rgba(15,23,42,.03)}
+body.dark-mode .week-hdr{box-shadow:0 1px 1px rgba(0,0,0,.2)}
+.week-hdr:first-child{margin-top:2px}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
   outline:1px dashed rgba(14,165,233,.5);border-radius:4px}
 /* v0.1.152 (#18 DB): completed week — green check leading the row + subtle
@@ -1780,7 +1819,7 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
    be rejected before the user releases. */
 .week-hdr.complete .week-name{color:var(--t3)}
 .week-hdr.complete .week-ct{opacity:.6}
-.week-hdr.complete{background:rgba(22,163,74,.06);border-radius:4px;padding:4px 8px}
+.week-hdr.complete{background:rgba(22,163,74,.06);border-color:rgba(22,163,74,.25)}
 body.dark-mode .week-hdr.complete{background:rgba(22,163,74,.12)}
 .week-hdr.drop-forbidden{background:rgba(220,38,38,.10);color:#DC2626;
   outline:1px dashed rgba(220,38,38,.55)}
@@ -1801,7 +1840,7 @@ body.dark-mode .week-roll-btn:hover{background:rgba(14,165,233,.15)}
    amber pin colour so it reads as a distinct sticky section instead of
    another week. */
 .week-hdr.pinned-hdr{color:#92400E;background:rgba(245,158,11,.06);
-  border-radius:4px;padding:4px 8px}
+  border-color:rgba(245,158,11,.3)}
 body.dark-mode .week-hdr.pinned-hdr{color:#FCD34D;background:rgba(245,158,11,.10)}
 /* v0.1.152: pinned task row — amber accent on the left edge + small pin
    glyph at top-LEFT (v0.1.153 fix: was top:10px/right:12px which clashed
@@ -2181,6 +2220,11 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <span data-t="sb.projects">Projects</span>
           <span class="sb-ct" id="sbProjCount">3</span>
         </div>
+        <div class="sb-i" data-sec="favorites" data-label="Favorites" onclick="setSection('favorites')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-t="sb.favorites">Favorites</span>
+          <span class="sb-ct" id="sbFavCount" style="display:none">0</span>
+        </div>
         <div class="sb-i" data-sec="shortcuts" data-label="Keyboard" onclick="setSection('shortcuts')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M10 14h4M18 14h.01"/></svg>
           <span data-t="sb.shortcuts">Keyboard</span>
@@ -2443,7 +2487,7 @@ const I18N = {
     // Sidebar
     'sb.dashboard':'Dashboard', 'sb.projects':'Projects',
     'sb.shortcuts':'Keyboard', 'sb.profile':'Profile', 'sb.darkmode':'Dark mode',
-    'sb.lang':'Language',
+    'sb.lang':'Language', 'sb.favorites':'Favorites',
     // Misc
     'col.statusWk':'Status / Wk', 'col.before':'Before', 'col.after':'After',
     'col.notes':'Notes', 'col.task':'Task', 'col.comments':'Comments',
@@ -2690,7 +2734,11 @@ let currentProject = (() => {
   catch { return 'p1'; }
 })();
 let curView = 'tasks';
-let curFilter = 'all';
+// v0.1.163 (DB): фильтры по статусу теперь МНОЖЕСТВЕННЫЕ. curFilter — это
+// Set числовых id статусов (0..7). Пустой Set = показать все (как "All").
+// Клик по статусу добавляет/убирает его; клик по "All" очищает.
+let curFilter = new Set();
+function passesStatusFilter(t){ return curFilter.size === 0 || curFilter.has(t.s); }
 let curSearch = '';
 let activeChatTaskId = null;
 let pendingScreenshot = null;
@@ -3066,6 +3114,7 @@ async function loadFromSupabase(){
       // YYYY-MM-DD so it round-trips with the local prompt format.
       hidden: !!t.hidden,
       pinned: !!t.pinned,
+      bug: !!t.bug,   // v0.1.164
       deadline: t.deadline ? String(t.deadline).slice(0, 10) : undefined,
       notes: t.notes || '',
       _cloud: true
@@ -3226,11 +3275,13 @@ function applyRealtimeTaskChange(p){
       w: row.week_tag || '', chat: [],
       shot1: row.shot1_url || null, shot2: row.shot2_url || null,
       shots: Array.isArray(row.shots_extra) ? row.shots_extra : [],
+      bug: !!row.bug,   // v0.1.164
       _cloud: true
     });
   } else {
     existing.title = row.title; existing.n = row.title;
     if(typeof row.desktop_status === 'number') existing.s = row.desktop_status;
+    if(typeof row.bug === 'boolean') existing.bug = row.bug;   // v0.1.164
     // Don't replace base64 with cloud URL while it's in memory — keeps thumbnail stable.
     // The URL is only used on next app load (when there's no in-memory base64).
     if(row.shot1_url && !(existing.shot1?.startsWith('data:'))) existing.shot1 = row.shot1_url;
@@ -4006,7 +4057,7 @@ function switchProject(pid){
   currentProject = pid;
   try { localStorage.setItem('eb_current_project', pid); } catch(_){}
   bumpProjectOpens(pid);
-  curFilter = 'all';
+  curFilter.clear();
   curSearch = '';
   const si = document.getElementById('searchInp');
   if(si) si.value = '';
@@ -4088,19 +4139,32 @@ function _nextWeekTag(w){
   return `${String(yr).padStart(2,'0')}W${String(wk).padStart(2,'0')}`;
 }
 function rollForwardWeek(projId, w){
-  const proj = PROJECTS.find(p => p.id === projId);
-  if(!proj) return;
-  const nextW = _nextWeekTag(w);
-  if(!nextW){ toast('Cannot determine next week tag'); return; }
-  if(isWeekComplete(projId, nextW)){
-    toast(`${nextW} is closed — reopen it first`, 4500);
-    return;
-  }
-  // status 3-7 = Review, Info Required, Problem, In Progress, Upcoming
-  const open = TASKS.filter(t => t.proj === projId && (t.w || '') === w
-    && t.s >= 3 && t.s <= 7 && !t.hidden);
-  if(open.length === 0){ toast('Nothing to roll forward', 2000); return; }
-  if(!confirm(`Move ${open.length} open task${open.length === 1 ? '' : 's'} from ${w} to ${nextW}?`)) return;
+  // v0.1.163 (DB crash): раньше тут стоял нативный confirm(). В WKWebView
+  // (macOS desktop) нативные диалоги нестабильны — у DB по клику на «»»
+  // «открывалось другое окно и всё закрывалось». Переходим на внутримодальный
+  // openConfirmModal + try/catch, чтобы кривые старые данные не роняли окно.
+  try {
+    const proj = PROJECTS.find(p => p.id === projId);
+    if(!proj) return;
+    const nextW = _nextWeekTag(w);
+    if(!nextW){ toast('Cannot determine next week tag'); return; }
+    if(isWeekComplete(projId, nextW)){
+      toast(`${nextW} is closed — reopen it first`, 4500);
+      return;
+    }
+    // status 3-7 = Review, Info Required, Problem, In Progress, Upcoming
+    const open = TASKS.filter(t => t.proj === projId && (t.w || '') === w
+      && t.s >= 3 && t.s <= 7 && !t.hidden);
+    if(open.length === 0){ toast('Nothing to roll forward', 2000); return; }
+    openConfirmModal(
+      'Roll tasks forward',
+      `Move ${open.length} open task${open.length === 1 ? '' : 's'} from ${w} to ${nextW}?`,
+      'Move',
+      () => { try { _doRollForward(projId, w, nextW, open); } catch(e){ console.error('rollForward', e); toast('Roll failed'); } }
+    );
+  } catch(e){ console.error('rollForwardWeek', e); toast('Roll failed'); }
+}
+function _doRollForward(projId, w, nextW, open){
   const snapshots = open.map(t => ({ id: t.id, prev: t.w || '' }));
   open.forEach(t => {
     t.w = nextW;
@@ -4152,6 +4216,12 @@ function toggleWeekComplete(projId, w){
 // stay in the project (not deleted), but the main list skips them unless the
 // user flips the "Show hidden" toggle in the filter bar.
 let _showHidden = false;
+// v0.1.163 (#7 DB): раздел Favorites — показывает все запиненные таски
+// со всех проектов. Включается из сайдбара, сбрасывается при переходе в
+// обычный раздел Projects.
+let _favoritesOnly = false;
+// v0.1.164 (DB): фильтр «только баги» — переключается чипом в фильтр-баре.
+let _bugsOnly = false;
 
 // v0.1.156 (#1 DB / #27 MR): per-project task sort mode. 'manual' keeps
 // the user's drag-reorder; the others auto-sort each render. Persisted to
@@ -4272,6 +4342,32 @@ document.addEventListener('keydown', e => {
   }
 }, true);
 
+// v0.1.163 (DB «не вижу где создание»): явные кнопки «+ Задача» / «+ Проект»
+// в тулбаре. Поле новой задачи всегда внизу списка (легко не заметить), а
+// «New project» был спрятан в дропдауне проектов — теперь оба на виду.
+function focusNewTaskInput(){
+  // выйти из Favorites/секций, сбросить фильтр, чтобы поле точно было видно
+  try {
+    if(typeof _favoritesOnly !== 'undefined' && _favoritesOnly){ setSection('projects'); }
+    else if(typeof currentSection !== 'undefined' && currentSection !== 'tasks'){ setSection('projects'); }
+  } catch(_){}
+  setTimeout(() => {
+    const inp = document.querySelector('.newInpProj, #newInp, #newInpZero');
+    if(inp){
+      inp.scrollIntoView({ block:'center', behavior:'smooth' });
+      setTimeout(() => inp.focus(), 120);
+      toast('Введите задачу и нажмите Enter', 1800);
+    } else {
+      // нет проектов — предложим создать
+      openNewProjModal();
+    }
+  }, 60);
+}
+function startNewProject(){
+  try { document.getElementById('projMenu')?.classList.remove('open'); } catch(_){}
+  openNewProjModal();
+}
+
 // v0.1.152 (#17 reported by DB): pin a task so it stays at the top of the
 // list and shows up in the Pinned sidebar section across projects. Like
 // Telegram channel pins — sticky entry point for the things you keep
@@ -4295,6 +4391,27 @@ function toggleTaskPinned(taskId){
   toast(!prev ? 'Pinned' : 'Unpinned');
   // v0.1.154 (#19): record for undo
   pushUndo(prev ? 'Unpin' : 'Pin', () => apply(prev), () => apply(!prev));
+}
+
+// v0.1.164 (DB): пометить задачу как БАГ. Отдельный тип-флаг t.bug — по нему
+// фильтр (вкл/выкл) и опция экспорта. Undo + best-effort cloud-sync (колонка
+// bug добавлена миграцией 0021; если её нет — ошибка проглатывается).
+function toggleTaskBug(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t) return;
+  const prev = !!t.bug;
+  document.getElementById('_ebTaskMenu')?.remove();
+  const apply = (val) => {
+    t.bug = val;
+    if(typeof logHist === 'function') logHist(t, 'bug', val ? 'marked as bug' : 'bug mark removed');
+    if(db?.ready && t._cloud){
+      db.tasks.update(t.id, { bug: val }).catch(()=>{});  // tolerate missing column
+    }
+    render();
+  };
+  apply(!prev);
+  toast(!prev ? 'Помечено как баг' : 'Метка бага снята');
+  pushUndo(prev ? 'Unmark bug' : 'Mark as bug', () => apply(prev), () => apply(!prev));
 }
 
 function toggleTaskHidden(taskId){
@@ -4325,18 +4442,12 @@ function getFilteredTasks(){
   let result = (currentProject === 'all')
     ? [...TASKS]
     : TASKS.filter(t => t.proj === currentProject);
+  // v0.1.163 (#7): раздел Favorites — только запиненные.
+  if(_favoritesOnly) result = result.filter(t => t.pinned);
+  if(_bugsOnly) result = result.filter(t => t.bug);
   if(!_showHidden) result = result.filter(t => !t.hidden);
-  // v0.1.46: filter by status int (0..7) when curFilter is numeric.
-  // Legacy strings ('problem','progress','done','thisweek') kept for back-compat.
-  if(curFilter !== 'all' && curFilter !== ''){
-    const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
-    if(!isNaN(sIdx) && sIdx >= 0 && sIdx <= 7){
-      result = result.filter(t => t.s === sIdx);
-    } else if(curFilter === 'problem')  result = result.filter(t => t.s === 5);
-    else if(curFilter === 'progress')   result = result.filter(t => t.s === 6);
-    else if(curFilter === 'done')       result = result.filter(t => t.s === 1);
-    else if(curFilter === 'thisweek')   result = result.filter(t => t.w === '26W17');
-  }
+  // v0.1.163: множественный фильтр по статусу (curFilter — Set).
+  result = result.filter(passesStatusFilter);
   if(curSearch){
     const q = curSearch.toLowerCase();
     result = result.filter(t =>
@@ -4354,9 +4465,9 @@ function getFilteredTasks(){
 function renderFilters(){
   const box = document.getElementById('filterChips');
   if(!box) return;
-  const chips = [`<button class="chip${curFilter==='all'?' on':''}" data-f="all" style="margin-left:8px">All</button>`];
+  const chips = [`<button class="chip${curFilter.size===0?' on':''}" data-f="all" style="margin-left:8px">All</button>`];
   visibleStatuses().forEach(s => {
-    const on = curFilter === String(s.id);
+    const on = curFilter.has(s.id);
     const style = on
       ? `background:${s.c};color:#fff;border-color:${s.c}`
       : `color:${s.c};border-color:${s.c};background:transparent`;
@@ -4379,15 +4490,42 @@ function renderFilters(){
     const label = hideOn ? `${archIcon}Archived (showing)` : `${archIcon}Archived <span style="opacity:.7">·</span> ${archivedCount}`;
     chips.push(`<button class="chip" onclick="toggleShowHidden()" style="${hideStyle};display:inline-flex;align-items:center" title="Show or hide archived tasks (these are tasks you have stashed away — they stay in the project but skip the main list).">${label}</button>`);
   }
+  // v0.1.164 (DB): чип «Bugs» — показать только задачи-баги (вкл/выкл).
+  const bugCount = (currentProject === 'all'
+    ? TASKS
+    : TASKS.filter(t => t.proj === currentProject)).filter(t => t.bug && !t.hidden).length;
+  if(bugCount > 0 || _bugsOnly){
+    const bugStyle = _bugsOnly
+      ? 'background:#DC2626;color:#fff;border-color:#DC2626;margin-left:6px'
+      : 'color:#DC2626;border-color:#DC2626;background:transparent;margin-left:6px';
+    const bIco = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg>`;
+    chips.push(`<button class="chip" onclick="toggleBugsOnly()" style="${bugStyle};display:inline-flex;align-items:center" title="Показать только задачи-баги">${bIco}Bugs <span style="opacity:.7">·</span> ${bugCount}</button>`);
+  }
   box.innerHTML = chips.join('');
+}
+// v0.1.164 (DB): переключатель «только баги».
+function toggleBugsOnly(){
+  _bugsOnly = !_bugsOnly;
+  renderFilters();
+  render();
 }
 
 document.addEventListener('click', e => {
   // Only filter chips (have data-f) toggle the active state
   const chip = e.target.closest('.chip[data-f]');
   if(chip){
-    curFilter = chip.dataset.f;
-    renderFilters();   // restyle active chip (chips use inline color)
+    // v0.1.163: множественный выбор. "All" сбрасывает; клик по статусу
+    // добавляет/убирает его из набора. Пустой набор = показать все.
+    const f = chip.dataset.f;
+    if(f === 'all'){
+      curFilter.clear();
+    } else {
+      const id = parseInt(f, 10);
+      if(!isNaN(id)){
+        if(curFilter.has(id)) curFilter.delete(id); else curFilter.add(id);
+      }
+    }
+    renderFilters();   // restyle active chips (chips use inline color)
     render();
   }
 });
@@ -4400,7 +4538,7 @@ document.addEventListener('input', e => {
 });
 
 function clearFilters(){
-  curFilter = 'all'; curSearch = '';
+  curFilter.clear(); curSearch = '';
   document.getElementById('searchInp').value = '';
   renderFilters();
   render();
@@ -4419,9 +4557,32 @@ function applyCardView(){
     b.classList.toggle('on', b.dataset.cv === cardView));
 }
 function setCardView(mode){
+  // v0.1.164 (DB «jumping screen»): при смене вида высоты карточек меняются
+  // (компакт 165px ↔ развёрнутый 380px), и старый scrollTop указывает уже на
+  // другую задачу — экран «прыгает». Якорим верхнюю видимую задачу и после
+  // переключения возвращаем её на ту же позицию.
+  const list = document.getElementById('list');
+  let anchorId = null, anchorOffset = 0;
+  if(list){
+    const listTop = list.getBoundingClientRect().top;
+    for(const row of list.querySelectorAll('.row[data-task-id]')){
+      const r = row.getBoundingClientRect();
+      if(r.bottom > listTop + 4){ anchorId = row.dataset.taskId; anchorOffset = r.top - listTop; break; }
+    }
+  }
   cardView = mode;
   localStorage.setItem('eb_card_view', mode);
   applyCardView();
+  if(list && anchorId){
+    requestAnimationFrame(() => {
+      const row = list.querySelector(`.row[data-task-id="${anchorId}"]`);
+      if(row){
+        const listTop = list.getBoundingClientRect().top;
+        const cur = row.getBoundingClientRect().top - listTop;
+        list.scrollTop += (cur - anchorOffset);
+      }
+    });
+  }
 }
 
 // ━━━ RENDER ━━━
@@ -4521,16 +4682,10 @@ function render(){
   const _pinnedSticky = allTasks.filter(t => t.pinned);
   allTasks = allTasks.filter(t => !t.pinned);
 
-  // v0.1.46: filter by status int (0..7) when curFilter is numeric.
-  if(curFilter !== 'all' && curFilter !== ''){
-    const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
-    if(!isNaN(sIdx) && sIdx >= 0 && sIdx <= 7){
-      allTasks = allTasks.filter(t => t.s === sIdx);
-    } else if(curFilter === 'problem')  allTasks = allTasks.filter(t => t.s === 5);
-    else if(curFilter === 'progress')   allTasks = allTasks.filter(t => t.s === 6);
-    else if(curFilter === 'done')       allTasks = allTasks.filter(t => t.s === 1);
-    else if(curFilter === 'thisweek')   allTasks = allTasks.filter(t => t.w === '26W17');
-  }
+  // v0.1.163: множественный фильтр по статусу (curFilter — Set).
+  allTasks = allTasks.filter(passesStatusFilter);
+  // v0.1.164: фильтр «только баги».
+  if(_bugsOnly) allTasks = allTasks.filter(t => t.bug);
   if(curSearch){
     const q = curSearch.toLowerCase();
     allTasks = allTasks.filter(t =>
@@ -4622,6 +4777,8 @@ function render(){
         }
       }
     }
+    // v0.1.164 (DB): пустая «таска-призрак» снизу списка — как было, для
+    // быстрого создания новых задач.
     html += renderEmptyRowForProject(proj.id);
     replaceListWith(html);
     wireUpEmptyInput();
@@ -4646,17 +4803,30 @@ function render(){
       _pinnedSticky.forEach(t => { html += renderRow(t); });
     }
   }
+  // v0.1.163 (#7): в разделе Favorites показываем ТОЛЬКО запиненные
+  // (секция Pinned выше). Группы проектов не рисуем — иначе торчат
+  // пустые заголовки проектов.
+  if(_favoritesOnly){
+    if(!_pinnedSticky.length){
+      html += `<div class="es-zero" style="padding:60px 20px;text-align:center">
+        <div class="es-zero-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+        <div class="es-zero-h">Нет избранных задач</div>
+        <div class="es-zero-s">Закрепите задачу (Pin to top в меню) — она появится здесь</div>
+      </div>`;
+    }
+  } else {
   // 'All' mode — accordion view (existing behavior). Unpinned only.
   PROJECTS.forEach(proj => {
     if(proj.archived) return;  // v0.1.117: hide archived projects from the list
     const projTasks = allTasks.filter(t => t.proj === proj.id);
-    if(projTasks.length === 0 && curFilter === 'all' && !curSearch){
+    if(projTasks.length === 0 && curFilter.size === 0 && !curSearch){
       // Empty project — still show header so user can collapse/expand
       html += renderProjGroup(proj, []);
     } else if(projTasks.length > 0){
       html += renderProjGroup(proj, projTasks);
     }
   });
+  }
 
   // (Empty input rows are inside each project group now, no global one)
   replaceListWith(html);
@@ -4687,7 +4857,7 @@ function renderProjGroup(proj, tasks){
   } else {
     bodyHtml = `<div style="padding:14px 28px;font-size:12px;color:var(--t3);font-style:italic">No tasks in this project yet</div>`;
   }
-  // Per-project empty input row at end of project group
+  // v0.1.164 (DB): пустая «таска-призрак» снизу группы — как было.
   bodyHtml += renderEmptyRowForProject(proj.id);
 
   return `<div class="proj-group ${isCollapsed?'collapsed':''}" data-proj-id="${proj.id}">
@@ -4935,23 +5105,55 @@ function _applyDeadline(t, value){
 function setTaskDeadline(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  const today = new Date().toISOString().slice(0,10);
-  const cur = t.deadline || today;
-  const v = prompt('Deadline (YYYY-MM-DD, leave empty to clear):', cur);
-  if(v === null) return;
-  const trimmed = v.trim();
-  let next = null;
-  if(!trimmed){ next = null; }
-  else if(/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && !isNaN(new Date(trimmed + 'T00:00:00').getTime())){ next = trimmed; }
-  else { toast('Invalid date — expected YYYY-MM-DD'); return; }
-  const prev = t.deadline || null;
-  if(prev === next) return;
-  _applyDeadline(t, next);
-  toast(next ? `Deadline: ${_fmtDeadline(next)}` : 'Deadline cleared');
   document.getElementById('_ebTaskMenu')?.remove();
-  pushUndo(next ? 'Set deadline' : 'Clear deadline',
-    () => _applyDeadline(t, prev),
-    () => _applyDeadline(t, next));
+  // v0.1.164 (#24 DB «где системный календарь?»): раньше создавался СКРЫТЫЙ
+  // (1px, opacity:0) date-input + showPicker(). В WKWebView showPicker на
+  // невидимом инпуте не открывал родной календарь — пользователь ничего не
+  // видел. Теперь показываем видимый попап с нативным <input type="date">:
+  // родной системный календарь открывается по клику (и showPicker пробуем
+  // тоже). Плюс кнопки OK / Отмена / Очистить.
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('_ebDatePop')?.remove();
+  const btnBase = 'font-family:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer';
+  const pop = document.createElement('div');
+  pop.id = '_ebDatePop';
+  pop.style.cssText = 'position:fixed;inset:0;z-index:100020;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.4)';
+  pop.innerHTML = `
+    <div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:270px;box-shadow:0 16px 48px rgba(0,0,0,.35)" onclick="event.stopPropagation()">
+      <div style="font-weight:700;font-size:14px;margin-bottom:12px">Срок задачи</div>
+      <input type="date" id="_ebDateInput" value="${t.deadline || today}"
+        style="width:100%;padding:11px 12px;font-size:15px;border:1px solid var(--line-2);border-radius:8px;background:var(--surf);color:var(--t1);font-family:inherit;outline:none;color-scheme:light">
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
+        ${t.deadline ? `<button id="_ebDateClear" style="${btnBase};border:1px solid var(--line-2);background:transparent;color:#DC2626;margin-right:auto">Очистить</button>` : ''}
+        <button id="_ebDateCancel" style="${btnBase};border:1px solid var(--line-2);background:transparent;color:var(--t2)">Отмена</button>
+        <button id="_ebDateOk" style="${btnBase};border:1px solid var(--acc);background:var(--acc);color:#fff">OK</button>
+      </div>
+    </div>`;
+  document.body.appendChild(pop);
+  const inp = pop.querySelector('#_ebDateInput');
+  // dark-mode: нативный календарь должен быть тёмным
+  if(document.body.classList.contains('dark-mode')) inp.style.colorScheme = 'dark';
+  const apply = (next) => {
+    pop.remove();
+    const prev = t.deadline || null;
+    if(prev === next) return;
+    _applyDeadline(t, next);
+    toast(next ? `Срок: ${_fmtDeadline(next)}` : 'Срок снят');
+    pushUndo(next ? 'Set deadline' : 'Clear deadline',
+      () => _applyDeadline(t, prev),
+      () => _applyDeadline(t, next));
+  };
+  pop.querySelector('#_ebDateOk').onclick = () => apply(inp.value || null);
+  pop.querySelector('#_ebDateCancel').onclick = () => pop.remove();
+  const clr = pop.querySelector('#_ebDateClear');
+  if(clr) clr.onclick = () => apply(null);
+  pop.addEventListener('click', () => pop.remove());   // click on backdrop closes
+  inp.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); apply(inp.value || null); }
+    else if(e.key === 'Escape'){ e.preventDefault(); pop.remove(); }
+  });
+  // открыть родной календарь сразу
+  setTimeout(() => { inp.focus(); try { inp.showPicker(); } catch(_){} }, 60);
 }
 function clearTaskDeadline(taskId){
   const t = TASKS.find(x => x.id === taskId);
@@ -5028,6 +5230,9 @@ function renderRow(t){
         <span class="st ${st.cls} tc-status"${st.cls?'':` style="background:${st.c}22;color:${st.c}"`} onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip" style="background:${st.c}"></span>${st.l}
         </span>
+        ${t.bug ? `<span class="bug-badge" title="Bug">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg>BUG
+        </span>` : ''}
         ${renderAssignee(t)}${renderDeadline(t)}
         <!-- v0.1.157 (N1 from 2026-06-05 follow-up): Archive moved out of
              the kebab onto the visible card header per DB's request — it's
@@ -5056,7 +5261,8 @@ function renderRow(t){
           ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}">${ICON('swap')} ${compareLabel}</span>` : ''}
         </div>
         <div class="chat-row-actions-r2">
-          <span class="ic-btn cl-ic${clActive}" onclick="event.stopPropagation();toggleCLPanel('${t.id}')" title="Checklist">${CL_ICON}${clBadge}</span>
+          <!-- v0.1.163: чеклист убран из UI по запросу. Кнопка, панель и
+               секция в презентации скрыты; данные t.checklist не трогаем. -->
 ${(function(){
             // v0.1.149: when the task has no Drive link yet, show a muted
             // "+ Link" affordance so the user has an entry point to add one.
@@ -5350,7 +5556,12 @@ function wireUpEmptyInput(){
         const text = this.value.trim();
         const proj = PROJECTS.find(p => p.id === projId);
         this.value = '';
-        await createTaskFor(projId, text, proj && proj._cloud);
+        // v0.1.163: pass the typed text as the initial chat message so the
+        // first thing the user sees in the new task's mini-chat is exactly
+        // what they typed. Previously this 4th arg was omitted and the chat
+        // started empty (the inline onkeydown attribute already did this, but
+        // wireUpEmptyInput overrides it via inp.onkeydown=).
+        await createTaskFor(projId, text, proj && proj._cloud, text);
         toast('✓ Task added to ' + (proj?.name || 'project'));
         // Re-focus the same project input after re-render
         setTimeout(() => {
@@ -5365,6 +5576,15 @@ function wireUpEmptyInput(){
 // v0.1.61: shared helper — create a task, cloud-first if the parent project
 // is a cloud project (i.e. came from Supabase). Falls back to local insert.
 async function createTaskFor(projectId, title, cloudParent, initialChatText){
+  // v0.1.163 (DB regression «пропало добавление задач»): новая задача
+  // создаётся со статусом Info/Blocked. Если активен фильтр по статусу
+  // (теперь множественный), она бы им скрылась — пользователь жмёт Enter и
+  // НИЧЕГО не появляется. Сбрасываем активный фильтр, чтобы только что
+  // созданная задача всегда была видна. Также выходим из Favorites-режима.
+  let _filterReset = false;
+  if(typeof curFilter !== 'undefined' && curFilter.size){ curFilter.clear(); _filterReset = true; }
+  if(typeof _favoritesOnly !== 'undefined' && _favoritesOnly){ _favoritesOnly = false; _filterReset = true; }
+  if(_filterReset){ try { renderFilters(); } catch(_){} }
   const makeInitialMsg = (initials) => initialChatText ? [{
     a: initials || 'AS',
     text: initialChatText,
@@ -5429,6 +5649,7 @@ function saveTaskName(taskId, name){
 function toggleStMenu(e, taskId){
   e.stopPropagation();
   e.preventDefault();
+  closeAllCtxMenus('status');           // закрыть ассайни/kebab если открыты
   const existing = openStMenu;
   closeStMenu();
   if(existing && existing.dataset.taskId === taskId) return;
@@ -5443,20 +5664,32 @@ function toggleStMenu(e, taskId){
   menu.innerHTML = visibleStatuses().map(s => `<div class="st-opt" onclick="event.stopPropagation();changeStatus('${taskId}',${s.id})"><span class="pip" style="background:${s.c}"></span>${s.l}</div>`).join('');
   wrap.appendChild(menu);
   openStMenu = menu;
-  setTimeout(() => document.addEventListener('click', closeStMenuOnClick, {once:true}), 50);
-}
-function closeStMenuOnClick(e){
-  if(!openStMenu) return;
-  if(openStMenu.contains(e.target) || e.target.closest('.st')){
-    setTimeout(() => document.addEventListener('click', closeStMenuOnClick, {once:true}), 50);
-    return;
-  }
-  closeStMenu();
+  // v0.1.163: закрытие — через глобальный обработчик closeAllCtxMenus.
 }
 function closeStMenu(){
   if(openStMenu) openStMenu.remove();
   openStMenu = null;
 }
+// v0.1.163 (DB): единое закрытие всех контекстных меню. Раньше каждое меню
+// (статус / ассайни / kebab) держало СВОЙ хрупкий setTimeout-слушатель —
+// они не закрывали друг друга (можно было открыть все три сразу) и
+// ненадёжно ловили клик вне. Теперь: один глобальный обработчик закрывает
+// всё при клике вне меню/триггеров, а каждое меню при открытии закрывает чужие.
+function closeAllCtxMenus(except){
+  if(except !== 'status') closeStMenu();
+  if(except !== 'assign') document.getElementById('_ebAssignMenu')?.remove();
+  if(except !== 'task')   document.getElementById('_ebTaskMenu')?.remove();
+  document.getElementById('_ebMoveWeekMenu')?.remove();
+  document.getElementById('_ebTmplMenu')?.remove();
+}
+document.addEventListener('click', (e) => {
+  // клик внутри любого меню — обрабатывают пункты меню
+  if(e.target.closest('.st-menu, .task-ctx-menu')) return;
+  // клик по триггеру — он сам тоглит себя и закрывает чужие
+  if(e.target.closest('.tc-status, .st-wrap, .card-assignee, .card-kebab')) return;
+  // любой другой клик — закрыть всё
+  closeAllCtxMenus();
+}, true);
 function changeStatus(taskId, sid){
   const t = TASKS.find(x => x.id === taskId);
   if(t){
@@ -5510,6 +5743,7 @@ function dragHandleDown(e, taskId){
     document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
     document.querySelectorAll('.row').forEach(r =>
       r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+    _removeDropSlot();
     document.body.style.cursor = '';
     _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
   }
@@ -5853,6 +6087,12 @@ function updateClItemText(taskId, itemId, input){
   if(db?.ready && t._cloud) db.tasks.update(t.id,{checklist:t.checklist}).catch(()=>{});
 }
 function renderClPanel(t){
+  // v0.1.163: чеклист скрыт из UI по запросу. Возвращаем пусто, чтобы
+  // панель не рисовалась в строке. Данные t.checklist сохраняются как есть
+  // (на случай возврата фичи), функции toggle/add/delete остаются, но
+  // точек входа в UI больше нет.
+  return '';
+  // eslint-disable-next-line no-unreachable
   const cl = Array.isArray(t.checklist) ? t.checklist : [];
   const isOpen = expandedChecklists.has(t.id);
   const items = cl.map(it => `<div class="cl-item${it.done?' done':''}">
@@ -5938,6 +6178,7 @@ function _mDragMove(e){
   // drop visually so the user can see it before releasing.
   const hdr = document.elementFromPoint(e.clientX, e.clientY)?.closest('.week-hdr');
   if(hdr){
+    _removeDropSlot();
     if(hdr.classList.contains('complete')){
       hdr.classList.add('drop-target','drop-forbidden');
       _mDragLastTgt = { weekHdr: true, week: hdr.dataset.week || '', forbidden: true };
@@ -5952,15 +6193,43 @@ function _mDragMove(e){
     const rect = tgt.getBoundingClientRect();
     const isTop = (e.clientY - rect.top) < rect.height / 2;
     _mDragLastTgt = {id: tgt.dataset.taskId, isTop};  // remember last valid drop target
-    tgt.classList.add(isTop ? 'drag-over-top' : 'drag-over-bottom');
+    // v0.1.163 (DB): вместо тонкой полоски на бордере вставляем реальную
+    // плашку-слот между строками — задачи раздвигаются, видно куда встанет.
+    _placeDropSlot(tgt, isTop);
+  } else {
+    _removeDropSlot();
   }
 }
+// ── drop-slot helpers (v0.1.163) ─────────────────────────────────────────
+function _placeDropSlot(tgt, isTop){
+  // не показываем слот вплотную к самой перетаскиваемой строке (бессмысленно)
+  const dragEl = _mDragEl;
+  const ref = isTop ? tgt.previousElementSibling : tgt.nextElementSibling;
+  if(tgt === dragEl || ref === dragEl){ _removeDropSlot(); return; }
+  let slot = document.getElementById('_ebDropSlot');
+  if(!slot){
+    slot = document.createElement('div');
+    slot.id = '_ebDropSlot';
+    slot.className = 'eb-drop-slot';
+  }
+  // если уже стоит ровно там, куда нужно — не дёргаем (избегаем мигания анимации)
+  if(isTop){
+    if(tgt.previousElementSibling === slot) return;
+    tgt.before(slot);
+  } else {
+    if(tgt.nextElementSibling === slot) return;
+    tgt.after(slot);
+  }
+}
+function _removeDropSlot(){ document.getElementById('_ebDropSlot')?.remove(); }
+
 function _mDragUp(e){
   document.removeEventListener('mousemove', _mDragMove, {capture:true});
   document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
   document.body.style.cursor = '';
   document.querySelectorAll('.row').forEach(r =>
     r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+  _removeDropSlot();
   document.querySelectorAll('.week-hdr').forEach(h =>
     h.classList.remove('drop-target','drop-forbidden'));
   if(!_mDragging){ _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null; return; }
@@ -6169,16 +6438,11 @@ function patchPresent(fields){
       }
     }
   }
-  // PHOTOS: re-set img src without rebuilding the panel
+  // PHOTOS: v0.1.163 — правая часть теперь галерея (вьюер + миниатюры).
+  // Добавление/смена скрина меняет и полосу миниатюр, поэтому перерисовываем
+  // панель целиком (это происходит редко — при явном захвате скриншота).
   if(fs.photo){
-    const beforeImg = document.querySelector('#presCard .pres-pics-pair .pres-pic:nth-child(1) img');
-    const afterImg  = document.querySelector('#presCard .pres-pics-pair .pres-pic:nth-child(2) img');
-    if(beforeImg && t.shot1 && beforeImg.getAttribute('src') !== t.shot1){
-      beforeImg.setAttribute('src', t.shot1);
-    }
-    if(afterImg && t.shot2 && afterImg.getAttribute('src') !== t.shot2){
-      afterImg.setAttribute('src', t.shot2);
-    }
+    renderPresent();
   }
 }
 
@@ -6193,6 +6457,7 @@ function openPresent(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   presentTask = t;
+  _presViewSlot = 1;   // v0.1.163: каждая задача открывается с After-вьюера
   renderPresent();
   const presEl = document.getElementById('present');
   presEl.style.display = '';
@@ -6325,6 +6590,24 @@ function updatePresenceUi(){
       style="background:${p.color || '#0EA5E9'}">${p.initials || '?'}</span>
   `).join('') + (extras > 0 ? `<span class="presence-more">+${extras}</span>` : '');
 }
+// v0.1.163 (DB): какой «после»-скрин показан в правом вьюере презентации.
+// slot 1 = After, 2+ = extras (t.shots[]). Сбрасывается при открытии задачи.
+let _presViewSlot = 1;
+function presSwitchView(taskId, slotIdx){
+  const t = (typeof presentTask !== 'undefined') ? presentTask : null;
+  if(!t || t.id !== taskId) return;
+  let src = null;
+  if(slotIdx === 1) src = t.shot2;
+  else if(Array.isArray(t.shots)) src = t.shots[slotIdx - 2];
+  if(!src) return;
+  _presViewSlot = slotIdx;
+  const img = document.getElementById('presViewImg');
+  if(img){ img.src = src; img.dataset.slot = slotIdx; img.style.display = ''; }
+  const lbl = document.getElementById('presViewLbl');
+  if(lbl) lbl.textContent = slotIdx === 1 ? 'AFTER' : `#${slotIdx - 1}`;
+  document.querySelectorAll('#presCard .pres-after-thumbs .pres-thumb').forEach(b =>
+    b.classList.toggle('active', String(b.dataset.slot) === String(slotIdx)));
+}
 function presentNext(){
   const tasks = getFilteredTasks();
   const idx = tasks.findIndex(x => x.id === presentTask?.id);
@@ -6337,19 +6620,11 @@ function presentPrev(){
 }
 
 function presChecklistLinksHTML(t){
-  const cl = Array.isArray(t.checklist) ? t.checklist : [];
+  // v0.1.163: секция CHECKLIST убрана из режима презентации по запросу.
+  // Оставлена только секция LINKS (ссылки — отдельная активно используемая
+  // фича). Данные t.checklist не трогаем.
   const lnks = Array.isArray(t.links) ? t.links : [];
-  if(!cl.length && !lnks.length) return '';
-  const clHTML = cl.length ? `<div class="pres-cl">
-    <div class="pres-cl-head">CHECKLIST <span class="cl-badge">${cl.filter(x=>x.done).length}/${cl.length}</span></div>
-    ${cl.map(it=>`<div class="cl-item${it.done?' done':''}">
-      <input type="checkbox" ${it.done?'checked':''} onclick="toggleClItem('${t.id}','${it.id}');renderPresent()">
-      <span class="cl-item-text">${(it.text||'').replace(/[<>]/g,'')}</span>
-    </div>`).join('')}
-    <div class="cl-add"><span style="color:var(--t4);font-size:15px;line-height:1;padding:0 2px">+</span>
-      <input type="text" placeholder="Add item…" onkeydown="if(event.key==='Enter'){addClItem('${t.id}',this);renderPresent()}">
-    </div></div>` : '';
-  const lnkHTML = lnks.length ? `<div class="pres-cl" style="border-top:1px solid var(--line)">
+  const lnkHTML = lnks.length ? `<div class="pres-cl">
     <div class="pres-cl-head">LINKS</div>
     ${lnks.map(lnk=>`<div class="link-item">
       <span class="link-item-ico">${gdriveFaviconHTML(lnk.url)}</span>
@@ -6364,7 +6639,7 @@ function presChecklistLinksHTML(t){
     <div class="links-add"><span style="color:var(--t4);font-size:12px;font-family:var(--mono)">↗</span>
       <input type="text" placeholder="Paste Google Drive link…" onkeydown="if(event.key==='Enter'){addLink('${t.id}',this);renderPresent()}">
     </div></div>`;
-  return clHTML + lnkHTML;
+  return lnkHTML;
 }
 function renderPresent(){
   // v0.1.58 (A.5): split-view — chat LEFT (340px), pics side-by-side RIGHT.
@@ -6422,30 +6697,37 @@ function renderPresent(){
     </div>`;
   };
   const beforeHTML = pic(t.shot1, 'BEFORE', 0);
-  const afterHTML  = pic(t.shot2, 'AFTER', 1);
-  // v0.1.151 (fix #2 reported by DB): collect every image attached to the
-  // task into one carousel-style thumbnail strip rendered below the
-  // Before/After pair. Click any thumb → opens that shot in the existing
-  // editor (so users can annotate / zoom). Empty extras gracefully skipped.
-  const allShots = [];
-  if(t.shot1 && t.shot1.length > 32) allShots.push({ src: t.shot1, label: 'Before', slotIdx: 0 });
-  if(t.shot2 && t.shot2.length > 32) allShots.push({ src: t.shot2, label: 'After',  slotIdx: 1 });
+  // v0.1.163 (DB): правая часть — галерея. Показывает выбранный «после»-скрин
+  // крупно; под ним полоса миниатюр (After + extras). Клик по миниатюре →
+  // показ в большом поле; клик по большому → редактор с метками.
+  const afterShots = [];
+  if(t.shot2 && t.shot2.length > 32) afterShots.push({ src: t.shot2, label: 'AFTER', slotIdx: 1 });
   if(Array.isArray(t.shots)){
     t.shots.forEach((s, i) => {
       if(s && typeof s === 'string' && s.length > 32){
-        allShots.push({ src: s, label: `#${i+1}`, slotIdx: i + 2 });
+        afterShots.push({ src: s, label: `#${i+1}`, slotIdx: i + 2 });
       }
     });
   }
-  const carouselHTML = allShots.length > 2 ? `
-    <div class="pres-carousel" role="list" aria-label="All screenshots for this task">
-      ${allShots.map(sh => `
-        <button class="pres-thumb" role="listitem" title="Open ${sh.label} in editor" onclick="openExistingShotEditor('${t.id}',${sh.slotIdx})">
-          <img src="${sh.src}" alt="" loading="lazy">
-          <span class="pres-thumb-lbl">${sh.label}</span>
-        </button>
-      `).join('')}
-    </div>` : '';
+  let afterColHTML;
+  if(!afterShots.length){
+    // нет «после»-скринов — обычный empty-CTA (захват в слот 1)
+    afterColHTML = pic(t.shot2, 'AFTER', 1);
+  } else {
+    const view = afterShots.find(s => s.slotIdx === _presViewSlot) || afterShots[0];
+    _presViewSlot = view.slotIdx;
+    const thumbs = afterShots.length > 1 ? `<div class="pres-after-thumbs" role="list" aria-label="Switch screenshot">${
+      afterShots.map(sh => `<button class="pres-thumb${sh.slotIdx===view.slotIdx?' active':''}" role="listitem" data-slot="${sh.slotIdx}" title="Show ${sh.label}" onclick="event.stopPropagation();presSwitchView('${t.id}',${sh.slotIdx})"><img src="${sh.src}" alt="" loading="lazy"><span class="pres-thumb-lbl">${sh.label}</span></button>`).join('')
+    }</div>` : '';
+    afterColHTML = `<div class="pres-after-col">
+      <div class="pres-pic" style="flex:1;min-height:0">
+        <div class="lbl" id="presViewLbl">${view.label}</div>
+        <img id="presViewImg" src="${view.src}" data-slot="${view.slotIdx}" alt="" style="cursor:zoom-in" title="Click to open editor"
+             onerror="this.style.display='none'" onclick="openExistingShotEditor('${t.id}',parseInt(this.dataset.slot,10))">
+      </div>
+      ${thumbs}
+    </div>`;
+  }
 
   const st = STATUSES[t.s];
   const card = document.getElementById('presCard');
@@ -6478,16 +6760,16 @@ function renderPresent(){
     <div class="pres-body-grid" id="presBodyGrid">
       <div class="pres-pics-pair">
         ${beforeHTML}
-        ${afterHTML}
-        ${carouselHTML}
+        ${afterColHTML}
       </div>
-      <div class="pres-vsplit" onmousedown="startPresSplit(event)" title="Drag to resize"></div>
       <aside class="pres-chat-col">
         <div class="pres-side-split">
           <section class="pres-chat-half">
             <div class="pres-chat-h">Chat<span class="ct">${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}</span></div>
             <div class="pres-chat-msgs" id="presChatMsgs">${chatBody}</div>
-            ${presChecklistLinksHTML(t)}
+            <!-- v0.1.163 (DB): секция LINKS убрана из режима презентации —
+                 её туда никто не просил (осталась от удалённой панели
+                 чеклист+ссылки). Ссылки доступны на карточке задачи. -->
             <div class="pres-chat-foot">
               <input id="presChatInput" placeholder="Type a message and press Enter…" onkeydown="if(event.key==='Enter') sendPresChat()">
             </div>
@@ -6499,9 +6781,8 @@ function renderPresent(){
         </div>
       </aside>
     </div>
-    <!-- Centered floating side arrows (clear chevron SVGs) -->
-    <button class="pres-arrow left" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <button class="pres-arrow right" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <!-- v0.1.163 (DB): боковые стрелки убраны — навигация только снизу
+         (она сделана крупнее/заметнее). -->
     <!-- Bottom nav with clear back/forward arrows -->
     <div class="pres-nav">
       <button class="pres-nav-arrow" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
@@ -6532,26 +6813,6 @@ function renderPresent(){
 }
 
 // v0.1.114: drag the divider to resize the pics/chat vertical split
-function startPresSplit(e){
-  e.preventDefault();
-  const grid = document.getElementById('presBodyGrid');
-  if(!grid) return;
-  const rect = grid.getBoundingClientRect();
-  function onMove(ev){
-    let pct = ((ev.clientY - rect.top) / rect.height) * 100;
-    pct = Math.max(20, Math.min(80, pct));  // clamp 20–80%
-    grid.style.setProperty('--pres-split', pct + '%');
-  }
-  function onUp(){
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    document.body.style.cursor = '';
-  }
-  document.body.style.cursor = 'row-resize';
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
 async function sendPresChat(){
   const inp = document.getElementById('presChatInput');
   if(!inp) return;
@@ -7373,10 +7634,16 @@ function setSection(sec){
   // Show or hide tasks body
   const tasksBody = document.getElementById('bodyTasks');
 
-  if(sec === 'projects'){
+  if(sec === 'projects' || sec === 'favorites'){
+    // v0.1.163 (#7): Favorites переиспользует тот же tasks-body, но через
+    // _favoritesOnly показывает только запиненные таски со всех проектов.
+    _favoritesOnly = (sec === 'favorites');
+    if(_favoritesOnly){ currentProject = 'all'; }
     tasksBody.dataset.hidden = '';
     render();
+    updateHeader();
   } else {
+    _favoritesOnly = false;
     tasksBody.dataset.hidden = '1';
     if(sec === 'dashboard'){
       document.getElementById('dashView').classList.add('on');
@@ -7524,9 +7791,12 @@ function renderDashboardSection(){
 
   // v0.1.128: header with Active title OR Archive title + back arrow, and a
   // grey "Archive (N)" text button on the right to switch views.
+  // v0.1.164 (DB): кнопка «+ New project» на Dashboard всегда на виду
+  // (раньше add-карточка показывалась только при <6 проектов).
+  const newProjBtn = `<button class="dash-newproj-btn" onclick="openNewProjModal()" title="Create new project"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New project</button>`;
   const headerRight = _dashShowArchive
-    ? ''
-    : `<button class="dash-archive-link" onclick="toggleDashArchive()" title="View archived projects">Archive${archivedProjects.length?` · ${archivedProjects.length}`:''} →</button>`;
+    ? `<button class="dash-back-btn" onclick="toggleDashArchive()" title="Back to active">‹ Back</button>`
+    : `<div style="display:flex;align-items:center;gap:10px">${newProjBtn}<button class="dash-archive-link" onclick="toggleDashArchive()" title="View archived projects">Archive${archivedProjects.length?` · ${archivedProjects.length}`:''} →</button></div>`;
   const headerTitle = _dashShowArchive
     ? `<button class="dash-back-btn" onclick="toggleDashArchive()" title="Back to active">‹</button><h2 style="margin:0">Archived <span class="accent">projects</span></h2>`
     : `<h2 style="margin:0">Projects <span class="accent">overview</span></h2>`;
@@ -7831,6 +8101,13 @@ function updateSidebarCounts(){
   const projCt = document.getElementById('sbProjCount');
   if(projCt) projCt.textContent = PROJECTS.length;
   // sbChatCount removed in v0.1.38 (Chats page deleted — mini-chats live in tasks)
+  // v0.1.163 (#7): Favorites count — число запиненных тасок.
+  const favCt = document.getElementById('sbFavCount');
+  if(favCt){
+    const n = TASKS.filter(t => t.pinned).length;
+    favCt.textContent = n;
+    favCt.style.display = n > 0 ? '' : 'none';
+  }
 }
 
 
@@ -8459,11 +8736,20 @@ function showTaskMenuAt(e, taskId){
 // Simple assignee picker — pick from project members / type a name
 function pickAssignee(e, taskId){
   e.stopPropagation();
-  document.getElementById('_ebAssignMenu')?.remove();
+  // v0.1.163 (DB): повторный клик по той же кнопке закрывает меню (toggle).
+  // Раньше старое меню удалялось и сразу создавалось новое — «кнопку не отжать».
+  const existing = document.getElementById('_ebAssignMenu');
+  if(existing){
+    const sameTrigger = existing.dataset.taskId === String(taskId);
+    existing.remove();
+    if(sameTrigger){ closeAllCtxMenus(); return; }
+  }
+  closeAllCtxMenus('assign');           // закрыть статус/kebab если открыты
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   const menu = document.createElement('div');
   menu.id = '_ebAssignMenu';
+  menu.dataset.taskId = String(taskId);
   menu.className = 'task-ctx-menu';
   const names = ['AS','MK','DP','IM'];  // common initials; could pull from project members
   menu.innerHTML =
@@ -8474,11 +8760,7 @@ function pickAssignee(e, taskId){
   const r = e.currentTarget.getBoundingClientRect();
   menu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 188)) + 'px';
   menu.style.top = (r.bottom + 4) + 'px';
-  setTimeout(() => {
-    document.addEventListener('click', function cl(ev){
-      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click', cl); }
-    });
-  }, 20);
+  // v0.1.163: закрытие — через глобальный обработчик closeAllCtxMenus.
 }
 function setAssignee(taskId, name){
   document.getElementById('_ebAssignMenu')?.remove();
@@ -8516,8 +8798,9 @@ function showTaskMenu(e, taskId){
   if(existing){
     const wasForSameTask = existing.dataset.taskId === String(taskId);
     existing.remove();
-    if(wasForSameTask) return;
+    if(wasForSameTask){ closeAllCtxMenus(); return; }
   }
+  closeAllCtxMenus('task');             // закрыть статус/ассайни если открыты
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   const menu = document.createElement('div');
@@ -8532,6 +8815,9 @@ function showTaskMenu(e, taskId){
   // v0.1.152: Pin/Unpin label + icon (DB #17).
   const pinLabel = t.pinned ? 'Unpin' : 'Pin to top';
   const pinIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${t.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>`;
+  // v0.1.164 (DB): пометить как баг.
+  const bugLabel = t.bug ? 'Снять метку бага' : 'Пометить как баг';
+  const bugIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${t.bug ? '#DC2626' : 'none'}" stroke="${t.bug ? '#DC2626' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg>`;
   const deadlineLabel = t.deadline ? `Change deadline (${_fmtDeadline(t.deadline)})` : 'Set deadline';
   const deadlineIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
   menu.innerHTML = `
@@ -8541,6 +8827,7 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="taskMenuCopyPublicLink('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy public link</div>
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
     <div class="tcm-item" onclick="toggleTaskPinned('${taskId}')">${pinIcon}${pinLabel}</div>
+    <div class="tcm-item" onclick="toggleTaskBug('${taskId}')">${bugIcon}${bugLabel}</div>
     <div class="tcm-item" onclick="document.getElementById('_ebTaskMenu').remove();openTmplMenu('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Insert template</div>
     <div class="tcm-item" onclick="openMoveToWeekMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to week…</div>
     <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
@@ -8553,11 +8840,7 @@ function showTaskMenu(e, taskId){
   let top = Math.min(e.clientY, window.innerHeight - mh - 8);
   menu.style.left = Math.max(8, left) + 'px';
   menu.style.top = Math.max(8, top) + 'px';
-  setTimeout(() => {
-    document.addEventListener('click', function cl(ev){
-      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click', cl); }
-    });
-  }, 20);
+  // v0.1.163: закрытие — через глобальный обработчик closeAllCtxMenus.
 }
 function taskMenuDelete(taskId){
   document.getElementById('_ebTaskMenu')?.remove();
@@ -9074,6 +9357,8 @@ function csvCell(v){
 
 // State for the "include hidden tasks" toggle in the export dialog.
 let _exportIncludeHidden = false;
+// v0.1.164 (DB): включать ли задачи-баги в экспорт (по умолчанию да).
+let _exportIncludeBugs = true;
 
 // ─── small helpers reused by the XLSX builder ─────────────────────────
 
@@ -9280,14 +9565,10 @@ async function exportCSV(){
   const isAllMode = currentProject === 'all';
   let tasks = isAllMode ? TASKS.slice() : TASKS.filter(t => t.proj === currentProject);
   if(!_exportIncludeHidden) tasks = tasks.filter(t => !t.hidden);
-  if(curFilter !== 'all' && curFilter !== ''){
-    const sIdx = (typeof curFilter === 'number') ? curFilter : parseInt(curFilter, 10);
-    if(!isNaN(sIdx) && sIdx >= 0 && sIdx <= 7) tasks = tasks.filter(t => t.s === sIdx);
-    else if(curFilter === 'problem')  tasks = tasks.filter(t => t.s === 5);
-    else if(curFilter === 'progress') tasks = tasks.filter(t => t.s === 6);
-    else if(curFilter === 'done')     tasks = tasks.filter(t => t.s === 1);
-    else if(curFilter === 'thisweek') tasks = tasks.filter(t => t.w === '26W17');
-  }
+  // v0.1.164 (DB): опция вкл/выкл задачи-баги в экспорте.
+  if(!_exportIncludeBugs) tasks = tasks.filter(t => !t.bug);
+  // v0.1.163: множественный фильтр по статусу (curFilter — Set).
+  tasks = tasks.filter(passesStatusFilter);
   if(curSearch){
     const q = curSearch.toLowerCase();
     tasks = tasks.filter(t =>
@@ -9563,9 +9844,11 @@ function exportCSVWithOptions(){
     ? TASKS
     : TASKS.filter(t => t.proj === currentProject);
   const hiddenCount = scope.filter(t => t.hidden).length;
-  if(hiddenCount === 0){
-    // Nothing hidden in current scope — no need to ask, just export.
+  const bugScopeCount = scope.filter(t => t.bug).length;
+  if(hiddenCount === 0 && bugScopeCount === 0){
+    // Нечего уточнять — нет ни скрытых, ни багов. Просто экспортируем.
     _exportIncludeHidden = false;
+    _exportIncludeBugs = true;
     return exportCSV();
   }
   // Modal dialog: ask whether to include hidden tasks
@@ -9582,6 +9865,10 @@ function exportCSVWithOptions(){
         <input type="checkbox" id="_ebExpHidden" ${_exportIncludeHidden ? 'checked' : ''}/>
         <span>Include hidden tasks (${hiddenCount})</span>
       </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-top:8px">
+        <input type="checkbox" id="_ebExpBugs" ${_exportIncludeBugs ? 'checked' : ''}/>
+        <span>Include bug tasks (${bugScopeCount})</span>
+      </label>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button id="_ebExpCancel" class="chip" style="font-size:12px;padding:6px 14px">Cancel</button>
         <button id="_ebExpGo" class="chip" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#fff;border-color:var(--acc)">Export</button>
@@ -9591,6 +9878,7 @@ function exportCSVWithOptions(){
   dlg.querySelector('#_ebExpCancel').onclick = () => dlg.remove();
   dlg.querySelector('#_ebExpGo').onclick = () => {
     _exportIncludeHidden = dlg.querySelector('#_ebExpHidden').checked;
+    _exportIncludeBugs = dlg.querySelector('#_ebExpBugs').checked;
     dlg.remove();
     exportCSV();
   };
@@ -9651,6 +9939,10 @@ async function exportPDF(){
       tasks = tasks.filter(t => t.w === cur);
     }
   }
+  // v0.1.164 (DB): уважать опцию «включать баги» (берётся из последнего
+  // выбора в XLSX-диалоге; по умолчанию баги включены).
+  if(!_exportIncludeBugs) tasks = tasks.filter(t => !t.bug);
+  if(_bugsOnly) tasks = tasks.filter(t => t.bug);
 
   if(tasks.length === 0){
     toast('No tasks to export (current filter excludes everything)', 2500);
