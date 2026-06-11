@@ -1443,7 +1443,10 @@ body.dark-mode .cmp-pane{ background:#1e2531 }
 }
 #present.on{display:flex}
 .pres-card{
-  background:var(--surf);border-radius:14px;width:94vw;max-width:none;max-height:94vh;
+  /* v0.1.164 (DB «present jumping»): фиксированная высота, чтобы при
+     переключении между задачами (разная длина чата/notes) модалка НЕ
+     меняла размер и не «прыгала». Контент скроллится внутри. */
+  background:var(--surf);border-radius:14px;width:94vw;max-width:none;height:90vh;max-height:90vh;
   overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5);
   position:relative
 }

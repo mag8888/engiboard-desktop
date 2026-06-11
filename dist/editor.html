@@ -218,9 +218,13 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
          annotations of type 'dimension' still render, but the tool is no
          longer creatable from the toolbar. -->
     <!-- <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button> -->
-    <button class="fb" data-id="blur" data-tip="Blur" data-key="B" onclick="setTool('blur')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg></button>
+    <!-- v0.1.164 (DB): иконка Blur была глаз-перечёркнутый и путала с «скрыть».
+         Теперь капля-размытие. -->
+    <button class="fb" data-id="blur" data-tip="Blur" data-key="B" onclick="setTool('blur')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7c3 3.5 6 6.8 6 10.3a6 6 0 0 1-12 0c0-3.5 3-6.8 6-10.3z"/><path d="M9.5 13.5a2.5 2.5 0 0 0 2.5 2.5" opacity=".5"/></svg></button>
     <button class="fb" data-id="comment" data-tip="Comment" data-key="Q" onclick="setTool('comment')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
     <button class="fb" data-id="emoji" data-tip="Emoji" data-key="E" onclick="toggleEmojiPicker(event)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9.5" x2="9.01" y2="9.5"/><line x1="15" y1="9.5" x2="15.01" y2="9.5"/></svg></button>
+    <!-- v0.1.164 (DB): кнопка «скрыть/показать все метки» (глаз-перечёркнутый). -->
+    <button class="fb" id="hideMarksBtn" data-tip="Hide marks" data-key="" onclick="toggleMarksHidden()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg></button>
     <div class="fb-sep"></div>
     <div class="cdot on" style="background:#FF453A" data-c="#FF453A" onclick="setCol(this)"></div>
     <div class="cdot" style="background:#FF9F0A" data-c="#FF9F0A" onclick="setCol(this)"></div>
@@ -758,14 +762,14 @@ function commitText(){const inp=document.getElementById('textInp');if(textPos&&i
 
 function showCmtPopUI(e){
   const pop=document.getElementById('cmtPop'),inp=document.getElementById('cmtInp');
-  const r=paper.getBoundingClientRect();
-  const px=Math.min(e.clientX-r.left+14,r.width-260);
-  const py=Math.max(e.clientY-r.top-52,4);
-  // v0.1.156 (#33 MR): the comment input used to scale with the paper
-  // because it's a child of the zoom-scaled #paper. Counter-scale it so
-  // the user always types into a constant-size input regardless of zoom.
-  const counter = (_edScale && _edScale !== 0) ? (1 / _edScale) : 1;
-  pop.style.cssText=`display:block;left:${px}px;top:${py}px;z-index:16;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);transform:scale(${counter});transform-origin:top left`;
+  // v0.1.164 (DB): поле комментария масштабировалось вместе с картинкой —
+  // оно жило внутри #paper (его трансформит зум). Counter-scale работал
+  // неточно. Теперь выносим поп в <body> и позиционируем в ЭКРАННЫХ
+  // координатах (position:fixed) — постоянный размер при любом зуме.
+  if(pop.parentElement !== document.body) document.body.appendChild(pop);
+  const px=Math.min(e.clientX+14, window.innerWidth-270);
+  const py=Math.max(e.clientY-52, 8);
+  pop.style.cssText=`display:block;position:fixed;left:${px}px;top:${py}px;z-index:100020;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
   inp.value='';setTimeout(()=>inp.focus(),10);
 }
 function closeCmtPop(){document.getElementById('cmtPop').style.display='none';cmtPos=null;}
@@ -786,6 +790,20 @@ function toggleBubble(c){
   annRoot.appendChild(bub);
 }
 function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());renderAll();updateList();updateCount();}
+
+// v0.1.164 (DB): скрыть/показать ВСЕ метки на скриншоте одной кнопкой.
+// Прячем слой аннотаций (annRoot — фигуры/текст/пины/эмодзи) и SVG-слой
+// (fhSvg — линии/стрелки/freehand). На сам скриншот не влияет; при сохранении
+// метки восстанавливаются (это только просмотр).
+let _marksHidden = false;
+function toggleMarksHidden(){
+  _marksHidden = !_marksHidden;
+  ['annRoot','fhSvg'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = _marksHidden ? 'none' : ''; });
+  const btn = document.getElementById('hideMarksBtn');
+  if(btn) btn.classList.toggle('on', _marksHidden);
+  // если прятали — заодно закрываем открытый пузырь коммента
+  if(_marksHidden) document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
+}
 
 const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
 const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
