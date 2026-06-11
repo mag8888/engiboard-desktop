@@ -1,0 +1,54 @@
+name: UI smoke (Windows / Edge·WebView2)
+
+# Визуальная проверка фронтенда EngiBoard на Windows в том же движке, что и
+# десктоп-сборка (Edge = WebView2). Гоняет click/toggle-сьют против dist/ и
+# выгружает скриншоты каждого шага + HTML-отчёт как артефакты.
+
+on:
+  push:
+    branches: [main]
+    paths: ['dist/**', 'tests/**', 'playwright.config.js', 'package.json']
+  pull_request:
+    paths: ['dist/**', 'tests/**', 'playwright.config.js', 'package.json']
+  workflow_dispatch:
+
+jobs:
+  ui-smoke-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        run: npm install
+
+      - name: Install Playwright driver
+        run: npx playwright install chromium
+        # Edge (channel msedge) уже стоит на windows-latest — отдельная установка не нужна.
+
+      - name: Run UI smoke on Edge (WebView2 engine)
+        run: npx playwright test --project=edge --reporter=list
+        env:
+          CI: 'true'
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots-windows-edge
+          path: screenshots/
+          if-no-files-found: warn
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-windows-edge
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
