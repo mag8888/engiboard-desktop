@@ -277,11 +277,16 @@ body.sb-collapsed .brand{width:auto;padding-right:18px}
 .pm-pill.stat{color:var(--t4);font-family:var(--mono)}
 .pm-section-h{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4);padding:8px 12px 4px}
 .pm-empty{padding:8px 12px;font-size:12px;color:var(--t4);font-style:italic}
-/* Role-based UI gating: hide create/manage controls for non-eligible roles. */
+/* v0.1.165 (DB): ЗАДАЧУ создаёт любой (engineer+) — строка-добавления .eb-addrow
+   видна всегда и НЕ гейтится. ПРОЕКТ создаёт только админ — прячем для не-админов
+   кнопку «+ New project» (.dash-newproj-btn), виджет-плитку (.dproj.add-new),
+   пункт дропдауна (.pm-add) и кнопку пустого состояния (.es-zero .dbtn).
+   Владелец на своём устройстве (без облачной сессии) считается админом — см.
+   isAdmin(). Управление ролями участников тоже admin-only (JS isAdmin). */
 body.eb-not-admin .pm-add,
 body.eb-not-admin .dproj.add-new,
+body.eb-not-admin .dash-newproj-btn,
 body.eb-not-admin .es-zero .dbtn{display:none !important}
-body.eb-not-lead-or-admin .eb-needs-lead{display:none !important}
 /* Task status pills are clickable for everyone (admin, lead, engineer, demo)
    — anyone working on a task should be able to change its state. */
 .pm-add{
@@ -619,6 +624,10 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   transition:all .12s;position:relative;min-height:90px;
   -webkit-user-select:none;user-select:none /* prevent text selection during drag */
 }
+/* v0.1.165 (DB «показывай то же место»): при смене вида списка отключаем
+   анимацию высоты строк, чтобы scrollTop восстанавливался по реальной
+   итоговой раскладке (без середины transition → без прыжка). */
+.list.cv-switching .row{transition:none !important}
 .row input,.row textarea,.row [contenteditable]{-webkit-user-select:text;user-select:text}
 .row:hover{border-color:rgba(14,165,233,.3);box-shadow:0 4px 14px rgba(14,165,233,.08)}
 .row.selected{border-color:var(--acc) !important;box-shadow:0 0 0 2px rgba(14,165,233,.25),0 4px 14px rgba(14,165,233,.18)}
@@ -644,16 +653,20 @@ body.select-mode .row{cursor:pointer}
 /* v0.1.163 (DB): drop-slot — при перетаскивании задачи между строками
    вставляется плашка размером с недельную, строки слегка раздвигаются и
    видно, куда встанет задача. Лёгкая, чтобы не нагружать интерфейс. */
+/* v0.1.165 (DB): плашка-слот при перетаскивании больше НЕ «разъезжается».
+   Без animation/keyframes — появляется статично фиксированного размера и не
+   дёргается при движении. По умолчанию только пунктирный контур БЕЗ заливки;
+   заливка появляется лишь когда курсор с задачей наведён прямо на слот
+   (класс .is-hot ставится в _mDragMove). */
 .eb-drop-slot{
   margin:6px 28px;height:30px;border-radius:8px;flex-shrink:0;
   border:2px dashed var(--acc);
-  background:linear-gradient(rgba(14,165,233,.10),rgba(14,165,233,.06));
-  pointer-events:none;box-sizing:border-box;
-  animation:ebDropIn .12s ease-out}
-@keyframes ebDropIn{from{height:0;opacity:0;margin-top:0;margin-bottom:0}
-  to{height:30px;opacity:1;margin-top:6px;margin-bottom:6px}}
-body.dark-mode .eb-drop-slot{
-  background:linear-gradient(rgba(14,165,233,.18),rgba(14,165,233,.10))}
+  background:transparent;
+  pointer-events:none;box-sizing:border-box}
+.eb-drop-slot.is-hot{
+  background:linear-gradient(rgba(14,165,233,.14),rgba(14,165,233,.08))}
+body.dark-mode .eb-drop-slot.is-hot{
+  background:linear-gradient(rgba(14,165,233,.22),rgba(14,165,233,.12))}
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
@@ -695,15 +708,13 @@ body.dark-mode .tit-col .tc-title:hover{background:rgba(255,255,255,.04)}
 .col-hdr .wk-lbl{font-size:9px;color:var(--t4);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;line-height:1;margin-bottom:2px}
 .row .st{
   display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
-  width:fit-content;padding:6px 26px 6px 12px;border-radius:20px;cursor:pointer;
+  width:fit-content;padding:6px 12px;border-radius:20px;cursor:pointer;
   transition:.12s;user-select:none;position:relative
 }
 .row .st:hover{box-shadow:0 0 0 2px rgba(14,165,233,.3)}
 .row .st .pip{width:9px;height:9px;border-radius:50%}
-.row .st::after{
-  content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);
-  font-size:9px;opacity:.55
-}
+/* v0.1.165 (DB): каретка ▾ после текста статуса убрана — кликабельность статуса
+   и так интуитивна, лишний символ не нужен. Правый паддинг выровнен под левый. */
 
 .st-menu{
   position:absolute;top:30px;left:0;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;
@@ -902,6 +913,23 @@ body.dark-mode .card-kebab:hover{background:rgba(255,255,255,.08)}
 .card-archive:hover{background:rgba(15,23,42,.06);color:var(--t1)}
 body.dark-mode .card-archive:hover{background:rgba(255,255,255,.08)}
 .row.archived .card-archive{color:var(--acc)}
+/* v0.1.165 (DB): action-кластер справа — [archive][↑][↓][kebab] единым блоком.
+   margin-left:auto переносим на обёртку, чтобы кнопки не разбегались и не
+   переносились на новую строку (card-header — flex-wrap). */
+.card-actions{margin-left:auto;display:inline-flex;align-items:center;gap:1px;flex-shrink:0;flex-wrap:nowrap}
+.card-actions .card-archive{margin-left:0}
+.card-move{width:20px;height:26px;border:none;background:transparent;color:var(--t3);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.12s}
+.card-move:hover{background:rgba(15,23,42,.06);color:var(--acc)}
+body.dark-mode .card-move:hover{background:rgba(255,255,255,.08)}
+/* v0.1.165 (DB «нужно как было раньше — внизу пустая задача, пишешь — создаётся»):
+   строка-добавление снизу списка теперь явно ОТЛИЧАЕТСЯ от реальной пустой
+   задачи — пунктирная рамка + «+»-плейсхолдер акцентом, чтобы её сразу узнавали
+   как «создать задачу здесь». Печатаешь и Enter — задача создаётся. */
+.row.empty.eb-addrow{border:1.5px dashed var(--line-2);background:transparent;box-shadow:none;min-height:50px;opacity:.92;transition:border-color .12s,opacity .12s}
+.row.empty.eb-addrow:hover{border-color:var(--acc);opacity:1}
+.row.empty.eb-addrow .newInpProj,.row.empty.eb-addrow #newInp{width:100%;font-weight:500}
+.row.empty.eb-addrow .newInpProj::placeholder,.row.empty.eb-addrow #newInp::placeholder{color:var(--acc);opacity:.85}
+.row.empty.eb-addrow .pc{opacity:.4}
 
 /* Task right-click context menu */
 .task-ctx-menu{position:fixed;z-index:10002;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,.2);padding:5px;min-width:180px}
@@ -2841,8 +2869,12 @@ async function refreshCloudRole(){
 }
 
 // Tiny helper to check the current user's global role (admin/lead/engineer).
-function isAdmin(){ return (localStorage.getItem('eb_user_role')||'').toLowerCase() === 'admin'; }
-function isLeadOrAdmin(){ const r=(localStorage.getItem('eb_user_role')||'').toLowerCase(); return r==='admin'||r==='lead'; }
+// v0.1.165 (DB): владелец доски на своём устройстве (нет облачной сессии) —
+// это админ: он создаёт проекты. Когда вошёл в облако, роль берётся из профиля
+// (engineer не создаёт проекты, только задачи).
+function _hasCloudSession(){ try { return !!localStorage.getItem('eb_supabase_session'); } catch(_){ return false; } }
+function isAdmin(){ if(!_hasCloudSession()) return true; return (localStorage.getItem('eb_user_role')||'').toLowerCase() === 'admin'; }
+function isLeadOrAdmin(){ if(!_hasCloudSession()) return true; const r=(localStorage.getItem('eb_user_role')||'').toLowerCase(); return r==='admin'||r==='lead'; }
 // Add body classes that drive CSS-based gating of UI surfaces.
 function applyRoleGates(){
   document.body.classList.toggle('eb-not-admin', !isAdmin());
@@ -4571,32 +4603,43 @@ function applyCardView(){
     b.classList.toggle('on', b.dataset.cv === cardView));
 }
 function setCardView(mode){
-  // v0.1.164 (DB «jumping screen»): при смене вида высоты карточек меняются
-  // (компакт 165px ↔ развёрнутый 380px), и старый scrollTop указывает уже на
-  // другую задачу — экран «прыгает». Якорим верхнюю видимую задачу и после
-  // переключения возвращаем её на ту же позицию.
+  // v0.1.164 (DB «jumping screen» / «показывай то же место»): при смене вида
+  // высоты карточек меняются (компакт 165px ↔ развёрнутый 380px), и старый
+  // scrollTop указывает уже на другую задачу. Якорим самый верхний видимый
+  // элемент (заголовок недели ИЛИ задачу) и возвращаем его на ту же позицию.
+  // ВАЖНО: у .row стоит transition:all .12s — высота анимируется. Поэтому на
+  // момент переключения отключаем анимацию (класс cv-switching), меряем и
+  // восстанавливаем скролл СИНХРОННО (точно, без середины анимации), затем
+  // возвращаем анимацию.
   const list = document.getElementById('list');
-  let anchorId = null, anchorOffset = 0;
+  let anchorSel = null, anchorOffset = 0;
   if(list){
     const listTop = list.getBoundingClientRect().top;
-    for(const row of list.querySelectorAll('.row[data-task-id]')){
-      const r = row.getBoundingClientRect();
-      if(r.bottom > listTop + 4){ anchorId = row.dataset.taskId; anchorOffset = r.top - listTop; break; }
+    const cands = list.querySelectorAll('.week-hdr, .row[data-task-id]:not([data-task-id^="new"])');
+    for(const el of cands){
+      const r = el.getBoundingClientRect();
+      if(r.bottom > listTop + 6){
+        anchorOffset = r.top - listTop;
+        anchorSel = el.classList.contains('week-hdr')
+          ? `.week-hdr[data-week="${(el.dataset.week||'').replace(/"/g,'')}"]`
+          : `.row[data-task-id="${el.dataset.taskId}"]`;
+        break;
+      }
     }
   }
   cardView = mode;
   localStorage.setItem('eb_card_view', mode);
+  if(list) list.classList.add('cv-switching');   // отключить анимацию высоты
   applyCardView();
-  if(list && anchorId){
-    requestAnimationFrame(() => {
-      const row = list.querySelector(`.row[data-task-id="${anchorId}"]`);
-      if(row){
-        const listTop = list.getBoundingClientRect().top;
-        const cur = row.getBoundingClientRect().top - listTop;
-        list.scrollTop += (cur - anchorOffset);
-      }
-    });
+  if(list && anchorSel){
+    const el = list.querySelector(anchorSel);
+    if(el){
+      const listTop = list.getBoundingClientRect().top;       // sync layout
+      const cur = el.getBoundingClientRect().top - listTop;
+      list.scrollTop += (cur - anchorOffset);
+    }
   }
+  if(list) requestAnimationFrame(() => list.classList.remove('cv-switching'));
 }
 
 // ━━━ RENDER ━━━
@@ -5253,6 +5296,7 @@ function renderRow(t){
              a frequently used action and was getting lost in a 11-item
              dropdown. Toggle icon flips between box-with-line (archive)
              and unbox-with-arrow (restore) based on current state. -->
+        <span class="card-actions">
         <button class="card-archive" onclick="event.stopPropagation();toggleTaskHidden('${t.id}')"
           title="${t.hidden ? 'Restore from archive' : 'Archive task'}"
           aria-label="${t.hidden ? 'Restore from archive' : 'Archive task'}"
@@ -5262,7 +5306,10 @@ function renderRow(t){
             : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
           }
         </button>
+        <button class="card-move" onclick="event.stopPropagation();moveTaskUp('${t.id}')" title="Move up" aria-label="Move task up"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
+        <button class="card-move" onclick="event.stopPropagation();moveTaskDown('${t.id}')" title="Move down" aria-label="Move task down"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
         <button class="card-kebab" onclick="event.stopPropagation();showTaskMenuAt(event,'${t.id}')" title="More actions">${ICON_KEBAB}</button>
+        </span>
       </div>
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
@@ -5517,10 +5564,10 @@ window.addEventListener('message', ev => {
 function renderEmptyRow(){
   const nextUid = nextTaskUid(currentProject);
   // v0.1.46: chat-col first (matches new column order)
-  return `<div class="row empty eb-needs-lead" data-task-id="new" style="min-height:64px">
+  return `<div class="row empty eb-addrow" data-task-id="new" style="min-height:64px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
-      <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
+      <input id="newInp" placeholder="${T('placeholder.newtask')}" style="border:none;border-radius:7px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:transparent;color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -5531,12 +5578,12 @@ function renderEmptyRowForProject(projId){
   // v0.1.75: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
   // JS binding (it could be missed if render order changed, leaving Enter
   // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
-  return `<div class="row empty eb-needs-lead" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
+  return `<div class="row empty eb-addrow" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"
         onkeydown="if(event.key==='Enter'&&this.value.trim()){const v=this.value.trim();this.value='';createTaskFor('${projId}',v,(PROJECTS.find(p=>p.id==='${projId}')||{})._cloud,v).then(()=>toast('✓ Task created'));}"
-        style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)">
+        style="border:none;border-radius:7px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:transparent;color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
     <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -6244,6 +6291,13 @@ function _mDragMove(e){
     // v0.1.163 (DB): вместо тонкой полоски на бордере вставляем реальную
     // плашку-слот между строками — задачи раздвигаются, видно куда встанет.
     _placeDropSlot(tgt, isTop);
+    // v0.1.165 (DB): заливка слота только когда курсор наведён прямо на него
+    // (иначе — лишь контур). Слот pointer-events:none, поэтому геометрически.
+    const _slot = document.getElementById('_ebDropSlot');
+    if(_slot){
+      const sr = _slot.getBoundingClientRect();
+      _slot.classList.toggle('is-hot', e.clientY >= sr.top && e.clientY <= sr.bottom);
+    }
   } else {
     _removeDropSlot();
   }
@@ -6391,6 +6445,37 @@ function _mDragUp(e){
 function onDragStart(){}
 function onDragEnd(){ dragTaskId = null; }
 function onDragOver(e){ e.preventDefault(); }
+
+// v0.1.165 (DB): кнопки ↑/↓ рядом с kebab — переместить задачу на одну позицию
+// вверх/вниз ВНУТРИ её видимой группы (тот же проект + та же неделя). Меняем
+// порядок прямо в массиве TASKS и персистим sort_order/position РОВНО как
+// drag-reorder (_mDragUp), чтобы поведение совпадало с перетаскиванием.
+function _moveTaskBy(id, dir){
+  const idx = TASKS.findIndex(t => t.id === id);
+  if(idx < 0) return;
+  const item = TASKS[idx];
+  // соседи в пределах одной группы: тот же проект и та же неделя (t.w)
+  const groupIdx = [];
+  TASKS.forEach((t, i) => { if(t.proj === item.proj && (t.w||'') === (item.w||'')) groupIdx.push(i); });
+  const pos = groupIdx.indexOf(idx);
+  const tgtPos = pos + dir;
+  if(tgtPos < 0 || tgtPos >= groupIdx.length) return;   // уже с краю группы — двигать некуда
+  const tgtIdx = groupIdx[tgtPos];
+  // swap двух элементов массива (их относительный порядок в группе меняется)
+  const tmp = TASKS[idx]; TASKS[idx] = TASKS[tgtIdx]; TASKS[tgtIdx] = tmp;
+  // персист порядка по проекту — как в _mDragUp (6386-6395)
+  const projTasks = TASKS.filter(t => t.proj === item.proj);
+  projTasks.forEach((t, i) => { t.uid = i + 1; });
+  if(db?.ready){
+    projTasks.forEach((t, i) => {
+      if(t._cloud) db.tasks.update(t.id, { sort_order: i, position: i + 1 }).catch(()=>{});
+    });
+  }
+  if(typeof logHist === 'function') logHist(item, 'reorder', dir < 0 ? 'moved up' : 'moved down');
+  render();
+}
+function moveTaskUp(id){ _moveTaskBy(id, -1); }
+function moveTaskDown(id){ _moveTaskBy(id, 1); }
 function onDropTask(){}
 function onDragLeave(){}
 
