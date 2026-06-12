@@ -1537,12 +1537,16 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
    vertical split via --pres-split. */
 .pres-card.with-chat{max-width:1700px}
 .pres-body-grid{
+  /* v0.1.164 (DB): картинкам больше высоты (68%), чату+notes меньше — чтобы
+     скриншоты помещались целиком (object-fit:contain) без обрезки и скролла. */
   flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;min-height:0;
-  --pres-split:58%;
+  --pres-split:68%;
 }
 .pres-pics-pair{
+  /* v0.1.164 (DB): overflow:hidden — никакого скролла; картинки object-fit:
+     contain помещаются целиком в доступную высоту. */
   height:var(--pres-split);min-height:120px;
-  padding:18px 22px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;
+  padding:18px 22px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;gap:16px;
   align-items:stretch;background:var(--bg);flex-shrink:0
 }
 /* v0.1.151 (#2 DB): carousel of all screenshots attached to the task.
@@ -6711,7 +6715,7 @@ function renderPresent(){
       const heroAria = `Add ${lower} screenshot. Click, paste, or drop an image.`;
       return `<div class="pres-pic pres-pic-empty" role="button" tabindex="0"
         aria-label="${heroAria}"
-        style="min-height:440px;cursor:pointer"
+        style="height:100%;min-height:0;cursor:pointer"
         onclick="event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}})"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}});}">
         <div class="lbl">${label}</div>
@@ -6727,7 +6731,7 @@ function renderPresent(){
         </div>
       </div>`;
     }
-    return `<div class="pres-pic" style="min-height:440px"><div class="lbl">${label}</div>
+    return `<div class="pres-pic" style="height:100%;min-height:0"><div class="lbl">${label}</div>
       <img src="${src}" alt="" style="cursor:zoom-in" title="Click to open editor"
            onerror="this.style.display='none'"
            onclick="openExistingShotEditor('${t.id}',${slotIdx})">
