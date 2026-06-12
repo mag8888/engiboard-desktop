@@ -941,6 +941,23 @@ body.dark-mode .card-move:hover{background:rgba(255,255,255,.08)}
 .task-ctx-menu .tcm-item.danger:hover{background:#FEF2F2}
 .task-ctx-menu .tcm-sep{height:1px;background:var(--line);margin:4px 6px}
 body.dark-mode .task-ctx-menu .tcm-item:hover{background:rgba(255,255,255,.06)}
+/* v0.1.167 (DB): пикер шаблонов в стиле «Move to week». Имя шаблона обрезается
+   ellipsis и НЕ вылезает за рамку; в строке — применить (клик) и удалить (✕). */
+.tmpl-menu{max-width:300px}
+.tmpl-menu .tcm-head{font-size:10px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;padding:6px 12px 3px}
+.tmpl-menu .tmpl-create-row{display:flex;gap:6px;align-items:center;padding:2px 8px 4px}
+.tmpl-menu .tmpl-create-inp{flex:1;min-width:0;border:1px solid var(--line-2);border-radius:7px;padding:7px 10px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)}
+.tmpl-menu .tmpl-create-inp:focus{border-color:var(--acc)}
+.tmpl-menu .tmpl-create-ok{flex-shrink:0;border:none;background:var(--acc);color:#fff;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.tmpl-menu .tmpl-create-ok:hover{filter:brightness(1.05)}
+.tmpl-menu .tmpl-create-row2{padding:0 8px 4px}
+.tmpl-menu .tmpl-mini-btn{width:100%;border:1px solid var(--line-2);background:var(--surf);color:var(--t2);border-radius:7px;padding:6px 10px;font-size:11px;cursor:pointer}
+.tmpl-menu .tmpl-mini-btn:hover{border-color:var(--acc);color:var(--acc)}
+.tmpl-menu .tmpl-row-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tmpl-menu .tmpl-row-ct{flex-shrink:0;font-size:10px;color:var(--t4);font-family:var(--mono)}
+.tmpl-menu .tmpl-row-del{flex-shrink:0;border:none;background:none;color:var(--t4);font-size:12px;cursor:pointer;padding:2px 5px;border-radius:5px;line-height:1}
+.tmpl-menu .tmpl-row-del:hover{color:#EF4444;background:rgba(239,68,68,.1)}
+.tmpl-menu .tmpl-empty-row{padding:8px 12px;font-size:11px;color:var(--t4);font-style:italic}
 
 body.dark-mode .row .nt-chat{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.05)}
 body.dark-mode .row .nt-chat-msg:hover{background:rgba(14,165,233,.1)}
@@ -8961,7 +8978,7 @@ function showTaskMenu(e, taskId){
     <div class="tcm-item" onclick="taskMenuDuplicate('${taskId}')">${ICON_DUPLICATE} Duplicate</div>
     <div class="tcm-item" onclick="toggleTaskPinned('${taskId}')">${pinIcon}${pinLabel}</div>
     <div class="tcm-item" onclick="toggleTaskBug('${taskId}')">${bugIcon}${bugLabel}</div>
-    <div class="tcm-item" onclick="document.getElementById('_ebTaskMenu').remove();openTmplMenu('${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Templates</div>
+    <div class="tcm-item" onclick="document.getElementById('_ebTaskMenu').remove();openTmplMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Templates</div>
     <div class="tcm-item" onclick="openMoveToWeekMenu(event,'${taskId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to week…</div>
     <div class="tcm-item" onclick="setTaskDeadline('${taskId}')">${deadlineIcon}${deadlineLabel}</div>
     ${t.deadline ? `<div class="tcm-item" onclick="clearTaskDeadline('${taskId}')">${deadlineIcon}Clear deadline</div>` : ''}
@@ -10670,56 +10687,70 @@ function closeDraftModal(){
 // Templates are independent of task checklists. You can create empty templates,
 // add items to them inside the editor, apply them to any task, or delete them
 // at any time — no dependency on the current task's state.
-function openTmplMenu(taskId){
-  closeTmplMenu();
-  const btn = document.getElementById('tmplBtn_' + taskId);
-  if(!btn) return;
+function openTmplMenu(e, taskId){
+  // v0.1.167 (DB): пикер шаблонов в стиле «Move to week» — .task-ctx-menu у
+  // курсора, добавляется в document.body (раньше попап клали в скрытый
+  // tmplBtn с display:none и он мог не показываться). Сверху создание, ниже
+  // ПЛОСКИЙ список сохранённых шаблонов: клик по строке — применить, ✕ —
+  // удалить, длинное имя обрезается ellipsis и не вылезает за рамку.
+  if(typeof e === 'string'){ taskId = e; e = null; }   // совместимость со старым вызовом
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
+  document.getElementById('_ebTaskMenu')?.remove();
+  document.getElementById('_ebWeekMenu')?.remove();
+  document.getElementById('tmplMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
 
   const menu = document.createElement('div');
   menu.id = 'tmplMenu';
-  menu.className = 'tmpl-picker';
+  menu.className = 'task-ctx-menu tmpl-menu';
+  menu.dataset.taskId = taskId;
 
-  // Save section — always available, optionally pre-fills from current task's checklist
   const cl = (t && Array.isArray(t.checklist)) ? t.checklist : [];
-  const fromCurrentHint = cl.length > 0
-    ? `<button class="tmpl-from-cur" onclick="event.stopPropagation();saveTemplateFromTask('${taskId}',this.closest('.tmpl-save-row').querySelector('.tmpl-save-inp').value)" title="Save current task's checklist as template">↓ from current (${cl.length})</button>`
+  const fromCur = cl.length > 0
+    ? `<div class="tmpl-create-row2"><button class="tmpl-mini-btn" onclick="event.stopPropagation();saveTemplateFromTask('${taskId}',document.getElementById('tmplSaveInp').value)" title="Сохранить чек-лист текущей задачи как шаблон">↓ из чек-листа текущей задачи (${cl.length})</button></div>`
     : '';
-  menu.innerHTML += `<div class="tmpl-picker-head">Create template</div>
-    <div class="tmpl-save-row">
-      <input class="tmpl-save-inp" id="tmplSaveInp" placeholder="Template name…"
+  let html = `<div class="tcm-head">Создать шаблон</div>
+    <div class="tmpl-create-row">
+      <input class="tmpl-create-inp" id="tmplSaveInp" placeholder="Название шаблона…"
         value="${((t?.title||t?.n||'').replace(/"/g,'&quot;'))}"
         onkeydown="if(event.key==='Enter')commitSaveTemplate('${taskId}',this.value)"
         onclick="event.stopPropagation()">
-      <div class="tmpl-save-btns">
-        ${fromCurrentHint}
-        <button class="tmpl-save-ok" onclick="event.stopPropagation();commitSaveTemplate('${taskId}',this.closest('.tmpl-save-row').querySelector('.tmpl-save-inp').value)">Create</button>
-        <button class="tmpl-save-cancel" onclick="event.stopPropagation();closeTmplMenu()">Cancel</button>
-      </div>
-    </div>`;
+      <button class="tmpl-create-ok" onclick="event.stopPropagation();commitSaveTemplate('${taskId}',document.getElementById('tmplSaveInp').value)">Create</button>
+    </div>
+    ${fromCur}
+    <div class="tcm-sep"></div>
+    <div class="tcm-head">Шаблоны</div>`;
 
-  // Apply section — always shown
   if(TEMPLATES.length > 0){
-    menu.innerHTML += `<div class="tmpl-sep"></div>
-      <div class="tmpl-picker-head">Apply template</div>` +
-      TEMPLATES.map(tmpl => `
-        <div class="tmpl-item">
-          <span class="tmpl-item-name" onclick="event.stopPropagation();applyTemplate('${tmpl.id}','${taskId}')">${(tmpl.name||'').replace(/[<>]/g,'')}</span>
-          <span class="tmpl-item-ct">${(tmpl.checklist||[]).length}✓</span>
-          <button class="tmpl-item-del" onclick="event.stopPropagation();deleteTmpl('${tmpl.id}')" title="Delete">✕</button>
-        </div>`).join('');
+    html += TEMPLATES.map(tmpl => {
+      const nm = (tmpl.name||'').replace(/[<>]/g,'');
+      return `<div class="tcm-item tmpl-row" onclick="applyTemplate('${tmpl.id}','${taskId}')" title="Применить: ${nm.replace(/"/g,'&quot;')}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span class="tmpl-row-name">${nm}</span>
+        <span class="tmpl-row-ct">${(tmpl.checklist||[]).length}✓</span>
+        <button class="tmpl-row-del" onclick="event.stopPropagation();deleteTmpl('${tmpl.id}')" title="Удалить" aria-label="Удалить шаблон">✕</button>
+      </div>`;
+    }).join('');
   } else {
-    menu.innerHTML += `<div class="tmpl-sep"></div>
-      <div class="tmpl-empty">No templates yet</div>`;
+    html += `<div class="tmpl-empty-row">Пока нет шаблонов</div>`;
   }
-
-  btn.appendChild(menu);
+  menu.innerHTML = html;
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth || 260, mh = menu.offsetHeight || 260;
+  const x = e?.clientX ?? (window.innerWidth/2);
+  const y = e?.clientY ?? (window.innerHeight/2);
+  const px = Math.min(x, window.innerWidth - mw - 8);
+  const py = Math.min(y, window.innerHeight - mh - 8);
+  menu.style.left = px + 'px';
+  menu.style.top  = py + 'px';
+  menu.dataset.x = px; menu.dataset.y = py;
   setTimeout(() => {
     const inp = document.getElementById('tmplSaveInp');
-    if(inp){ inp.select(); inp.focus(); }
-    document.addEventListener('click', (e) => {
-      if(!menu.contains(e.target)) closeTmplMenu();
-    }, {once:true});
+    if(inp){ inp.focus(); inp.select(); }
+    document.addEventListener('click', function cl(ev){
+      if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click', cl); }
+    });
   }, 20);
 }
 
@@ -10779,12 +10810,14 @@ function applyTemplate(tmplId, taskId){
 function deleteTmpl(tmplId){
   TEMPLATES = TEMPLATES.filter(x => x.id !== tmplId);
   localStorage.setItem('eb_templates', JSON.stringify(TEMPLATES));
-  // Re-render the open menu if visible — find its taskId from the button
+  // v0.1.167: переоткрыть пикер на том же месте, чтобы список обновился на месте.
   const menu = document.getElementById('tmplMenu');
   if(menu){
-    const btn = menu.closest('[id^="tmplBtn_"]');
-    const tid = btn ? btn.id.replace('tmplBtn_','') : null;
-    if(tid){ menu.remove(); openTmplMenu(tid); }
+    const tid = menu.dataset.taskId;
+    const x = +menu.dataset.x || (window.innerWidth/2);
+    const y = +menu.dataset.y || (window.innerHeight/2);
+    menu.remove();
+    if(tid) openTmplMenu({clientX:x, clientY:y}, tid);
   }
   toast('✓ Template deleted');
 }
