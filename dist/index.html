@@ -432,7 +432,9 @@ body.dark-mode .proj-floating-action{background:rgba(255,255,255,.04)}
   transition:background .12s}
 .pp-client-hdr:hover{background:var(--bg)}
 .pp-client-hdr.collapsed{opacity:.7}
-.pp-client-hdr .pp-client-caret{font-size:8px;color:var(--t4)}
+.pp-client-hdr .pp-client-caret{color:var(--t4);display:inline-flex;align-items:center}
+.pp-client-hdr .pp-client-caret svg{width:11px;height:11px;transition:transform .15s}
+.pp-client-hdr:not(.collapsed) .pp-client-caret svg{transform:rotate(90deg)}
 .pp-client-hdr .pp-client-name{flex:1}
 .pp-client-hdr .pp-client-ct{font-size:9px;color:var(--t4);font-weight:600;
   background:rgba(15,23,42,.05);padding:1px 6px;border-radius:8px}
@@ -1859,7 +1861,11 @@ body.dark-mode .week-hdr.pinned-hdr{color:#FCD34D;background:rgba(245,158,11,.10
 body.dark-mode .row.pinned::after{background:#FCD34D}
 .week-hdr:hover{color:var(--t1)}
 .week-hdr.collapsed{opacity:.7}
-.week-hdr .week-caret{font-size:9px;color:var(--t3);flex-shrink:0;width:8px}
+/* v0.1.164 (DB): микро-стрелки ▸/▾ заменены на chevron-иконку. Поворот по
+   состоянию: вправо = свёрнуто, вниз = развёрнуто. */
+.week-hdr .week-caret{color:var(--t3);flex-shrink:0;display:inline-flex;align-items:center}
+.week-hdr .week-caret svg{width:12px;height:12px;transition:transform .15s}
+.week-hdr:not(.collapsed) .week-caret svg{transform:rotate(90deg)}
 .week-hdr .week-name{flex:0 0 auto}
 .week-hdr .week-ct{color:var(--t3);font-size:10px;font-weight:500}
 .proj-group{margin:6px 0}
@@ -1869,7 +1875,8 @@ body.dark-mode .row.pinned::after{background:#FCD34D}
   cursor:pointer;user-select:none;transition:.12s
 }
 .proj-group-head:hover{background:var(--bg)}
-.proj-group-tri{font-size:9px;color:var(--t3);transition:transform .15s;width:10px;flex-shrink:0}
+.proj-group-tri{color:var(--t3);transition:transform .15s;flex-shrink:0;display:inline-flex;align-items:center}
+.proj-group-tri svg{width:12px;height:12px}
 .proj-group.collapsed .proj-group-tri{transform:rotate(-90deg)}
 .proj-group-name{font-size:13px;font-weight:600;color:var(--t1);letter-spacing:-.005em}
 .proj-group-meta{font-size:11px;color:var(--t4);font-family:var(--mono);letter-spacing:.02em}
@@ -4732,7 +4739,7 @@ function render(){
     if(_pinnedSticky.length){
       const pinCollapsed = isWeekCollapsed(proj.id, '__pinned__');
       html += `<div class="week-hdr pinned-hdr${pinCollapsed?' collapsed':''}" data-week="__pinned__" onclick="toggleWeek('${proj.id}','__pinned__')">
-        <span class="week-caret">${pinCollapsed ? '▸' : '▾'}</span>
+        <span class="week-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#F59E0B"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/></svg>
         <span class="week-name">Pinned</span>
         <span class="week-ct">${_pinnedSticky.length}</span>
@@ -4773,7 +4780,7 @@ function render(){
           ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>`
           : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.5"><polyline points="20 6 9 17 4 12"/></svg>`;
         html += `<div class="week-hdr${collapsed?' collapsed':''}${complete?' complete':''}" data-week="${w}" onclick="toggleWeek('${proj.id}','${w}')">
-          <span class="week-caret">${collapsed ? '▸' : '▾'}</span>
+          <span class="week-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
           <span class="week-name">${label}</span>
           <span class="week-ct">${tasks.length}</span>
           ${w ? `<button type="button" class="week-done-btn" title="${checkTitle}" aria-label="${checkTitle}" aria-pressed="${complete ? 'true' : 'false'}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>
@@ -4801,7 +4808,7 @@ function render(){
   if(_pinnedSticky.length){
     const pinCollapsed = isWeekCollapsed('__all__', '__pinned__');
     html += `<div class="week-hdr pinned-hdr${pinCollapsed?' collapsed':''}" data-week="__pinned__" onclick="toggleWeek('__all__','__pinned__')">
-      <span class="week-caret">${pinCollapsed ? '▸' : '▾'}</span>
+      <span class="week-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
       <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;color:#F59E0B"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2z"/></svg>
       <span class="week-name">Pinned · across projects</span>
       <span class="week-ct">${_pinnedSticky.length}</span>
@@ -4869,7 +4876,7 @@ function renderProjGroup(proj, tasks){
 
   return `<div class="proj-group ${isCollapsed?'collapsed':''}" data-proj-id="${proj.id}">
     <div class="proj-group-head" onclick="toggleProjGroup('${proj.id}')">
-      <span class="proj-group-tri">▼</span>
+      <span class="proj-group-tri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
       <span class="proj-group-name">${proj.name}</span>
       <span class="proj-group-meta">${proj.code} · ${total} tasks</span>
       <div class="proj-group-bar">${segs}</div>
@@ -8259,7 +8266,7 @@ function renderProjPicker(){
       const items = byClient.get(name);
       const collapsed = isClientCollapsed(name);
       bodyHtml += `<div class="pp-client-hdr${collapsed?' collapsed':''}" onclick="toggleClientGroup('${name.replace(/'/g,"\\'")}')">
-        <span class="pp-client-caret">${collapsed ? '▸' : '▾'}</span>
+        <span class="pp-client-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         <span class="pp-client-name">${name}</span>
         <span class="pp-client-ct">${items.length}</span>
       </div>`;
