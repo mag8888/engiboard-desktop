@@ -218,9 +218,7 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
          annotations of type 'dimension' still render, but the tool is no
          longer creatable from the toolbar. -->
     <!-- <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button> -->
-    <!-- v0.1.164 (DB): иконка Blur была глаз-перечёркнутый и путала с «скрыть».
-         Теперь капля-размытие. -->
-    <button class="fb" data-id="blur" data-tip="Blur" data-key="B" onclick="setTool('blur')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7c3 3.5 6 6.8 6 10.3a6 6 0 0 1-12 0c0-3.5 3-6.8 6-10.3z"/><path d="M9.5 13.5a2.5 2.5 0 0 0 2.5 2.5" opacity=".5"/></svg></button>
+    <!-- v0.1.164 (DB): инструмент Blur убран полностью — не нужен. -->
     <button class="fb" data-id="comment" data-tip="Comment" data-key="Q" onclick="setTool('comment')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
     <button class="fb" data-id="emoji" data-tip="Emoji" data-key="E" onclick="toggleEmojiPicker(event)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9.5" x2="9.01" y2="9.5"/><line x1="15" y1="9.5" x2="15.01" y2="9.5"/></svg></button>
     <!-- v0.1.164 (DB): кнопка «скрыть/показать все метки» (глаз-перечёркнутый). -->
@@ -1021,7 +1019,8 @@ async function discard(){
 // v0.1.158 (P0 from review): 'd' shortcut for the removed Dimension tool
 // is dropped — pressing D used to activate the tool even after the button
 // was hidden in v0.1.157.
-const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',b:'blur',q:'comment',m:'marker'};
+// v0.1.164 (DB): 'b'/blur убран — инструмент Blur удалён из тулбара.
+const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();

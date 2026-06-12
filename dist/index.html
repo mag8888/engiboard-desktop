@@ -5908,25 +5908,57 @@ function _findDriveLink(t, linkId){
 // v0.1.149: entry point for attaching a Drive link when there's none yet.
 // Prompts for a URL, validates, and pushes it into t.links. Auto-syncs to
 // Supabase. Mirrors what addLink() does for the (removed) Links panel.
+// v0.1.164 (DB «кнопка link не реагирует»): общий внутримодальный ввод
+// текста взамен нативного prompt() — prompt() в WKWebView (macOS desktop)
+// возвращает null и НИЧЕГО не показывает, поэтому кнопка Link молчала.
+function ebTextPrompt(opts){
+  const { title, placeholder, value, okLabel, onOk } = opts || {};
+  document.getElementById('_ebTextPrompt')?.remove();
+  const btn = 'font-family:inherit;font-size:13px;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer';
+  const ov = document.createElement('div');
+  ov.id = '_ebTextPrompt';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100020;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.4)';
+  ov.innerHTML = `<div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:360px;max-width:92vw;box-shadow:0 16px 48px rgba(0,0,0,.35)" onclick="event.stopPropagation()">
+    <div style="font-weight:700;font-size:14px;margin-bottom:12px">${title || ''}</div>
+    <input id="_ebTextPromptInp" type="text" placeholder="${(placeholder||'').replace(/"/g,'&quot;')}" value="${(value||'').replace(/"/g,'&quot;')}" style="width:100%;padding:11px 12px;font-size:14px;border:1px solid var(--line-2);border-radius:8px;background:var(--surf);color:var(--t1);font-family:inherit;outline:none">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button id="_ebTextPromptCancel" style="${btn};border:1px solid var(--line-2);background:transparent;color:var(--t2)">Отмена</button>
+      <button id="_ebTextPromptOk" style="${btn};border:1px solid var(--acc);background:var(--acc);color:#fff">${okLabel || 'OK'}</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const inp = ov.querySelector('#_ebTextPromptInp');
+  const submit = () => { const val = inp.value.trim(); ov.remove(); if(typeof onOk === 'function') onOk(val); };
+  ov.querySelector('#_ebTextPromptOk').onclick = submit;
+  ov.querySelector('#_ebTextPromptCancel').onclick = () => ov.remove();
+  ov.addEventListener('click', () => ov.remove());
+  inp.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); ov.remove(); }
+  });
+  setTimeout(() => inp.focus(), 50);
+}
+
 function promptAddDriveLink(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  const v = prompt('Paste a Google Drive (or any) URL:', '');
-  if(v === null) return;
-  const url = v.trim();
-  if(!url) return;
-  if(!/^https?:\/\//.test(url)){ toast('URL must start with http(s)://'); return; }
-  if(!Array.isArray(t.links)) t.links = [];
-  const isDrive = (typeof isGDriveUrl === 'function') ? isGDriveUrl(url) : /drive\.google\./.test(url);
-  t.links.push({
-    id: 'lnk' + Date.now(),
-    url,
-    title: (typeof gdriveTitleFromUrl === 'function') ? gdriveTitleFromUrl(url) : 'Link',
-    type: isDrive ? 'gdrive' : 'url'
+  ebTextPrompt({
+    title: 'Добавить ссылку', placeholder: 'https://drive.google.com/…', okLabel: 'Добавить',
+    onOk: (url) => {
+      if(!url) return;
+      if(!/^https?:\/\//.test(url)){ toast('Ссылка должна начинаться с http(s)://'); return; }
+      if(!Array.isArray(t.links)) t.links = [];
+      const isDrive = (typeof isGDriveUrl === 'function') ? isGDriveUrl(url) : /drive\.google\./.test(url);
+      t.links.push({
+        id: 'lnk' + Date.now(),
+        url,
+        title: (typeof gdriveTitleFromUrl === 'function') ? gdriveTitleFromUrl(url) : 'Link',
+        type: isDrive ? 'gdrive' : 'url'
+      });
+      if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
+      toast(isDrive ? 'Drive-ссылка добавлена' : 'Ссылка добавлена');
+      render();
+    }
   });
-  if(db?.ready && t._cloud) db.tasks.update(t.id, { links: t.links }).catch(()=>{});
-  toast(isDrive ? 'Drive link added' : 'Link added');
-  render();
 }
 
 function editDriveLink(taskId, linkId){
@@ -5935,23 +5967,25 @@ function editDriveLink(taskId, linkId){
   if(!t) return;
   const link = _findDriveLink(t, linkId);
   if(!link) return;
-  const v = prompt('Drive URL:', link.url || '');
-  if(v === null) return;
-  const trimmed = v.trim();
-  if(!trimmed){ toast('URL cannot be empty'); return; }
-  if(!/^https?:\/\//.test(trimmed)){ toast('URL must start with http(s)://'); return; }
-  const prev = { url: link.url, title: link.title, type: link.type };
-  link.url = trimmed;
-  link.type = (typeof isGDriveUrl === 'function' && isGDriveUrl(trimmed)) ? 'gdrive' : 'url';
-  if(typeof gdriveTitleFromUrl === 'function') link.title = gdriveTitleFromUrl(trimmed);
-  const next = { url: link.url, title: link.title, type: link.type };
-  _syncLinks(t);
-  toast('Link updated');
-  render();
-  // v0.1.154 (#19 phase 2): undo restores the snapshot taken before the edit.
-  pushUndo('Edit link',
-    () => { link.url = prev.url; link.title = prev.title; link.type = prev.type; _syncLinks(t); render(); },
-    () => { link.url = next.url; link.title = next.title; link.type = next.type; _syncLinks(t); render(); });
+  // v0.1.164: внутримодальный ввод вместо prompt() (не работает в WKWebView).
+  ebTextPrompt({
+    title: 'Изменить ссылку', placeholder: 'https://…', value: link.url || '', okLabel: 'Сохранить',
+    onOk: (trimmed) => {
+      if(!trimmed){ toast('Ссылка не может быть пустой'); return; }
+      if(!/^https?:\/\//.test(trimmed)){ toast('Ссылка должна начинаться с http(s)://'); return; }
+      const prev = { url: link.url, title: link.title, type: link.type };
+      link.url = trimmed;
+      link.type = (typeof isGDriveUrl === 'function' && isGDriveUrl(trimmed)) ? 'gdrive' : 'url';
+      if(typeof gdriveTitleFromUrl === 'function') link.title = gdriveTitleFromUrl(trimmed);
+      const next = { url: link.url, title: link.title, type: link.type };
+      _syncLinks(t);
+      toast('Ссылка обновлена');
+      render();
+      pushUndo('Edit link',
+        () => { link.url = prev.url; link.title = prev.title; link.type = prev.type; _syncLinks(t); render(); },
+        () => { link.url = next.url; link.title = next.title; link.type = next.type; _syncLinks(t); render(); });
+    }
+  });
 }
 function deleteDriveLink(taskId, linkId){
   document.getElementById('_ebDriveMenu')?.remove();
