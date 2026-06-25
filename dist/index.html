@@ -562,7 +562,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* v0.1.46: col-hdr no longer rendered, but legacy class kept */
 .col-hdr{display:none;
-  grid-template-columns:24px 240px 240px 1fr 1fr;
+  grid-template-columns:30px 240px 240px 1fr 1fr;
   padding:8px 28px 8px 36px;background:var(--bg);border-bottom:1px solid var(--line);
   font-family:var(--mono);font-size:10px;color:var(--t3);
   text-transform:uppercase;letter-spacing:.1em;flex-shrink:0
@@ -583,19 +583,21 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* LIST — compact row (~4:3 pics by default), no labels, chat preview */
 .list.cv-list .row{
-  grid-template-columns:24px 1fr 220px 220px;
+  grid-template-columns:30px 1fr 220px 220px;
   min-height:165px;padding:6px 10px;margin:4px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~2 сообщения в свёрнутом виде, скролл дальше. */
 .list.cv-list .chat-col .chat-list{min-height:0;max-height:56px;overflow-y:auto}
-.list.cv-list .nt-chat-input{display:none}
+/* v0.1.169 (DB): чат-инпут показываем и в свёрнутом виде (компактно). */
+.list.cv-list .nt-chat-input{display:flex;padding:2px;margin-top:1px}
+.list.cv-list .nt-chat-input input{font-size:11px;padding:4px 6px}
 .list.cv-list .chat-row-actions{flex-direction:row;flex-wrap:wrap;gap:6px;align-items:center}
 .list.cv-list .chat-row-actions-r2{display:flex}
 .list.cv-list .pi-lbl{display:none}        /* no BEFORE/AFTER labels in list mode */
 
 /* EXPANDED — large card: wider chat + big pics */
 .list.cv-expanded .row{
-  grid-template-columns:24px 380px 1fr 1fr;
+  grid-template-columns:30px 380px 1fr 1fr;
   min-height:380px;padding:16px;margin:14px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~5 сообщений в развёрнутом виде. */
@@ -618,7 +620,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 .row{
   /* v0.1.55: title-col removed (title + id no longer shown), status moved into
      chat-col actions row. Grid: drag · CHAT(+actions+status) · BEFORE · AFTER */
-  display:grid;grid-template-columns:24px 320px 1fr 1fr;
+  display:grid;grid-template-columns:30px 320px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px;
@@ -646,7 +648,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   color:var(--t4);background:var(--bg);padding:2px 6px;border-radius:3px;
   pointer-events:none}
 body.dark-mode .row.archived{background:repeating-linear-gradient(135deg,var(--surf) 0,var(--surf) 12px,rgba(255,255,255,.02) 12px,rgba(255,255,255,.02) 14px)}
-body.select-mode .row{cursor:pointer}
+body.select-mode .row{cursor:pointer;transform:translateX(30px);transition:transform .18s ease}
 .row.dragging{opacity:.35}
 .row.drag-over-top{border-top:3px solid var(--acc)!important}
 .row.drag-over-bottom{border-bottom:3px solid var(--acc)!important}
@@ -678,8 +680,8 @@ body.dark-mode .eb-drop-slot.is-hot{
 .row:hover .drag-handle{opacity:1;color:var(--acc)}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
 .drag-handle:active,.row.dragging{cursor:grabbing}
-/* v0.1.70: whole row signals it's draggable (except interactive controls) */
-.row:not(.empty){cursor:grab}
+/* v0.1.169 (DB): тянуть можно ТОЛЬКО за drag-ручку — строка больше не grab. */
+.row:not(.empty){cursor:default}
 .row:not(.empty) input,.row:not(.empty) textarea,.row:not(.empty) button,
 .row:not(.empty) [contenteditable],.row:not(.empty) .st,.row:not(.empty) .pi{cursor:auto}
 .row:not(.empty) .pi.has-img{cursor:zoom-in}
@@ -930,6 +932,32 @@ body.dark-mode .card-move:hover{background:rgba(255,255,255,.08)}
 .row.empty.eb-addrow .newInpProj,.row.empty.eb-addrow #newInp{width:100%;font-weight:500}
 .row.empty.eb-addrow .newInpProj::placeholder,.row.empty.eb-addrow #newInp::placeholder{color:var(--acc);opacity:.85}
 .row.empty.eb-addrow .pc{opacity:.4}
+/* ━━━ v0.1.169 (DB) UX-батч ━━━ */
+/* (1) Фильтр багов — чекбокс «Hide bugs» в стиле чипа */
+.bug-hide-cb{display:inline-flex;align-items:center;gap:5px;margin-left:6px;font-size:12px;cursor:pointer;color:#DC2626;user-select:none;padding:4px 8px;border:1px solid rgba(220,38,38,.3);border-radius:7px}
+.bug-hide-cb input{accent-color:#DC2626;cursor:pointer;width:14px;height:14px}
+.bug-hide-cb:hover{background:rgba(220,38,38,.06)}
+/* (7) Быстрый тоггл «баг» на карточке рядом с исполнителем */
+.card-bugtoggle{display:inline-flex;align-items:center;justify-content:center;width:24px;height:22px;border:1px solid var(--line);border-radius:7px;color:var(--t3);cursor:pointer;user-select:none;flex-shrink:0;transition:.12s}
+.card-bugtoggle:hover{border-color:#DC2626;color:#DC2626}
+.card-bugtoggle.on{border-color:#DC2626;color:#DC2626;background:rgba(220,38,38,.10)}
+/* (4) Левая ячейка: стрелка-вверх / drag-ручка / стрелка-вниз вертикально */
+.row-handle-stack{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;height:100%}
+.rh-arrow{width:22px;height:18px;border:none;background:transparent;color:var(--t4);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.12s}
+.rh-arrow:hover{background:rgba(15,23,42,.06);color:var(--acc)}
+body.dark-mode .rh-arrow:hover{background:rgba(255,255,255,.08)}
+.row:hover .rh-arrow{color:var(--t3)}
+/* (6) Select-mode по типу Telegram/WhatsApp: кружок слева + сдвиг строки */
+.sel-dot{position:absolute;left:-26px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;border:2px solid var(--line-2);background:var(--surf);opacity:0;pointer-events:none;transition:opacity .18s,background .12s,border-color .12s;box-sizing:border-box;z-index:2}
+.sel-dot::after{content:'';position:absolute;left:5px;top:2px;width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);opacity:0;transition:opacity .12s}
+body.select-mode .sel-dot{opacity:1;pointer-events:auto;cursor:pointer}
+.row.selected .sel-dot{background:var(--acc);border-color:var(--acc)}
+.row.selected .sel-dot::after{opacity:1}
+body.select-mode .row-handle-stack{visibility:hidden}
+/* (3) Кебаб управления неделей */
+.week-kebab{border:none;background:transparent;cursor:pointer;color:var(--t3);border-radius:5px;width:24px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:.12s}
+.week-kebab:hover{background:rgba(15,23,42,.08);color:var(--t1)}
+body.dark-mode .week-kebab:hover{background:rgba(255,255,255,.1)}
 
 /* Task right-click context menu */
 .task-ctx-menu{position:fixed;z-index:10002;background:var(--surf);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 8px 28px rgba(15,23,42,.2);padding:5px;min-width:180px}
@@ -1853,14 +1881,14 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .week-hdr{display:flex;align-items:center;gap:8px;
   /* Left margin matches .row's 28px so week labels line up with the task
      cards underneath instead of hugging the container edge. */
-  margin:5px 28px 0;cursor:pointer;font-family:var(--mono);font-size:11px;
-  font-weight:600;letter-spacing:.04em;color:var(--t3);user-select:none;
+  margin:5px 28px 0;cursor:pointer;font-family:var(--mono);font-size:12px;
+  font-weight:700;letter-spacing:.04em;color:var(--t1);user-select:none;
   /* v0.1.163: weeks were nearly invisible as plain text — now each header is
      a distinct banded "chip" with a border + subtle shadow so sections read
      as clearly separated. v0.1.163b (DB): сильно уплотнили — отступ между
      неделями 5px и тоньше паддинг, чтобы влезало больше недель на экран. */
-  padding:5px 12px;background:var(--surf);border:1px solid var(--line-2);
-  border-radius:7px;box-shadow:0 1px 1px rgba(15,23,42,.03)}
+  padding:6px 12px;background:rgba(14,165,233,.07);border:1.5px solid var(--line);
+  border-radius:7px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
 body.dark-mode .week-hdr{box-shadow:0 1px 1px rgba(0,0,0,.2)}
 .week-hdr:first-child{margin-top:2px}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
@@ -1905,14 +1933,14 @@ body.dark-mode .week-hdr.pinned-hdr{color:#FCD34D;background:rgba(245,158,11,.10
   pointer-events:none}
 body.dark-mode .row.pinned::after{background:#FCD34D}
 .week-hdr:hover{color:var(--t1)}
-.week-hdr.collapsed{opacity:.7}
+.week-hdr.collapsed{opacity:.88}
 /* v0.1.164 (DB): микро-стрелки ▸/▾ заменены на chevron-иконку. Поворот по
    состоянию: вправо = свёрнуто, вниз = развёрнуто. */
 .week-hdr .week-caret{color:var(--t3);flex-shrink:0;display:inline-flex;align-items:center}
 .week-hdr .week-caret svg{width:12px;height:12px;transition:transform .15s}
 .week-hdr:not(.collapsed) .week-caret svg{transform:rotate(90deg)}
 .week-hdr .week-name{flex:0 0 auto}
-.week-hdr .week-ct{color:var(--t3);font-size:10px;font-weight:500}
+.week-hdr .week-ct{color:var(--t2);font-size:11px;font-weight:700}
 .proj-group{margin:6px 0}
 .proj-group-head{
   display:flex;align-items:center;gap:10px;padding:9px 28px;background:var(--surf);
@@ -2789,7 +2817,8 @@ let TASKS = [
 
 let currentProject = (() => {
   // v0.1.27: persist project selection
-  try { return localStorage.getItem('eb_current_project') || 'p1'; }
+  // v0.1.169 (DB): «All projects» убрана — если сохранён 'all', откатываем на p1.
+  try { const s = localStorage.getItem('eb_current_project'); return (s && s !== 'all') ? s : 'p1'; }
   catch { return 'p1'; }
 })();
 let curView = 'tasks';
@@ -4284,7 +4313,7 @@ let _showHidden = false;
 // обычный раздел Projects.
 let _favoritesOnly = false;
 // v0.1.164 (DB): фильтр «только баги» — переключается чипом в фильтр-баре.
-let _bugsOnly = false;
+let _hideBugs = false;
 
 // v0.1.156 (#1 DB / #27 MR): per-project task sort mode. 'manual' keeps
 // the user's drag-reorder; the others auto-sort each render. Persisted to
@@ -4507,7 +4536,7 @@ function getFilteredTasks(){
     : TASKS.filter(t => t.proj === currentProject);
   // v0.1.163 (#7): раздел Favorites — только запиненные.
   if(_favoritesOnly) result = result.filter(t => t.pinned);
-  if(_bugsOnly) result = result.filter(t => t.bug);
+  if(_hideBugs) result = result.filter(t => !t.bug);
   if(!_showHidden) result = result.filter(t => !t.hidden);
   // v0.1.163: множественный фильтр по статусу (curFilter — Set).
   result = result.filter(passesStatusFilter);
@@ -4553,22 +4582,20 @@ function renderFilters(){
     const label = hideOn ? `${archIcon}Archived (showing)` : `${archIcon}Archived <span style="opacity:.7">·</span> ${archivedCount}`;
     chips.push(`<button class="chip" onclick="toggleShowHidden()" style="${hideStyle};display:inline-flex;align-items:center" title="Show or hide archived tasks (these are tasks you have stashed away — they stay in the project but skip the main list).">${label}</button>`);
   }
-  // v0.1.164 (DB): чип «Bugs» — показать только задачи-баги (вкл/выкл).
+  // v0.1.169 (DB): фильтр багов — настоящий чекбокс «Hide bugs» (инверсия:
+  // включён → скрыть задачи-баги из списка).
   const bugCount = (currentProject === 'all'
     ? TASKS
     : TASKS.filter(t => t.proj === currentProject)).filter(t => t.bug && !t.hidden).length;
-  if(bugCount > 0 || _bugsOnly){
-    const bugStyle = _bugsOnly
-      ? 'background:#DC2626;color:#fff;border-color:#DC2626;margin-left:6px'
-      : 'color:#DC2626;border-color:#DC2626;background:transparent;margin-left:6px';
-    const bIco = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg>`;
-    chips.push(`<button class="chip" onclick="toggleBugsOnly()" style="${bugStyle};display:inline-flex;align-items:center" title="Показать только задачи-баги">${bIco}Bugs <span style="opacity:.7">·</span> ${bugCount}</button>`);
+  if(bugCount > 0 || _hideBugs){
+    const bIco = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg>`;
+    chips.push(`<label class="bug-hide-cb" title="Скрыть задачи-баги из списка"><input type="checkbox" onchange="toggleBugsOnly()" ${_hideBugs ? 'checked' : ''}>${bIco}Hide bugs <span style="opacity:.6">·</span> ${bugCount}</label>`);
   }
   box.innerHTML = chips.join('');
 }
 // v0.1.164 (DB): переключатель «только баги».
 function toggleBugsOnly(){
-  _bugsOnly = !_bugsOnly;
+  _hideBugs = !_hideBugs;
   renderFilters();
   render();
 }
@@ -4691,6 +4718,10 @@ function replaceListWith(html){
 
 let _repaintTick = 0;
 function forceCompositorRepaint(){
+  // v0.1.169 (DB «блинкает приложение»): focus-probe нужен ТОЛЬКО WKWebView
+  // (macOS). На Windows/WebView2 (Edge) он не нужен и вызывает мерцание при
+  // каждом рендере — пропускаем там полностью.
+  if(/Edg\//.test(navigator.userAgent)) return;
   // User insight: the working badge counted as "+1 action" for WebKit.
   // What WebKit treats as a real action: focus change on a real input
   // element (not synthetic events on body). We focus the existing search
@@ -4759,7 +4790,7 @@ function render(){
   // v0.1.163: множественный фильтр по статусу (curFilter — Set).
   allTasks = allTasks.filter(passesStatusFilter);
   // v0.1.164: фильтр «только баги».
-  if(_bugsOnly) allTasks = allTasks.filter(t => t.bug);
+  if(_hideBugs) allTasks = allTasks.filter(t => !t.bug);
   if(curSearch){
     const q = curSearch.toLowerCase();
     allTasks = allTasks.filter(t =>
@@ -4819,6 +4850,9 @@ function render(){
       if(!groups.has(w)) groups.set(w, []);
       groups.get(w).push(t);
     });
+    // v0.1.169 (DB): ручные недели (созданные через кебаб) показываем даже
+    // пустыми — чтобы можно было создать неделю и наполнить её позже.
+    _manualWeeks(proj.id).forEach(w => { if(w && !groups.has(w)) groups.set(w, []); });
     // Sort weeks: chronological by tag (e.g. 26W14 < 26W17); unscheduled last.
     const weekKeys = [...groups.keys()].sort((a,b) => {
       if(a==='' && b==='') return 0;
@@ -4831,7 +4865,8 @@ function render(){
       _sortMaybe(unpinned, proj.id).forEach(t => { html += renderRow(t); });
     } else {
       for(const w of weekKeys){
-        const tasks = groups.get(w);
+        const tasks = groups.get(w) || [];
+        const weekEmpty = TASKS.filter(x => x.proj === proj.id && (x.w||'') === w).length === 0;
         const label = w || 'Unscheduled';
         const collapsed = isWeekCollapsed(proj.id, w);
         const complete = w && isWeekComplete(proj.id, w);
@@ -4844,7 +4879,8 @@ function render(){
           <span class="week-name">${label}</span>
           <span class="week-ct">${tasks.length}</span>
           ${w ? `<button type="button" class="week-done-btn" title="${checkTitle}" aria-label="${checkTitle}" aria-pressed="${complete ? 'true' : 'false'}" onclick="event.stopPropagation();toggleWeekComplete('${proj.id}','${w}')">${checkIcon}</button>
-          <button type="button" class="week-roll-btn" title="Roll open tasks to next week" aria-label="Roll open tasks to next week" onclick="event.stopPropagation();rollForwardWeek('${proj.id}','${w}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><polyline points="9 18 15 12 9 6"/><polyline points="15 18 21 12 15 6"/></svg></button>` : ''}
+          <button type="button" class="week-roll-btn" title="Roll open tasks to next week" aria-label="Roll open tasks to next week" onclick="event.stopPropagation();rollForwardWeek('${proj.id}','${w}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.6"><polyline points="9 18 15 12 9 6"/><polyline points="15 18 21 12 15 6"/></svg></button>
+          <button type="button" class="week-kebab" title="Управление неделей" aria-label="Управление неделей" onclick="event.stopPropagation();openWeekKebab(event,'${proj.id}','${w}',${weekEmpty})"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.4"/><circle cx="8" cy="8" r="1.4"/><circle cx="8" cy="13" r="1.4"/></svg></button>` : ''}
         </div>`;
         if(!collapsed){
           _sortMaybe(tasks, proj.id).forEach(t => { html += renderRow(t); });
@@ -4989,6 +5025,11 @@ function renderAssignee(t){
   return `<span class="card-assignee" onclick="event.stopPropagation();pickAssignee(event,'${t.id}')" title="Assign someone">
     ${ICON_USER} Assign
   </span>`;
+}
+// v0.1.169 (DB): быстрый тоггл «баг» прямо на карточке рядом с исполнителем.
+function renderBugToggle(t){
+  const on = !!t.bug;
+  return `<span class="card-bugtoggle${on?' on':''}" onclick="event.stopPropagation();toggleTaskBug('${t.id}')" title="${on?'Снять метку бага':'Пометить как баг'}" aria-label="${on?'Снять метку бага':'Пометить как баг'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="${on?'#DC2626':'none'}" stroke="${on?'#DC2626':'currentColor'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg></span>`;
 }
 
 // v0.1.142: deadline chip rendered next to the assignee. Past-due dates get
@@ -5155,6 +5196,126 @@ function promptNewWeekForTask(taskId){
   inp.select();
 }
 
+// ━━━ WEEK MANAGEMENT (v0.1.169 DB): создать / переименовать / удалить неделю ━━━
+function _manualWeeksKey(projId){ return 'eb_weeks_' + projId; }
+function _manualWeeks(projId){ try { return JSON.parse(localStorage.getItem(_manualWeeksKey(projId)) || '[]'); } catch(_){ return []; } }
+function _saveManualWeeks(projId, arr){ try { localStorage.setItem(_manualWeeksKey(projId), JSON.stringify([...new Set(arr)])); } catch(_){} }
+function _addManualWeek(projId, w){ const a = _manualWeeks(projId); if(!a.includes(w)){ a.push(w); _saveManualWeeks(projId, a); } }
+function _removeManualWeek(projId, w){ _saveManualWeeks(projId, _manualWeeks(projId).filter(x => x !== w)); }
+function _defaultNextWeekTag(){
+  const now = new Date();
+  const yr = now.getUTCFullYear().toString().slice(2);
+  const ref = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  ref.setUTCDate(ref.getUTCDate() + 4 - (ref.getUTCDay()||7));
+  const yearStart = new Date(Date.UTC(ref.getUTCFullYear(),0,1));
+  const wkNum = Math.ceil((((ref - yearStart) / 86400000) + 1)/7);
+  return `${yr}W${String(wkNum).padStart(2,'0')}`;
+}
+function _weekTagModal(title, defVal, okLabel, onCommit){
+  document.getElementById('_ebWeekMenu')?.remove();
+  document.getElementById('_ebNewWeekModal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = '_ebNewWeekModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10010;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:320px;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.35)">
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px">${title}</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Формат: YYWNN (напр. 26W23). Неделя 1–53.</div>
+      <input id="_ebWkInp" type="text" value="${defVal}" autocomplete="off" spellcheck="false"
+        style="width:100%;border:1px solid var(--line-2);background:var(--bg);color:var(--t1);padding:8px 12px;border-radius:6px;font-family:var(--mono);font-size:14px;text-transform:uppercase;letter-spacing:.05em;outline:none">
+      <div id="_ebWkErr" style="font-size:11px;color:#DC2626;margin-top:6px;min-height:14px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button id="_ebWkCancel" type="button" class="chip" style="font-size:12px;padding:6px 14px">Отмена</button>
+        <button id="_ebWkOk" type="button" class="chip" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#fff;border-color:var(--acc)">${okLabel}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  const inp = modal.querySelector('#_ebWkInp');
+  const err = modal.querySelector('#_ebWkErr');
+  const globalKey = e => { if(e.key === 'Escape'){ e.preventDefault(); close(); } };
+  document.addEventListener('keydown', globalKey, true);
+  const close = () => { document.removeEventListener('keydown', globalKey, true); modal.remove(); };
+  const commit = () => {
+    const tag = (inp.value || '').trim().toUpperCase();
+    const m = tag.match(/^(\d{2})W(\d{1,2})$/);
+    if(!m){ err.textContent = 'Формат YYWNN, напр. 26W23'; return; }
+    const wk = parseInt(m[2], 10);
+    if(wk < 1 || wk > 53){ err.textContent = 'Неделя 1–53'; return; }
+    close();
+    onCommit(`${m[1]}W${String(wk).padStart(2,'0')}`);
+  };
+  modal.querySelector('#_ebWkCancel').onclick = close;
+  modal.querySelector('#_ebWkOk').onclick = commit;
+  modal.addEventListener('click', e => { if(e.target === modal) close(); });
+  inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); commit(); } });
+  inp.focus(); inp.select();
+}
+function createWeekForProject(projId){
+  _weekTagModal('Новая неделя', _defaultNextWeekTag(), 'Создать', (tag) => {
+    _addManualWeek(projId, tag);
+    toast('Неделя ' + tag + ' создана');
+    render();
+  });
+}
+function renameWeek(projId, oldW){
+  if(!oldW) return;
+  _weekTagModal('Переименовать неделю', oldW, 'Переименовать', (newW) => {
+    if(newW === oldW) return;
+    TASKS.forEach(t => {
+      if(t.proj === projId && (t.w||'') === oldW){
+        t.w = newW;
+        if(typeof logHist === 'function') logHist(t, 'week', `renamed ${oldW} → ${newW}`);
+        if(db?.ready && t._cloud) db.tasks.update(t.id, { week_tag: newW }).catch(()=>{});
+      }
+    });
+    _removeManualWeek(projId, oldW); _addManualWeek(projId, newW);
+    try {
+      [_ebWkKey(projId), _ebDoneKey(projId)].forEach(key => {
+        const s = JSON.parse(localStorage.getItem(key)||'[]');
+        const i = s.indexOf(oldW); if(i>=0){ s[i]=newW; localStorage.setItem(key, JSON.stringify(s)); }
+      });
+    } catch(_){}
+    toast('Неделя переименована: ' + newW);
+    render();
+  });
+}
+function deleteWeek(projId, w){
+  if(!w) return;
+  const cnt = TASKS.filter(t => t.proj === projId && (t.w||'') === w).length;
+  if(cnt > 0){ toast('Нельзя удалить — в неделе есть задачи (' + cnt + ')', 3500); return; }
+  _removeManualWeek(projId, w);
+  try {
+    [_ebWkKey(projId), _ebDoneKey(projId)].forEach(key => {
+      localStorage.setItem(key, JSON.stringify(JSON.parse(localStorage.getItem(key)||'[]').filter(x => x !== w)));
+    });
+  } catch(_){}
+  document.getElementById('_ebWeekMenu')?.remove();
+  toast('Неделя ' + w + ' удалена');
+  render();
+}
+function openWeekKebab(e, projId, w, isEmpty){
+  e?.preventDefault?.(); e?.stopPropagation?.();
+  document.getElementById('_ebWeekMenu')?.remove();
+  document.getElementById('_ebTaskMenu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = '_ebWeekMenu';
+  menu.className = 'task-ctx-menu';
+  const delItem = isEmpty
+    ? `<div class="tcm-item danger" onclick="deleteWeek('${projId}','${w}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить неделю</div>`
+    : `<div class="tcm-item" style="opacity:.45;cursor:default" title="Сначала перенесите или удалите задачи недели">Удалить (только пустую)</div>`;
+  menu.innerHTML = `
+    <div class="tcm-item" onclick="createWeekForProject('${projId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Создать новую неделю</div>
+    <div class="tcm-item" onclick="renameWeek('${projId}','${w}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Переименовать</div>
+    <div class="tcm-sep"></div>
+    ${delItem}`;
+  document.body.appendChild(menu);
+  const mw = menu.offsetWidth || 210, mh = menu.offsetHeight || 160;
+  const x = e?.clientX ?? (window.innerWidth/2), y = e?.clientY ?? (window.innerHeight/2);
+  menu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
+  menu.style.top  = Math.min(y, window.innerHeight - mh - 8) + 'px';
+  setTimeout(() => { document.addEventListener('click', function cl(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('click', cl); } }); }, 20);
+}
+
 // v0.1.154 (#19 phase 2): shared core for deadline mutation so set + clear +
 // undo all route through the same path. Skips pushUndo when called from
 // the inverse callback via the _suppressUndoPush flag.
@@ -5276,11 +5437,18 @@ function renderRow(t){
   const timerLabel = isTimerRunning
     ? `${formatTime(totalMin)} · stop`
     : (totalMin > 0 ? `${ICON('clock')} ${formatTime(totalMin)}` : `${ICON('clock')} start`);
-  // Bulk select cell — replaces drag-handle
-  // v0.1.75: drag handle fires mouse-based reorder (HTML5 drag removed from row)
-  const firstCell = selectMode
-    ? `<input type="checkbox" class="row-check" ${selectedTaskIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTaskSelection('${t.id}')">`
-    : `<div class="drag-handle" draggable="false" onmousedown="event.stopPropagation();event.preventDefault();dragHandleDown(event,'${t.id}')" onclick="event.stopPropagation()">⋮⋮</div>`;
+  // v0.1.169 (DB): левая ячейка — вертикальный стек: стрелка ВВЕРХ сверху,
+  // drag-ручка посередине, стрелка ВНИЗ снизу. Тянуть можно ТОЛЬКО за ручку
+  // (row-level onmousedown убран ниже). Стрелки/ручка глушат всплытие, чтобы
+  // не задеть клик по строке.
+  const firstCell = `<div class="row-handle-stack">
+      <button class="rh-arrow rh-up" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskUp('${t.id}')" title="Move up" aria-label="Move task up"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
+      <div class="drag-handle" draggable="false" onmousedown="event.stopPropagation();event.preventDefault();dragHandleDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Перетащить">⋮⋮</div>
+      <button class="rh-arrow rh-down" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskDown('${t.id}')" title="Move down" aria-label="Move task down"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+    </div>`;
+  // v0.1.169 (DB): select-mode по механике Telegram/WhatsApp — кружок слева,
+  // строки сдвигаются вбок (CSS body.select-mode).
+  const selDot = `<div class="sel-dot" onclick="event.stopPropagation();toggleTaskSelection('${t.id}')" title="Select"></div>`;
   // Checklist badge
   const cl = Array.isArray(t.checklist) ? t.checklist : [];
   const clDone = cl.filter(x => x.done).length;
@@ -5293,10 +5461,9 @@ function renderRow(t){
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
   return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}${t.pinned ? ' pinned' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
-    onmousedown="${selectMode ? '' : `rowDragDown(event,'${t.id}')`}"
     oncontextmenu="showTaskMenu(event,'${t.id}')"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
-    ${firstCell}
+    ${selDot}${firstCell}
     <!-- v0.1.46: chat moved BEFORE title-col (chat is now leftmost data column) -->
     <div class="chat-col" onclick="event.stopPropagation()">
       <!-- v0.1.115: card header — status + assignee at the TOP, kebab at right -->
@@ -5304,10 +5471,7 @@ function renderRow(t){
         <span class="st ${st.cls} tc-status"${st.cls?'':` style="background:${st.c}22;color:${st.c}"`} onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip" style="background:${st.c}"></span>${st.l}
         </span>
-        ${t.bug ? `<span class="bug-badge" title="Bug">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 13h-3M5 13h3M19 19l-3-2M5 19l3-2M12 2v4"/></svg>BUG
-        </span>` : ''}
-        ${renderAssignee(t)}${renderDeadline(t)}
+        ${renderAssignee(t)}${renderBugToggle(t)}${renderDeadline(t)}
         <!-- v0.1.157 (N1 from 2026-06-05 follow-up): Archive moved out of
              the kebab onto the visible card header per DB's request — it's
              a frequently used action and was getting lost in a 11-item
@@ -5323,8 +5487,6 @@ function renderRow(t){
             : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>'
           }
         </button>
-        <button class="card-move" onclick="event.stopPropagation();moveTaskUp('${t.id}')" title="Move up" aria-label="Move task up"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
-        <button class="card-move" onclick="event.stopPropagation();moveTaskDown('${t.id}')" title="Move down" aria-label="Move task down"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
         <button class="card-kebab" onclick="event.stopPropagation();showTaskMenuAt(event,'${t.id}')" title="More actions">${ICON_KEBAB}</button>
         </span>
       </div>
@@ -8336,10 +8498,8 @@ function renderProjPicker(){
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase().trim();
 
   let bodyHtml = '';
-  // 'All projects' option always at the top.
-  if(!search || 'all projects'.includes(search) || 'все проекты'.includes(search)){
-    bodyHtml += _projItemHtml({ id: 'all', name: T('proj.all') || 'All projects', code: '', count: TASKS.length });
-  }
+  // v0.1.169 (DB): «All projects» убрана из пикера — работаем по одному проекту.
+  // (режим 'all' остаётся внутренним для раздела Избранное.)
   // Build matching projects, then either group by client (default) or
   // render flat (when the user is searching — folds would hide matches).
   const matches = [];
@@ -10092,7 +10252,7 @@ async function exportPDF(){
   // v0.1.164 (DB): уважать опцию «включать баги» (берётся из последнего
   // выбора в XLSX-диалоге; по умолчанию баги включены).
   if(!_exportIncludeBugs) tasks = tasks.filter(t => !t.bug);
-  if(_bugsOnly) tasks = tasks.filter(t => t.bug);
+  if(_hideBugs) tasks = tasks.filter(t => !t.bug);
 
   if(tasks.length === 0){
     toast('No tasks to export (current filter excludes everything)', 2500);

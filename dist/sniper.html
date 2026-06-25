@@ -9,63 +9,18 @@ html,body{
   background:transparent !important;
   cursor:crosshair;user-select:none
 }
-
-/* v0.1.67: затемнение усилено 0.10 → 0.38. На светлых обоях 10% было
-   визуально неотличимо от обычного экрана — клиент думал что sniper
-   "не открывается". Теперь оверлей явно заметен. */
-#dim{
-  position:fixed;inset:0;
-  background:rgba(0,0,0,0.38);
-  pointer-events:none;
-  z-index:1
-}
-/* Яркая рамка по периметру — мгновенный сигнал "ты в режиме захвата" */
-#frame{
-  position:fixed;inset:0;
-  border:3px solid #2563EB;
-  pointer-events:none;
-  z-index:2;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)
-}
-
-/* Когда выделение активно — outline вокруг рамки делает дополнительное затемнение,
-   а сам прямоугольник остаётся "светлым" (прозрачный) */
-#sel{
-  position:fixed;
-  outline:9999px solid rgba(0,0,0,0.20);
-  border:2px solid #2563EB;
-  display:none;pointer-events:none;
-  z-index:3
-}
-
-#dims{
-  position:fixed;background:#2563EB;color:#fff;
-  font-size:12px;font-weight:600;padding:4px 9px;
-  font-family:'SF Mono',monospace;display:none;pointer-events:none;
-  z-index:4
-}
-
-#hint{
-  position:fixed;bottom:36px;left:50%;transform:translateX(-50%);
-  color:#fff;font-size:13px;font-weight:500;
-  font-family:-apple-system,sans-serif;pointer-events:none;
-  background:rgba(0,0,0,.65);padding:8px 18px;border-radius:20px;
-  letter-spacing:.01em;z-index:4
-}
+#dim{position:fixed;inset:0;background:rgba(0,0,0,0.38);pointer-events:none;z-index:1}
+#frame{position:fixed;inset:0;border:3px solid #2563EB;pointer-events:none;z-index:2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)}
+/* Бокс захвата: фиксированный формат, следует за курсором; outline даёт затемнение вокруг */
+#sel{position:fixed;outline:9999px solid rgba(0,0,0,0.32);border:2px solid #2563EB;display:none;pointer-events:none;z-index:3}
+#dims{position:fixed;background:#2563EB;color:#fff;font-size:12px;font-weight:600;padding:3px 9px;font-family:'SF Mono',monospace;display:none;pointer-events:none;z-index:4}
+#hint{position:fixed;bottom:36px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:500;font-family:-apple-system,sans-serif;pointer-events:none;background:rgba(0,0,0,.65);padding:8px 18px;border-radius:20px;letter-spacing:.01em;z-index:4}
 #hint kbd{background:rgba(255,255,255,.18);padding:2px 6px;border-radius:4px;font-family:'SF Mono',monospace;font-size:11px;margin:0 2px}
-
-#cross-h{position:fixed;left:0;right:0;height:1px;background:rgba(37,99,235,.3);pointer-events:none;z-index:2}
-#cross-v{position:fixed;top:0;bottom:0;width:1px;background:rgba(37,99,235,.3);pointer-events:none;z-index:2}
-
-#cancel-btn{
-  position:fixed;top:16px;right:16px;z-index:10;
-  width:32px;height:32px;border-radius:50%;
-  background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.3);
-  color:#fff;font-size:18px;line-height:1;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  font-family:-apple-system,sans-serif;
-  transition:background .15s
-}
+/* Переключатель формата 3:4 / 1:1 */
+#ratio-pill{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:2px;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.25);border-radius:20px;padding:3px}
+#ratio-pill button{border:none;background:transparent;color:#fff;font-size:12px;font-weight:600;font-family:-apple-system,sans-serif;padding:5px 14px;border-radius:16px;cursor:pointer;transition:background .12s}
+#ratio-pill button.on{background:#2563EB}
+#cancel-btn{position:fixed;top:16px;right:16px;z-index:10;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.3);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;transition:background .15s}
 #cancel-btn:hover{background:rgba(239,68,68,.75);border-color:rgba(239,68,68,.8)}
 </style>
 </head>
@@ -74,88 +29,85 @@ html,body{
 <div id="frame"></div>
 <div id="sel"></div>
 <div id="dims"></div>
-<div id="cross-h"></div>
-<div id="cross-v"></div>
-<div id="hint">Выдели область экрана · <kbd>Esc</kbd> отмена</div>
+<div id="ratio-pill">
+  <button id="r34" class="on" onclick="setAspect(0.75)">3:4</button>
+  <button id="r11" onclick="setAspect(1)">1:1</button>
+</div>
+<div id="hint">Колесо — размер · Клик — снимок · <kbd>Esc</kbd> отмена</div>
 <button id="cancel-btn" onclick="cancel()" title="Cancel (Esc)">×</button>
 
 <script>
 const sel = document.getElementById('sel');
 const dims = document.getElementById('dims');
 const dim = document.getElementById('dim');
-const ch = document.getElementById('cross-h');
-const cv = document.getElementById('cross-v');
-let sx=0, sy=0, down=false;
 
-document.addEventListener('mousemove', e => {
-  ch.style.top = e.clientY + 'px';
-  cv.style.left = e.clientX + 'px';
-  if (!down) return;
-  const x1=Math.min(sx,e.clientX), y1=Math.min(sy,e.clientY);
-  const w=Math.abs(e.clientX-sx), h=Math.abs(e.clientY-sy);
-  if (w > 4 && h > 4) {
-    sel.style.cssText = `position:fixed;left:${x1}px;top:${y1}px;width:${w}px;height:${h}px;outline:9999px solid rgba(0,0,0,0.20);border:2px solid #2563EB;display:block;pointer-events:none;z-index:3`;
-    dim.style.display = 'none'; // outline уже даёт нужное затемнение
-    dims.style.cssText = `position:fixed;left:${x1}px;top:${Math.max(0,y1-26)}px;display:block;background:#2563EB;color:#fff;font-size:12px;font-weight:600;padding:3px 9px;font-family:'SF Mono',monospace;z-index:4`;
-    dims.textContent = `${Math.round(w)} × ${Math.round(h)}`;
-  }
-});
+// aspect = ширина / высота. 3:4 (портрет) по умолчанию = 0.75; 1:1 = 1.
+let aspect = 0.75;
+let boxH = 360;
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+const MINH = 80;
+function maxH(){ return Math.min(window.innerHeight - 24, 1600); }
 
-// v0.1.39 fix: client reported "изображение захватывается левее от рамки выделения".
-// Cause: sniper was sending clientX/Y (window-relative). On Windows with DPI scaling +
-// borderless/transparent window, the sniper window's actual screen origin is not exactly
-// (0,0) — Aero adds a few px of invisible frame, so clientX is offset from real screenX.
-// Fix: use screenX/screenY which are absolute screen coords, then backend uses them
-// directly without window-position guessing.
-document.addEventListener('mousedown', e => {
+let lastX = window.innerWidth/2, lastY = window.innerHeight/2;
+
+function drawBox(cx, cy){
+  boxH = clamp(boxH, MINH, maxH());
+  let h = boxH, w = h * aspect;
+  const maxW = window.innerWidth - 24;
+  if(w > maxW){ w = maxW; h = w / aspect; }
+  const left = clamp(cx - w/2, 0, window.innerWidth - w);
+  const top  = clamp(cy - h/2, 0, window.innerHeight - h);
+  sel.style.cssText = `position:fixed;left:${left}px;top:${top}px;width:${w}px;height:${h}px;outline:9999px solid rgba(0,0,0,0.32);border:2px solid #2563EB;display:block;pointer-events:none;z-index:3`;
+  dim.style.display = 'none';
+  dims.style.cssText = `position:fixed;left:${left}px;top:${Math.max(0,top-26)}px;display:block;background:#2563EB;color:#fff;font-size:12px;font-weight:600;padding:3px 9px;font-family:'SF Mono',monospace;z-index:4`;
+  dims.textContent = `${Math.round(w)} × ${Math.round(h)} · ${aspect===1?'1:1':'3:4'}`;
+  return { left, top, w, h };
+}
+
+function setAspect(a){
+  aspect = a;
+  document.getElementById('r34').classList.toggle('on', a !== 1);
+  document.getElementById('r11').classList.toggle('on', a === 1);
+  drawBox(lastX, lastY);
+}
+
+document.addEventListener('mousemove', e => { lastX = e.clientX; lastY = e.clientY; drawBox(e.clientX, e.clientY); });
+
+document.addEventListener('wheel', e => {
+  e.preventDefault();
+  boxH = clamp(boxH - Math.sign(e.deltaY) * 24, MINH, maxH());
+  drawBox(lastX, lastY);
+}, { passive: false });
+
+document.addEventListener('mousedown', async e => {
   if (e.button !== 0) return;
-  sx = e.clientX; sy = e.clientY;
-  // also record absolute screen coords for the actual capture
-  sxScreen = e.screenX; syScreen = e.screenY;
-  down = true;
-  sel.style.display = 'none';
-  dim.style.display = 'block';
-  dims.style.display = 'none';
-});
-
-let sxScreen = 0, syScreen = 0;
-
-document.addEventListener('mouseup', async e => {
-  if (!down) return;
-  down = false;
-  const w = Math.abs(e.clientX - sx);
-  const h = Math.abs(e.clientY - sy);
-  if (w < 10 || h < 10) { cancel(); return; }
-
-  // Прячем UI перед скриншотом
+  // не реагировать на клики по переключателю формата / кнопке отмены
+  if (e.target.closest('#ratio-pill') || e.target.closest('#cancel-btn')) return;
+  const r = drawBox(e.clientX, e.clientY);
+  // смещение между client- и screen-координатами (DPI/безрамочное окно)
+  const offX = e.screenX - e.clientX;
+  const offY = e.screenY - e.clientY;
   document.body.style.visibility = 'hidden';
-  await new Promise(r => setTimeout(r, 120));
-
-  // Use absolute screen coords for the capture rectangle.
-  const xScreen = Math.min(sxScreen, e.screenX);
-  const yScreen = Math.min(syScreen, e.screenY);
-
+  await new Promise(res => setTimeout(res, 120));
   try {
     await window.__TAURI__.core.invoke('capture_region', {
-      x: Math.round(xScreen),
-      y: Math.round(yScreen),
-      w: Math.round(w),
-      h: Math.round(h)
+      x: Math.round(r.left + offX),
+      y: Math.round(r.top + offY),
+      w: Math.round(r.w),
+      h: Math.round(r.h)
     });
-  } catch(err) {
-    console.error(err);
-    cancel();
-  }
+  } catch (err) { console.error(err); cancel(); }
 });
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') cancel();
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cancel(); });
 
 function cancel() {
   try { window.__TAURI__.core.invoke('sniper_done', { dataUrl: '' }); }
-  catch(e) { window.close(); }
+  catch (e) { window.close(); }
 }
+
+// первичная отрисовка бокса
+drawBox(lastX, lastY);
 </script>
 </body>
 </html>
