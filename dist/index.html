@@ -942,7 +942,10 @@ body.dark-mode .card-move:hover{background:rgba(255,255,255,.08)}
 .card-bugtoggle:hover{border-color:#DC2626;color:#DC2626}
 .card-bugtoggle.on{border-color:#DC2626;color:#DC2626;background:rgba(220,38,38,.10)}
 /* (4) Левая ячейка: стрелка-вверх / drag-ручка / стрелка-вниз вертикально */
-.row-handle-stack{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;height:100%}
+/* v0.1.170 (DB): стрелки разнесены к самому верхнему и нижнему краю строки,
+   ручка — по центру. align-self:stretch тянет ячейку на всю высоту, отрицательный
+   margin компенсирует padding:10px строки, чтобы стрелки доходили до краёв. */
+.row-handle-stack{display:flex;flex-direction:column;align-items:center;justify-content:space-between;align-self:stretch;margin:-10px 0;padding:4px 0}
 .rh-arrow{width:22px;height:18px;border:none;background:transparent;color:var(--t4);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.12s}
 .rh-arrow:hover{background:rgba(15,23,42,.06);color:var(--acc)}
 body.dark-mode .rh-arrow:hover{background:rgba(255,255,255,.08)}
