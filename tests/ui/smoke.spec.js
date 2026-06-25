@@ -132,21 +132,21 @@ test.describe('EngiBoard UI smoke (clicks & toggles)', () => {
     await shot(page, '06b-filter-reset');
   });
 
-  test('07 bug type: mark via kebab → badge; Bugs chip toggles on/off', async ({ page }) => {
+  test('07 bug type: mark via on-card toggle; Hide bugs checkbox toggles', async ({ page }) => {
     await ensureApp(page);
     const row = page.locator('.row[data-task-id]').first();
-    await row.locator('.card-kebab').click();
-    await page.locator('#_ebTaskMenu .tcm-item', { hasText: 'баг' }).first().click();
-    await expect(page.locator('.bug-badge').first()).toBeVisible();
-    await shot(page, '07a-bug-badge');
-    // Bugs filter chip appears + toggles
-    const bugsChip = page.locator('.chip', { hasText: 'Bugs' });
-    await expect(bugsChip).toBeVisible();
-    await bugsChip.click();
-    expect(await page.evaluate(() => _bugsOnly)).toBeTruthy();
-    await bugsChip.click();
-    expect(await page.evaluate(() => _bugsOnly)).toBeFalsy();
-    await shot(page, '07b-bugs-filter');
+    // v0.1.169: mark as bug via the quick toggle next to the assignee
+    await row.locator('.card-bugtoggle').first().click();
+    await expect(row.locator('.card-bugtoggle.on').first()).toBeVisible();
+    await shot(page, '07a-bug-toggle');
+    // 'Hide bugs' checkbox appears in the filter bar + toggles _hideBugs
+    const hideCb = page.locator('.bug-hide-cb input[type="checkbox"]');
+    await expect(hideCb).toBeVisible();
+    await hideCb.click();
+    expect(await page.evaluate(() => _hideBugs)).toBeTruthy();
+    await page.locator('.bug-hide-cb input[type="checkbox"]').click();
+    expect(await page.evaluate(() => _hideBugs)).toBeFalsy();
+    await shot(page, '07b-hide-bugs');
   });
 
   test('08 archive toggle flips aria-pressed', async ({ page }) => {
