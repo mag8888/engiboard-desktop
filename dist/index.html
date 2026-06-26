@@ -845,10 +845,11 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 /* v0.1.150 (HoD review): linkified URLs in chat — inherit text color,
    subtle accent underline, brightens on hover. Used in row chat, present
    chat, lightbox comments. */
-.chat-link{color:inherit;text-decoration:underline;
-  text-decoration-color:rgba(14,165,233,.5);text-underline-offset:2px;
-  transition:text-decoration-color .12s}
-.chat-link:hover{text-decoration-color:var(--acc)}
+/* v0.1.171 (DB): ссылки в чате — синие (акцент) и кликабельные. */
+.chat-link{color:var(--acc);font-weight:500;text-decoration:underline;
+  text-decoration-color:rgba(14,165,233,.5);text-underline-offset:2px;cursor:pointer;
+  transition:text-decoration-color .12s,color .12s}
+.chat-link:hover{color:var(--acc-2,var(--acc));text-decoration-color:var(--acc)}
 /* v0.1.154 (#20 MR): presence stack rendered in the presentation header.
    Overlapping avatar circles (Google-Docs style) with a count chip when
    more than 4 viewers. */
@@ -7449,7 +7450,7 @@ function linkifyText(s){
       break;
     }
     const safe = escapeHtml(url);
-    out += `<a href="${safe}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="chat-link">${safe}</a>`;
+    out += `<a href="${safe}" rel="noopener" class="chat-link" onclick="event.stopPropagation();event.preventDefault();openLink('${safe}')">${safe}</a>`;
     if(trailing) out += escapeHtml(trailing);
     last = m.index + m[0].length;
   }
