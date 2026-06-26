@@ -120,9 +120,11 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .tlbl{position:absolute;background:rgba(0,0,0,.8);color:#fff;font-size:12px;font-weight:500;padding:4px 9px;font-family:var(--font);white-space:nowrap;cursor:pointer;pointer-events:auto;border-radius:4px}
 .blur-box{position:absolute;backdrop-filter:blur(10px);background:rgba(120,120,120,.15);pointer-events:auto;border-radius:4px}
 .text-inp{position:absolute;z-index:25;border:2px solid #3B82F6;background:rgba(255,255,255,.95);outline:none;font-size:13px;font-family:var(--font);color:#000;padding:4px 7px;min-width:100px;pointer-events:auto;border-radius:4px}
-.cpin{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border:2px solid #fff;cursor:pointer;pointer-events:auto;transition:transform .12s;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-.cpin:hover{transform:translate(-50%,-50%) scale(1.15)}
-.cbbl{position:absolute;z-index:21;background:#fff;border:1px solid #ddd;min-width:200px;max-width:260px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+/* v0.1.172 (DB): пины и пузыри комментов НЕ масштабируются с рисунком.
+   #paper зумится scale(_edScale); --inv = 1/_edScale контр-масштабирует их
+   обратно до постоянного экранного размера (позиция следует за картинкой). */
+.cpin{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border:2px solid #fff;cursor:pointer;pointer-events:auto;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.cbbl{position:absolute;z-index:21;background:#fff;border:1px solid #ddd;min-width:200px;max-width:260px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:scale(var(--inv,1));transform-origin:left top}
 .cmt-pop{position:absolute;z-index:30;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 
 /* Right panel — 2 stacked sections (Layers + Comments), each scrolling internally */
@@ -370,9 +372,20 @@ let isPanning=false, panStart={x:0,y:0,ox:0,oy:0}, panOff={x:0,y:0};
 // v0.1.125: zoom inside the editor. CSS transform scale is safe because
 // relPos() uses getBoundingClientRect (percentages stay correct).
 let _edScale = 1;
+// v0.1.172 (DB): пины/пузыри комментов держим постоянного экранного размера —
+// контр-масштаб 1/_edScale задаём ИНЛАЙНОМ (var() в transform движок игнорит).
+function _applyCmtInvScale(){
+  const inv = 1 / _edScale;
+  document.querySelectorAll('.cpin-r').forEach(p => { p.style.transform = `translate(-50%,-50%) scale(${inv})`; });
+  document.querySelectorAll('.cbbl-r').forEach(b => { b.style.transform = `scale(${inv})`; b.style.transformOrigin = 'left top'; });
+}
 function applyPaperTransform(){
   const p = document.getElementById('paper');
-  if(p) p.style.transform = `translate(${panOff.x}px,${panOff.y}px) scale(${_edScale})`;
+  if(p){
+    p.style.transform = `translate(${panOff.x}px,${panOff.y}px) scale(${_edScale})`;
+    p.style.setProperty('--inv', String(1/_edScale));
+  }
+  _applyCmtInvScale();
   const lvl = document.getElementById('edZoomLevel');
   if(lvl) lvl.textContent = Math.round(_edScale*100) + '%';
 }
@@ -735,6 +748,7 @@ function renderAll(){
     pin.onclick=ev=>{ev.stopPropagation();toggleBubble(c);};
     annRoot.appendChild(pin);
   }
+  _applyCmtInvScale();
 }
 function renderPrev(){
   prevDiv.innerHTML='';prevSvg.innerHTML='';
@@ -786,6 +800,7 @@ function toggleBubble(c){
   bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${c.text}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
   bub.onmousedown=ev=>ev.stopPropagation();
   annRoot.appendChild(bub);
+  _applyCmtInvScale();
 }
 function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());renderAll();updateList();updateCount();}
 
@@ -845,9 +860,9 @@ function selComment(id){
   // Highlight pin briefly + scroll into view
   const pin = document.querySelector(`.cpin[data-cmt-id="${id}"]`);
   if(pin){
-    pin.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    pin.style.transform = 'translate(-50%,-50%) scale(' + (1.4 / _edScale) + ')';
     pin.style.zIndex = 25;
-    setTimeout(() => { pin.style.transform = ''; pin.style.zIndex = ''; }, 600);
+    setTimeout(() => { pin.style.transform = 'translate(-50%,-50%) scale(' + (1/_edScale) + ')'; pin.style.zIndex = ''; }, 600);
   }
 }
 function selAnn(id){selId=id;renderAll();updateList();}
@@ -1141,6 +1156,17 @@ function loadScreenshotAsBg(dataUrl){
       _loaded = true;
       try { document.getElementById('_eb_initial')?.remove(); } catch(_){}
       try { loadScreenshotAsBg(d.dataUrl); } catch(e){ console.error(e); }
+      // v0.1.172 (DB): восстановить сохранённые аннотации И комменты в web-режиме
+      try {
+        if(Array.isArray(d.annotations) && d.annotations.length){ annotations = d.annotations; }
+        if(Array.isArray(d.comments) && d.comments.length){
+          comments = d.comments;
+          commentCount = d.comments.reduce((m,c)=>Math.max(m, c.num||c.id||0), 0);
+        }
+        if(typeof renderAll==='function') renderAll();
+        if(typeof updateList==='function') updateList();
+        if(typeof updateCount==='function') updateCount();
+      } catch(e){ console.warn('restore web payload failed', e); }
     }
   });
 })();

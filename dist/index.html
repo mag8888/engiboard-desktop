@@ -3201,9 +3201,12 @@ async function loadFromSupabase(){
       timerStart: t.timer_start ? new Date(t.timer_start).getTime() : null,
       // v0.1.73 (QA #2): annotations column is now JSONB per-slot object
       // {"0":[...],"1":[...]}. Tolerate the legacy flat array (→ slot 0).
+      // v0.1.172 (DB): пин-комменты хранятся в том же объекте под ключом _cmt —
+      // вынимаем их в cmtBySlot, а из annBySlot исключаем (чтобы не стал «слотом»).
       annBySlot: Array.isArray(t.annotations)
         ? (t.annotations.length ? { 0: t.annotations } : {})
-        : (t.annotations && typeof t.annotations === 'object' ? t.annotations : {}),
+        : ((() => { if(t.annotations && typeof t.annotations === 'object'){ const o = {...t.annotations}; delete o._cmt; return o; } return {}; })()),
+      cmtBySlot: (t.annotations && typeof t.annotations === 'object' && !Array.isArray(t.annotations) && t.annotations._cmt && typeof t.annotations._cmt === 'object') ? t.annotations._cmt : {},
       annotations: Array.isArray(t.annotations) ? t.annotations : [],
       // v0.1.147: hidden / deadline / notes — backed by columns added in
       // migration 0017. Deadline arrives as ISO date string; normalise to
@@ -5707,7 +5710,14 @@ function openWebEditor(dataUrl, taskId, slotIdx){
   // When iframe is ready, ship the image via postMessage (URL params can't hold a data URL).
   frame.onload = () => {
     try {
-      frame.contentWindow.postMessage({ type:'eb-load-image', dataUrl }, '*');
+      // v0.1.172 (DB): передаём также сохранённые аннотации и комменты слота,
+      // чтобы при переоткрытии они восстановились (раньше слался только dataUrl).
+      const t = TASKS.find(x => x.id === taskId) || {};
+      const ann = (t.annBySlot && Array.isArray(t.annBySlot[slotIdx])) ? t.annBySlot[slotIdx]
+                  : (slotIdx === 0 && Array.isArray(t.annotations) ? t.annotations : []);
+      const cmt = (t.cmtBySlot && Array.isArray(t.cmtBySlot[slotIdx])) ? t.cmtBySlot[slotIdx]
+                  : (slotIdx === 0 && Array.isArray(t.comments) ? t.comments : []);
+      frame.contentWindow.postMessage({ type:'eb-load-image', dataUrl, annotations: ann, comments: cmt }, '*');
     } catch(e){ console.warn('postMessage load-image failed', e); }
   };
 }
@@ -7716,7 +7726,10 @@ if(window.__TAURI__){
         // keep legacy flat field as slot-0 mirror for any old reader
         if(slotIdx === 0){ t.annotations = annPayload; t.comments = cmtPayload; }
         if(t._cloud && db && db.ready){
-          db.tasks.update(t.id, { annotations: t.annBySlot }).then(({error}) => {
+          // v0.1.172 (DB): отдельной колонки comments нет — храним пин-комменты
+          // в том же annotations-JSONB под ключом _cmt, иначе после перезагрузки
+          // они терялись. На загрузке _cmt извлекается обратно (см. mapTaskRow).
+          db.tasks.update(t.id, { annotations: { ...t.annBySlot, _cmt: t.cmtBySlot } }).then(({error}) => {
             if(error) console.warn('[cloud] annotations save failed:', error.message);
           });
         }
