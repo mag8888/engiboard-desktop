@@ -6688,6 +6688,10 @@ function onResizeStart(e, taskId){
     document.removeEventListener('mouseup', onUp);
     const t = TASKS.find(x => x.id === taskId);
     if(t) t.h = parseInt(row.style.minHeight);
+    // v0.1.173 (DB): после ресайза гасим следующий click по строке, иначе
+    // mouseup рядом со строкой случайно открывал режим презентации (мисклик).
+    _suppressNextRowClick = true;
+    setTimeout(() => { _suppressNextRowClick = false; }, 300);
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
@@ -10244,7 +10248,49 @@ function downscaleDataUrl(dataUrl, maxWidth = 1200, jpegQuality = 0.85){
   });
 }
 
-async function exportPDF(){
+// v0.1.173 (DB): диалог экспорта PDF — период (от-до по дедлайну), типы задач
+// (статусы), и компактная вёрстка по умолчанию (много задач на лист).
+function exportPDF(){
+  document.getElementById('_ebPdfDlg')?.remove();
+  const statusOpts = STATUSES.map((s,i) =>
+    `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;user-select:none"><input type="checkbox" data-st="${i}" checked style="accent-color:${s.c}"><span style="color:${s.c};font-weight:600">${s.l}</span></label>`
+  ).join('');
+  const modal = document.createElement('div');
+  modal.id = '_ebPdfDlg';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:10030;display:flex;align-items:center;justify-content:center';
+  const inpCss = 'flex:1;border:1px solid var(--line-2);background:var(--bg);color:var(--t1);padding:8px 10px;border-radius:7px;font-size:13px;font-family:inherit;outline:none';
+  modal.innerHTML = `
+    <div style="background:var(--surf);color:var(--t1);border:1px solid var(--line);border-radius:12px;padding:20px 22px;min-width:380px;max-width:460px;box-shadow:0 16px 50px rgba(0,0,0,.4)">
+      <div style="font-weight:700;font-size:15px;margin-bottom:16px">Экспорт в PDF</div>
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Период (по дедлайну)</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+        <input type="date" id="_pdfFrom" style="${inpCss}">
+        <span style="color:var(--t3)">—</span>
+        <input type="date" id="_pdfTo" style="${inpCss}">
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Типы задач (статусы)</div>
+      <div id="_pdfStatuses" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:16px">${statusOpts}</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:18px;cursor:pointer"><input type="checkbox" id="_pdfDetailed"> Подробно (по задаче на лист)</label>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="chip" id="_pdfCancel" style="font-size:12px;padding:7px 16px">Отмена</button>
+        <button class="chip" id="_pdfGo" style="font-size:12px;padding:7px 16px;background:var(--acc);color:#fff;border-color:var(--acc)">Экспорт</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('#_pdfCancel').onclick = () => modal.remove();
+  modal.addEventListener('click', e => { if(e.target === modal) modal.remove(); });
+  modal.querySelector('#_pdfGo').onclick = () => {
+    const from = modal.querySelector('#_pdfFrom').value || null;
+    const to = modal.querySelector('#_pdfTo').value || null;
+    const statuses = new Set([...modal.querySelectorAll('#_pdfStatuses input:checked')].map(c => +c.dataset.st));
+    const detailed = modal.querySelector('#_pdfDetailed').checked;
+    modal.remove();
+    runExportPDF({ from, to, statuses, detailed });
+  };
+}
+
+async function runExportPDF(opts){
+  opts = opts || {};
   if(!window.jspdf?.jsPDF){
     toast('PDF library failed to load (offline?)');
     return;
@@ -10255,19 +10301,16 @@ async function exportPDF(){
   const projId = (typeof currentProject !== 'undefined' && currentProject) ? currentProject : null;
   const proj = projId ? PROJECTS.find(p => p.id === projId) : null;
   let tasks = projId ? TASKS.filter(t => t.proj === projId) : [...TASKS];
-  // Honor active status filter chip
-  const activeChip = document.querySelector('.chip.on[data-f]');
-  if(activeChip){
-    const f = activeChip.dataset.f;
-    const filterMap = { problem:5, progress:6, done:1 };
-    if(filterMap[f] !== undefined) tasks = tasks.filter(t => t.s === filterMap[f]);
-    if(f === 'thisweek'){
-      const cur = (TASKS[0] && TASKS[0].w) || '26W17';
-      tasks = tasks.filter(t => t.w === cur);
-    }
+  // v0.1.173 (DB): фильтры из диалога — типы задач (статусы) + период по дедлайну.
+  if(opts.statuses && opts.statuses.size) tasks = tasks.filter(t => opts.statuses.has(t.s));
+  if(opts.from || opts.to){
+    tasks = tasks.filter(t => {
+      if(!t.deadline) return true;               // задачи без срока не отсекаем
+      if(opts.from && t.deadline < opts.from) return false;
+      if(opts.to && t.deadline > opts.to) return false;
+      return true;
+    });
   }
-  // v0.1.164 (DB): уважать опцию «включать баги» (берётся из последнего
-  // выбора в XLSX-диалоге; по умолчанию баги включены).
   if(!_exportIncludeBugs) tasks = tasks.filter(t => !t.bug);
   if(_hideBugs) tasks = tasks.filter(t => !t.bug);
 
@@ -10327,11 +10370,46 @@ async function exportPDF(){
   doc.setTextColor(150);
   doc.text(`engiboard.app · v${(typeof APP_VERSION !== 'undefined' ? APP_VERSION : '0.1.x')}`, margin, pageH - 10);
 
-  // ─── Per-task pages ───
-  for(let idx = 0; idx < tasks.length; idx++){
-    const t = tasks[idx];
+  if(opts.detailed){
+    // ─── Подробно: по задаче на лист (старый режим) ───
+    for(let idx = 0; idx < tasks.length; idx++){
+      const t = tasks[idx];
+      doc.addPage();
+      await renderTaskPDFPage(doc, t, { pageW, pageH, margin, idx, total: tasks.length });
+    }
+  } else {
+    // ─── v0.1.173 (DB): КОМПАКТНО — несколько задач на лист ───
     doc.addPage();
-    await renderTaskPDFPage(doc, t, { pageW, pageH, margin, idx, total: tasks.length });
+    let cy = margin;
+    for(let i = 0; i < tasks.length; i++){
+      const t = tasks[i];
+      const st = STATUSES[t.s] || STATUSES[0];
+      const blockH = 34;
+      if(cy + blockH > pageH - margin){ doc.addPage(); cy = margin; }
+      doc.setFillColor(...hexToRgb(st.c)); doc.rect(margin, cy, 2.2, blockH - 6, 'F');
+      doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.setTextColor(15, 23, 42);
+      const tx = margin + 6, textW = pageW - margin - 6 - 92;
+      const tl = doc.splitTextToSize(t.n || '(no title)', textW).slice(0, 2);
+      doc.text(tl, tx, cy + 5);
+      doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(110, 120, 140);
+      const cmt = Array.isArray(t.chat) ? t.chat.length : 0;
+      doc.text(`${st.l}  ·  ${t.w || '—'}  ·  ${t.deadline || 'без срока'}  ·  ${cmt} комм.`, tx, cy + 5 + tl.length * 4.5 + 2);
+      const thW = 42, thH = 27, thX = pageW - margin - thW * 2 - 4, thY = cy + 1;
+      const addTh = async (data, x, label) => {
+        if(!data) return;
+        try {
+          const small = await downscaleDataUrl(data, 900);
+          const fmt = small.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+          doc.addImage(small, fmt, x, thY, thW, thH, undefined, 'FAST');
+          doc.setFontSize(6); doc.setTextColor(150); doc.text(label, x + 1, thY + thH - 1);
+        } catch(e){}
+      };
+      await addTh(t.shot1, thX, 'BEFORE');
+      await addTh(t.shot2, thX + thW + 4, 'AFTER');
+      doc.setDrawColor(225, 228, 233); doc.line(margin, cy + blockH - 3, pageW - margin, cy + blockH - 3);
+      doc.setTextColor(15, 23, 42);
+      cy += blockH;
+    }
   }
 
   // Save

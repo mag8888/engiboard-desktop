@@ -539,10 +539,15 @@ paper.addEventListener('mousemove',e=>{
         w = Math.cos(snapped) * len;
         h = Math.sin(snapped) * len;
       } else if(cur.type === 'rect' || cur.type === 'circle' || cur.type === 'blur'){
-        const ax = Math.abs(w), ay = Math.abs(h);
-        const side = Math.max(ax, ay);
-        w = (w < 0 ? -1 : 1) * side;
-        h = (h < 0 ? -1 : 1) * side;
+        // v0.1.173 (DB): идеально РОВНЫЙ квадрат/круг. Координаты в % холста,
+        // поэтому равные w/h в % на неквадратном чертеже дают прямоугольник.
+        // Уравниваем по ПИКСЕЛЯМ через аспект холста (соотношение не зависит
+        // от зума, т.к. ширина/высота paper масштабируются одинаково).
+        const pr = paper.getBoundingClientRect();
+        const prw = pr.width || 1, prh = pr.height || 1;
+        const sidePx = Math.max(Math.abs(w) * prw, Math.abs(h) * prh);
+        w = (w < 0 ? -1 : 1) * (sidePx / prw);
+        h = (h < 0 ? -1 : 1) * (sidePx / prh);
       }
     }
     // v0.1.163 (DB): зажать Alt/Option — рисовать ИЗ ЦЕНТРА (точка нажатия =
