@@ -7738,6 +7738,15 @@ if(window.__TAURI__){
           });
         }
         if(hasImage) render();
+        // v0.1.175 (DB): если редактор открыли ИЗ режима презентации — обновить
+        // картинку в открытой презентации (раньше обновлялся только web-путь,
+        // десктоп оставлял старый <img> → метки «не сохранялись» на превью).
+        try {
+          if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === t.id){
+            if(typeof patchPresent === 'function') patchPresent({ photo: true });
+            else if(typeof renderPresent === 'function') renderPresent();
+          }
+        } catch(_){}
         toast(hasImage ? '✓ Saved to task' : '✓ Annotations saved');
         return;
       }
