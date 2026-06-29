@@ -5433,7 +5433,7 @@ function renderRow(t){
     ? ''
     : chatMsgs.map(m => {
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+        return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
           <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
         </div>`;
@@ -6703,7 +6703,8 @@ function onRowClick(e, taskId){
   if(taskId === 'new') return;
   if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .tc-status, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
   if(pasteMode) return;
-  openPresent(taskId);
+  // v0.1.176 (DB): клик по строке/чату больше НЕ открывает презентацию —
+  // режим открывается только кнопкой «Presentation» (play-ic в row-actions).
 }
 
 // ━━━ PRESENT ━━━
@@ -7230,7 +7231,7 @@ function syncTaskRowChat(taskId){
   const chatMsgs = (t.chat || []).slice(-8);
   panel.innerHTML = chatMsgs.map(m => {
     const initials = (m.a || '?').slice(0, 2).toUpperCase();
-    return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+    return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
       <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
       <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>    </div>`;
   }).join('');
@@ -7443,7 +7444,10 @@ function linkifyText(s){
   // Now we greedily capture URL chars including parens, then strip
   // trailing punctuation (.,;:!?) and unbalanced trailing ')' so a
   // sentence-ending URL still renders cleanly.
-  const rx = /\bhttps?:\/\/[^\s<>"']+/gi;
+  // v0.1.176 (DB): ловим и ссылки с http(s)://, и www.*, и ГОЛЫЕ домены
+  // (google.com, x.io/path) по белому списку TLD — чтобы «google.com» в чате
+  // тоже становилась синей кликабельной ссылкой.
+  const rx = /\b(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|dev|ai|app|co|me|ru|info|biz|xyz|cc|gg|edu|gov|uk|de|fr|es|it|pl|nl|se|no|fi|cz|ee|tech|site|online|cloud|design)(?:\/[^\s<>"']*)?)/gi;
   if(!rx.test(src)){ return escapeHtml(src); }
   rx.lastIndex = 0;
   let out = ''; let last = 0; let m;
@@ -7463,8 +7467,10 @@ function linkifyText(s){
       }
       break;
     }
-    const safe = escapeHtml(url);
-    out += `<a href="${safe}" rel="noopener" class="chat-link" onclick="event.stopPropagation();event.preventDefault();openLink('${safe}')">${safe}</a>`;
+    const display = escapeHtml(url);
+    const href = /^https?:\/\//i.test(url) ? url : ('https://' + url);
+    const safeHref = escapeHtml(href);
+    out += `<a href="${safeHref}" rel="noopener" class="chat-link" onclick="event.stopPropagation();event.preventDefault();openLink('${safeHref}')">${display}</a>`;
     if(trailing) out += escapeHtml(trailing);
     last = m.index + m[0].length;
   }
@@ -8993,7 +8999,7 @@ async function sendInlineChat(inp){
     const chatMsgs = t.chat.slice(-8);
     panel.innerHTML = chatMsgs.map(m => {
       const initials = (m.a || '?').slice(0, 2).toUpperCase();
-      return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+      return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
         <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
         <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>      </div>`;
     }).join('');
@@ -11118,7 +11124,7 @@ async function askAI(taskId){
     if(!panel) return;
     panel.innerHTML = t.chat.slice(-8).map(m => {
       const init = (m.a||'?').slice(0,2).toUpperCase();
-      return `<div class="nt-chat-msg" onclick="event.stopPropagation();openPresent('${t.id}')">
+      return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
         <span class="av ${init}">${init}</span>
         <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span></div>`;
     }).join('');
