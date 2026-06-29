@@ -6193,7 +6193,7 @@ function promptAddDriveLink(taskId){
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   ebTextPrompt({
-    title: 'Добавить ссылку', placeholder: 'https://drive.google.com/…', okLabel: 'Добавить',
+    title: 'Add link', placeholder: 'https://drive.google.com/…', okLabel: 'Add',
     onOk: (url) => {
       if(!url) return;
       if(!/^https?:\/\//.test(url)){ toast('Link must start with http(s)://'); return; }
@@ -6220,7 +6220,7 @@ function editDriveLink(taskId, linkId){
   if(!link) return;
   // v0.1.164: внутримодальный ввод вместо prompt() (не работает в WKWebView).
   ebTextPrompt({
-    title: 'Изменить ссылку', placeholder: 'https://…', value: link.url || '', okLabel: 'Сохранить',
+    title: 'Edit link', placeholder: 'https://…', value: link.url || '', okLabel: 'Save',
     onOk: (trimmed) => {
       if(!trimmed){ toast('Link cannot be empty'); return; }
       if(!/^https?:\/\//.test(trimmed)){ toast('Link must start with http(s)://'); return; }
