@@ -7781,6 +7781,10 @@ async function createNewProject(){
           auditLog('create', 'project', data.id, null, { title: data.title }, data.id);
           closeNewProjModal();
           switchProject(data.id);
+          // v0.1.180 (DB): новый проект иногда не перерисовывался сразу
+          // (WKWebView: фокус был на инпуте закрытой модалки, focus-probe в
+          // render не срабатывал). Принудительная перерисовка на след. кадре.
+          requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
           toast('✓ Project created (cloud)');
           return;
         }
@@ -7794,6 +7798,7 @@ async function createNewProject(){
   PROJECTS.push(p);
   closeNewProjModal();
   switchProject(p.id);
+  requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
   toast('✓ Project created (local)');
 }
 
