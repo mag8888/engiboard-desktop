@@ -866,6 +866,21 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
   from{transform:scale(.5);opacity:0}
   to{transform:scale(1);opacity:1}
 }
+/* v0.1.178 (DB): board-level presence — кто в программе (шапка) + кто смотрит
+   конкретную задачу (строка). Аватарки-кружки в стиле Google Docs. */
+.board-presence{align-items:center;margin-right:10px}
+.board-presence .presence-av{display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;
+  font-family:var(--mono);border:2px solid var(--bg);box-shadow:0 1px 3px rgba(15,23,42,.18);
+  margin-left:-7px;cursor:default;animation:presence-pop .25s ease-out}
+.board-presence .presence-av:first-child{margin-left:0}
+.board-presence .presence-more{margin-left:6px;font-size:11px;font-family:var(--mono);color:var(--t3);font-weight:600}
+.row-presence{display:none;align-items:center;margin-left:auto}
+.row-presence .presence-av{display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:50%;color:#fff;font-size:8px;font-weight:700;
+  font-family:var(--mono);border:1.5px solid var(--surf);margin-left:-5px;cursor:default;
+  animation:presence-pop .25s ease-out}
+.row-presence .presence-av:first-child{margin-left:0}
 .row .nt-chat-msg .ts{font-size:9px;color:var(--t4);font-family:var(--mono);flex-shrink:0;margin-top:2px;opacity:.7}
 .row .nt-chat-input{
   display:flex;align-items:center;gap:5px;padding:3px;background:var(--surf);border-radius:5px;
@@ -2280,6 +2295,9 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 
     <div class="tbar-spacer"></div>
 
+    <!-- v0.1.178 (DB): live presence — кто сейчас в программе (как соавторы в Google Docs) -->
+    <div class="board-presence" id="boardPresence" style="display:none" title="Online now"></div>
+
     <div class="profile-btn" onclick="toggleProfileMenu(event)" id="profileBtn" title="Profile">
       <div class="profile-av">A</div>
     </div>
@@ -3356,6 +3374,8 @@ function subscribeRealtime(){
         (payload) => applyRealtimeProjectChange(payload))
       .subscribe(status => console.log('[Realtime] channel status:', status));
   } catch(e){ console.warn('[Realtime] subscribe failed:', e.message); }
+  // v0.1.178 (DB): подключиться к presence-каналу текущего проекта при старте облака.
+  if(typeof joinBoardPresence === 'function') joinBoardPresence(currentProject);
 }
 function applyRealtimeTaskChange(p){
   const { eventType, new: row, old: prev } = p;
@@ -4165,6 +4185,8 @@ function switchProject(pid){
   updateHeader();
   if(curView === 'dashboard') setView('tasks');
   render();
+  // v0.1.178 (DB): подключиться к presence-каналу нового проекта.
+  if(typeof joinBoardPresence === 'function') joinBoardPresence(pid);
 }
 
 // Profile menu
@@ -4899,7 +4921,7 @@ function render(){
     html += renderEmptyRowForProject(proj.id);
     replaceListWith(html);
     wireUpEmptyInput();
-    setTimeout(patchGuardedImages, 0);
+    setTimeout(() => { patchGuardedImages(); if(typeof updateRowPresenceAvatars === 'function') updateRowPresenceAvatars(); }, 0);
     try { updateSortChipLabel(); } catch(_){}
     forceCompositorRepaint();
     return;
@@ -4948,7 +4970,7 @@ function render(){
   // (Empty input rows are inside each project group now, no global one)
   replaceListWith(html);
   wireUpEmptyInput();
-  setTimeout(patchGuardedImages, 0);
+  setTimeout(() => { patchGuardedImages(); if(typeof updateRowPresenceAvatars === 'function') updateRowPresenceAvatars(); }, 0);
   forceCompositorRepaint();
   // v0.1.156: keep the Sort chip's label in sync with the current mode.
   try { updateSortChipLabel(); } catch(_){}
@@ -5506,6 +5528,7 @@ function renderRow(t){
         <div class="chat-row-actions-r1">
           <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
           ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}">${ICON('swap')} ${compareLabel}</span>` : ''}
+          <span class="row-presence" data-task-id="${t.id}" style="display:none"></span>
         </div>
         <div class="chat-row-actions-r2">
           <!-- v0.1.163: чеклист убран из UI по запросу. Кнопка, панель и
@@ -6798,6 +6821,8 @@ function openPresent(taskId){
   // theirs. Switches channels if user navigates Next/Prev — old channel
   // dropped, new one joined.
   if(t._cloud) joinTaskPresence(t.id);
+  // v0.1.178 (DB): сообщить board-presence, что я смотрю эту задачу.
+  if(typeof setMyViewing === 'function') setMyViewing(t.id);
 }
 function closePresent(){
   // v0.1.39: ensure row's inline chat panel reflects messages added inside slideshow
@@ -6805,6 +6830,7 @@ function closePresent(){
   // stale chat history.
   if(presentTask && presentTask.id) syncTaskRowChat(presentTask.id);
   leaveTaskPresence();
+  if(typeof setMyViewing === 'function') setMyViewing(null);
   document.getElementById('present').classList.remove('on');
   presentTask = null;
 }
@@ -6920,6 +6946,76 @@ function updatePresenceUi(){
     <span class="presence-av" title="${(p.name || p.initials || 'Someone').replace(/"/g,'&quot;')} · viewing now"
       style="background:${p.color || '#0EA5E9'}">${p.initials || '?'}</span>
   `).join('') + (extras > 0 ? `<span class="presence-more">+${extras}</span>` : '');
+}
+
+// ━━━ BOARD PRESENCE (v0.1.178 DB): «кто сейчас в программе» как в Google Docs ━━━
+// Один Realtime-канал на проект. Каждый онлайн-юзер трекает себя + id задачи,
+// которую сейчас открыл в презентации (viewing). В шапке — аватарки всех онлайн
+// (кроме себя); на строке — аватарки тех, кто смотрит именно эту задачу.
+// Работает только в облачном режиме (нужен авторизованный пользователь).
+let _boardChannel = null, _boardProjId = null, _boardMe = null, _boardMyId = null, _boardState = {}, _myViewing = null;
+
+async function joinBoardPresence(projId){
+  if(!sb || !projId || projId === 'all'){ leaveBoardPresence(); return; }
+  if(_boardChannel && _boardProjId === projId) return;
+  leaveBoardPresence();
+  let u = null;
+  try { u = await db.auth.user(); } catch(_){ u = null; }
+  if(!u) return;  // локальный/офлайн режим — presence не показываем
+  _boardMe = {
+    user_id: u.id,
+    initials: initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name }),
+    name: u.user_metadata?.full_name || u.email || 'Someone',
+    color: _presenceColorForUser(u.id),
+    viewing: _myViewing || null
+  };
+  _boardMyId = u.id;
+  const channel = sb.channel(`board_presence:${projId}`, { config: { presence: { key: u.id } } });
+  channel.on('presence', { event: 'sync' }, () => {
+    try { _boardState = channel.presenceState() || {}; renderBoardPresence(); updateRowPresenceAvatars(); } catch(_){}
+  });
+  channel.subscribe(async status => { if(status === 'SUBSCRIBED'){ try { await channel.track(_boardMe); } catch(_){} } });
+  _boardChannel = channel; _boardProjId = projId;
+}
+function leaveBoardPresence(){
+  if(_boardChannel){ try { sb.removeChannel(_boardChannel); } catch(_){} }
+  _boardChannel = null; _boardProjId = null; _boardState = {};
+  renderBoardPresence(); updateRowPresenceAvatars();
+}
+function setMyViewing(taskId){
+  _myViewing = taskId || null;
+  if(_boardChannel && _boardMe){ _boardMe = { ..._boardMe, viewing: _myViewing }; try { _boardChannel.track(_boardMe); } catch(_){} }
+}
+function _boardOthers(){
+  const out = [];
+  Object.entries(_boardState).forEach(([uid, arr]) => {
+    if(!arr || !arr.length) return;
+    if(_boardMyId && uid === _boardMyId) return;   // себя в стопке не показываем
+    out.push(arr[0]);
+  });
+  return out;
+}
+function _presenceAvHtml(p, suffix){
+  return `<span class="presence-av" title="${(p.name || p.initials || 'Someone').replace(/"/g,'&quot;')}${suffix}" style="background:${p.color || '#0EA5E9'}">${p.initials || '?'}</span>`;
+}
+function renderBoardPresence(){
+  const slot = document.getElementById('boardPresence');
+  if(!slot) return;
+  const others = _boardOthers();
+  if(!others.length){ slot.innerHTML = ''; slot.style.display = 'none'; return; }
+  slot.style.display = 'inline-flex';
+  const vis = others.slice(0, 5), extra = others.length - vis.length;
+  slot.innerHTML = vis.map(p => _presenceAvHtml(p, ' · online')).join('') + (extra > 0 ? `<span class="presence-more">+${extra}</span>` : '');
+}
+function updateRowPresenceAvatars(){
+  const others = _boardOthers();
+  document.querySelectorAll('.row-presence[data-task-id]').forEach(slot => {
+    const tid = slot.dataset.taskId;
+    const viewers = others.filter(p => p.viewing && String(p.viewing) === String(tid));
+    if(!viewers.length){ slot.innerHTML = ''; slot.style.display = 'none'; return; }
+    slot.style.display = 'inline-flex';
+    slot.innerHTML = viewers.slice(0, 3).map(p => _presenceAvHtml(p, ' · viewing this')).join('');
+  });
 }
 // v0.1.163 (DB): какой «после»-скрин показан в правом вьюере презентации.
 // slot 1 = After, 2+ = extras (t.shots[]). Сбрасывается при открытии задачи.
