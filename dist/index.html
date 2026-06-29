@@ -7240,6 +7240,24 @@ function renderPresent(){
 }
 
 // v0.1.114: drag the divider to resize the pics/chat vertical split
+// v0.1.179 (DB «блинки в презентации»): обновить ТОЛЬКО чат-панель презентации,
+// без renderPresent() — тот пересобирал весь модал, из-за чего <img> BEFORE/AFTER
+// пересоздавались и браузер перезагружал картинки (мерцание на каждое сообщение).
+function refreshPresChat(){
+  const t = presentTask; if(!t) return;
+  const msgsEl = document.getElementById('presChatMsgs');
+  if(!msgsEl) return;
+  const chatMsgs = (t.chat || []);
+  msgsEl.innerHTML = chatMsgs.length === 0
+    ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
+    : chatMsgs.map(m => {
+        const initials = (m.a || '?').slice(0, 2).toUpperCase();
+        return `<div class="nt-chat-msg"><span class="av ${initials}" title="${m.a||'?'}">${initials}</span><span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span></div>`;
+      }).join('');
+  const ct = document.querySelector('#presCard .pres-chat-h .ct');
+  if(ct) ct.textContent = `${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}`;
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+}
 async function sendPresChat(){
   const inp = document.getElementById('presChatInput');
   if(!inp) return;
@@ -7278,7 +7296,7 @@ async function sendPresChat(){
   // done in the .catch branch below.
   const sentText = text;
   inp.value = '';
-  renderPresent();
+  refreshPresChat();
   syncTaskRowChat(t.id);
 
   if(t._cloud && db && db.ready){
@@ -7294,7 +7312,7 @@ async function sendPresChat(){
           if(i >= 0) t.chat.splice(i, 1);
           console.error('comment save failed', error);
           toast('Comment not saved — try again', 5000);
-          renderPresent();
+          refreshPresChat();
           syncTaskRowChat(t.id);
           // Restore the typed text so the user can retry without re-typing.
           const restoreEl = document.getElementById('presChatInput');
@@ -7310,7 +7328,7 @@ async function sendPresChat(){
             id: data?.id,
             _clientId: clientId
           };
-          renderPresent();
+          refreshPresChat();
           syncTaskRowChat(t.id);
         }
       });
