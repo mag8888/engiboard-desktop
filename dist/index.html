@@ -3209,7 +3209,7 @@ async function loadFromSupabase(){
       uid: t.position || 0,
       n: t.title || '',
       title: t.title || '',
-      s: (typeof t.desktop_status === 'number') ? t.desktop_status : webStatusToDesktop(t.status),
+      s: (typeof t.desktop_status === 'number') ? Math.max(0, Math.min(STATUSES.length - 1, t.desktop_status)) : webStatusToDesktop(t.status),
       w: t.week_tag || (t.due_date ? formatWeek(t.due_date) : ''),
       chat: [],          // task_comments fetched lazily per task
       shot1: t.shot1_url || null,
@@ -3234,6 +3234,11 @@ async function loadFromSupabase(){
       bug: !!t.bug,   // v0.1.164
       deadline: t.deadline ? String(t.deadline).slice(0, 10) : undefined,
       notes: t.notes || '',
+      // v0.1.181: checklist / links columns (migration 0022). Tolerant of the
+      // pre-migration state (column absent → undefined → []), so this is safe
+      // to ship before the migration is applied.
+      checklist: Array.isArray(t.checklist) ? t.checklist : [],
+      links: Array.isArray(t.links) ? t.links : [],
       _cloud: true
     }));
     // Fetch task_comments for all tasks in one query
@@ -3390,7 +3395,7 @@ function applyRealtimeTaskChange(p){
     TASKS.push({
       id: row.id, proj: row.project_id, uid: row.position || 0,
       n: row.title, title: row.title,
-      s: (typeof row.desktop_status === 'number') ? row.desktop_status : webStatusToDesktop(row.status),
+      s: (typeof row.desktop_status === 'number') ? Math.max(0, Math.min(STATUSES.length - 1, row.desktop_status)) : webStatusToDesktop(row.status),
       w: row.week_tag || '', chat: [],
       shot1: row.shot1_url || null, shot2: row.shot2_url || null,
       shots: Array.isArray(row.shots_extra) ? row.shots_extra : [],
@@ -3399,8 +3404,17 @@ function applyRealtimeTaskChange(p){
     });
   } else {
     existing.title = row.title; existing.n = row.title;
-    if(typeof row.desktop_status === 'number') existing.s = row.desktop_status;
+    if(typeof row.desktop_status === 'number') existing.s = Math.max(0, Math.min(STATUSES.length - 1, row.desktop_status));
     if(typeof row.bug === 'boolean') existing.bug = row.bug;   // v0.1.164
+    // v0.1.181: also merge the week-grouping / chip fields that the new-row
+    // branch already maps, so a collaborator moving a task to another week,
+    // (un)setting a deadline, or pinning/archiving reflects live instead of
+    // only after a full reload. ('in row' guard so a partial UPDATE payload
+    // never blanks a field it didn't touch.)
+    if('week_tag' in row) existing.w = row.week_tag || '';
+    if('deadline' in row) existing.deadline = row.deadline ? String(row.deadline).slice(0,10) : undefined;
+    if('pinned' in row) existing.pinned = !!row.pinned;
+    if('hidden' in row) existing.hidden = !!row.hidden;
     // Don't replace base64 with cloud URL while it's in memory — keeps thumbnail stable.
     // The URL is only used on next app load (when there's no in-memory base64).
     if(row.shot1_url && !(existing.shot1?.startsWith('data:'))) existing.shot1 = row.shot1_url;
@@ -3415,6 +3429,11 @@ function applyRealtimeCommentChange(p){
     if(t && Array.isArray(t.chat)){
       t.chat = t.chat.filter(m => m.id !== prev.id);
       render();
+      // v0.1.181: render() only touches #list — refresh the present-mode chat
+      // panel and the inline row chat too, else a collaborator's delete is
+      // invisible there until the local user sends/navigates.
+      if(presentTask && presentTask.id === prev.task_id && document.getElementById('present')?.classList.contains('on')) refreshPresChat();
+      syncTaskRowChat(prev.task_id);
     }
     return;
   }
@@ -3431,6 +3450,11 @@ function applyRealtimeCommentChange(p){
     id: row.id
   });
   render();
+  // v0.1.181: render() only touches #list — also push the new comment into the
+  // open present-mode chat panel and the inline row chat (regression from the
+  // v0.1.179 flicker fix that decoupled refreshPresChat from renderPresent).
+  if(presentTask && presentTask.id === row.task_id && document.getElementById('present')?.classList.contains('on')) refreshPresChat();
+  syncTaskRowChat(row.task_id);
 }
 function applyRealtimeProjectChange(p){
   const { eventType, new: row, old: prev } = p;
@@ -3495,8 +3519,8 @@ async function loadProjectMembers(){
       return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)">
         <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0">${initialsFromProfile(u)}</div>
         <div style="flex:1;min-width:0">
-          <div style="color:var(--t1)">${name}${isMe ? ' <span style="color:var(--acc);font-size:10px">(you)</span>' : ''}</div>
-          <div style="color:var(--t4);font-size:10px;font-family:var(--mono)">${u.email || ''} · ${m.role}</div>
+          <div style="color:var(--t1)">${escapeHtml(name)}${isMe ? ' <span style="color:var(--acc);font-size:10px">(you)</span>' : ''}</div>
+          <div style="color:var(--t4);font-size:10px;font-family:var(--mono)">${escapeHtml(u.email || '')} · ${escapeHtml(m.role || '')}</div>
         </div>
         ${removeBtn}
       </div>`;
@@ -3744,10 +3768,10 @@ async function loadActivityFeed(){
       } else if(ev.action === 'create'){
         summary = `created ${ev.entity}`;
       } else if(ev.action === 'delete'){
-        summary = `deleted ${ev.entity} (<span style="opacity:.6">${ev.before_data?.title || ev.entity_id.slice(0,6)}</span>)`;
+        summary = `deleted ${ev.entity} (<span style="opacity:.6">${escapeHtml(ev.before_data?.title || ev.entity_id.slice(0,6))}</span>)`;
       }
       return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
-        <div style="color:var(--t2)">${who} ${summary}</div>
+        <div style="color:var(--t2)">${escapeHtml(who)} ${summary}</div>
         <div style="color:var(--t4);font-size:10px;font-family:var(--mono);margin-top:2px">${ago}</div>
       </div>`;
     }).join('');
@@ -3839,14 +3863,20 @@ async function showApp(){
       } catch(e){ console.warn('[invite] accept threw:', e.message); }
     }
     const res = await loadFromSupabase();
-    if(res.ok && (res.projects.length || res.tasks.length)){
+    if(res.ok){
+      // v0.1.181: trust res.ok even when the account is empty. Previously the
+      // (projects||tasks).length guard meant a brand-new / freshly-invited
+      // account kept the seed DEMO board and never called subscribeRealtime —
+      // so demo tasks looked like real data and edits never persisted. An empty
+      // cloud account must give an empty board (the zero-state below handles it)
+      // and a live subscription so a shared/created project shows up.
       PROJECTS = res.projects;
       TASKS = res.tasks;
-      toast(`✓ Loaded ${res.tasks.length} tasks from cloud`);
+      if(res.tasks.length) toast(`✓ Loaded ${res.tasks.length} tasks from cloud`);
       console.log('[Supabase] Loaded', res);
       // v0.1.61: subscribe to realtime updates from other team members
       subscribeRealtime();
-    } else if(!res.ok){
+    } else {
       console.warn('[Supabase] load failed:', res.reason, '→ using local data');
     }
   }
@@ -4025,7 +4055,7 @@ function renderProjMenu(){
         </div>`;
     return `<div class="pm-item ${isCurrent?'on':''}" onclick="switchProject('${p.id}');document.getElementById('projMenu').classList.remove('open')" style="display:flex;align-items:center;gap:8px;${isArchive?'opacity:.7':''}">
       <div style="flex:1;min-width:0">
-        <div class="pm-name">${(p.name||'').replace(/[<>]/g,'')}</div>
+        <div class="pm-name">${escapeHtml(p.name||'')}</div>
         <div class="pm-pills">
           ${pill(p.code,'code')}${pill(p.client,'client')}${pill(p.lang,'lang')}
           <span class="pm-pill stat">${total} tasks · ${pct}%</span>
@@ -5002,7 +5032,7 @@ function renderProjGroup(proj, tasks){
   return `<div class="proj-group ${isCollapsed?'collapsed':''}" data-proj-id="${proj.id}">
     <div class="proj-group-head" onclick="toggleProjGroup('${proj.id}')">
       <span class="proj-group-tri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
-      <span class="proj-group-name">${proj.name}</span>
+      <span class="proj-group-name">${escapeHtml(proj.name||'')}</span>
       <span class="proj-group-meta">${proj.code} · ${total} tasks</span>
       <div class="proj-group-bar">${segs}</div>
       <span class="proj-group-pct">${pct}%</span>
@@ -5816,7 +5846,7 @@ function renderZero(){
       <div></div>
       <div class="chat-col" style="padding:10px 8px;justify-content:center">
         <input id="newInpZero" placeholder="What needs to be done?" style="border:1px solid var(--line-2);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;outline:none;background:var(--surf);color:var(--t1)"
-          onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'26W17',s:0,title:txt,n:txt,chat:[{a:'AS',text:txt,ts:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false})}]});this.value='';render();updateHeader();toast('✓ Task created');}">
+          onkeydown="if(event.key==='Enter'&&this.value.trim()){const txt=this.value.trim();TASKS.push({id:'t'+Date.now(),proj:currentProject,uid:nextTaskUid(currentProject),w:'',s:7,title:txt,n:txt,chat:[{a:'AS',text:txt,ts:new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',hour12:false})}]});this.value='';render();updateHeader();toast('✓ Task created');}">
       </div>
       <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
       <div class="pc"><div class="pi"><span class="pi-lbl">AFTER</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -5903,7 +5933,10 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText){
   const newId = 't' + Date.now();
   TASKS.push({
     id: newId, proj: projectId, uid: nextTaskUid(projectId),
-    w: '26W17', s: 0, title, n: title, chat: makeInitialMsg('AS')
+    // v0.1.181: was w:'26W17' (a stale demo-week literal) / s:0 — now matches
+    // the cloud path (unscheduled week, 'Upcoming' status) so offline-created
+    // and zero-state tasks don't misfile into a hardcoded past week.
+    w: '', s: 7, title, n: title, chat: makeInitialMsg('AS')
   });
   logHist(newId, 'create', 'task created');
   render(); updateHeader();
@@ -6844,6 +6877,7 @@ let _presenceChannel = null;
 let _presenceTaskId = null;
 let _presenceMyId = null;       // cache so updatePresenceUi can skip self
 let _presenceState = {};        // { user_id: [{ user_id, initials, name, color, joined_at }, ...] }
+let _presenceJoinToken = 0;     // v0.1.181: per-invocation guard so a fast Next/Prev that races joinTaskPresence's awaits can't leak an orphan channel
 
 function _presenceColorForUser(uid){
   // Deterministic colour from user id so the same user looks the same to
@@ -6859,7 +6893,8 @@ async function joinTaskPresence(taskId){
   if(!sb || !taskId) return;
   // If already in another task's channel, drop it cleanly first.
   if(_presenceChannel && _presenceTaskId === taskId) return;
-  leaveTaskPresence();
+  leaveTaskPresence();                      // bumps _presenceJoinToken
+  const myToken = ++_presenceJoinToken;     // claim this join; a newer one wins
   let me = null;
   try {
     const u = await db.auth.user();
@@ -6873,6 +6908,7 @@ async function joinTaskPresence(taskId){
     };
   } catch(e){ return; }
   if(!me) return;
+  if(myToken !== _presenceJoinToken) return;   // superseded while awaiting auth
   const channel = sb.channel(`task_presence:${taskId}`, {
     config: { presence: { key: me.user_id } }
   });
@@ -6898,12 +6934,14 @@ async function joinTaskPresence(taskId){
       try { await channel.track(me); } catch(_){}
     }
   });
+  if(myToken !== _presenceJoinToken){ try { sb.removeChannel(channel); } catch(_){} return; }   // a newer join started; don't leak this channel
   _presenceChannel = channel;
   _presenceTaskId = taskId;
   _presenceMyId = me.user_id;
 }
 
 function leaveTaskPresence(){
+  _presenceJoinToken++;   // v0.1.181: invalidate any in-flight joinTaskPresence
   if(!_presenceChannel) return;
   try { sb.removeChannel(_presenceChannel); } catch(_){}
   _presenceChannel = null;
@@ -6943,8 +6981,8 @@ function updatePresenceUi(){
   const visible = entries.slice(0, 4);
   const extras = entries.length - visible.length;
   slot.innerHTML = visible.map(p => `
-    <span class="presence-av" title="${(p.name || p.initials || 'Someone').replace(/"/g,'&quot;')} · viewing now"
-      style="background:${p.color || '#0EA5E9'}">${p.initials || '?'}</span>
+    <span class="presence-av" title="${escapeHtml(p.name || p.initials || 'Someone')} · viewing now"
+      style="background:${safeColor(p.color)}">${escapeHtml(p.initials || '?')}</span>
   `).join('') + (extras > 0 ? `<span class="presence-more">+${extras}</span>` : '');
 }
 
@@ -6954,14 +6992,17 @@ function updatePresenceUi(){
 // (кроме себя); на строке — аватарки тех, кто смотрит именно эту задачу.
 // Работает только в облачном режиме (нужен авторизованный пользователь).
 let _boardChannel = null, _boardProjId = null, _boardMe = null, _boardMyId = null, _boardState = {}, _myViewing = null;
+let _boardJoinToken = 0;   // v0.1.181: same per-invocation guard as task presence
 
 async function joinBoardPresence(projId){
   if(!sb || !projId || projId === 'all'){ leaveBoardPresence(); return; }
   if(_boardChannel && _boardProjId === projId) return;
-  leaveBoardPresence();
+  leaveBoardPresence();                    // bumps _boardJoinToken
+  const myToken = ++_boardJoinToken;
   let u = null;
   try { u = await db.auth.user(); } catch(_){ u = null; }
   if(!u) return;  // локальный/офлайн режим — presence не показываем
+  if(myToken !== _boardJoinToken) return;  // superseded while awaiting auth
   _boardMe = {
     user_id: u.id,
     initials: initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name }),
@@ -6975,9 +7016,11 @@ async function joinBoardPresence(projId){
     try { _boardState = channel.presenceState() || {}; renderBoardPresence(); updateRowPresenceAvatars(); } catch(_){}
   });
   channel.subscribe(async status => { if(status === 'SUBSCRIBED'){ try { await channel.track(_boardMe); } catch(_){} } });
+  if(myToken !== _boardJoinToken){ try { sb.removeChannel(channel); } catch(_){} return; }
   _boardChannel = channel; _boardProjId = projId;
 }
 function leaveBoardPresence(){
+  _boardJoinToken++;   // v0.1.181: invalidate any in-flight joinBoardPresence
   if(_boardChannel){ try { sb.removeChannel(_boardChannel); } catch(_){} }
   _boardChannel = null; _boardProjId = null; _boardState = {};
   renderBoardPresence(); updateRowPresenceAvatars();
@@ -6996,7 +7039,7 @@ function _boardOthers(){
   return out;
 }
 function _presenceAvHtml(p, suffix){
-  return `<span class="presence-av" title="${(p.name || p.initials || 'Someone').replace(/"/g,'&quot;')}${suffix}" style="background:${p.color || '#0EA5E9'}">${p.initials || '?'}</span>`;
+  return `<span class="presence-av" title="${escapeHtml((p.name || p.initials || 'Someone') + suffix)}" style="background:${safeColor(p.color)}">${escapeHtml(p.initials || '?')}</span>`;
 }
 function renderBoardPresence(){
   const slot = document.getElementById('boardPresence');
@@ -7156,7 +7199,7 @@ function renderPresent(){
     </div>`;
   }
 
-  const st = STATUSES[t.s];
+  const st = STATUSES[t.s] || STATUSES[0];   // v0.1.181: fallback (was the only unguarded status lookup — crashed present-mode on an out-of-range desktop_status)
   const card = document.getElementById('presCard');
   card.classList.add('with-chat');
   const proj = PROJECTS.find(p => p.id === t.proj);
@@ -7546,6 +7589,13 @@ function renderLbComments(){
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// v0.1.181 (security): presence color comes from other clients' tracked
+// payloads and lands inside style="background:${...}" — a `"` would break out
+// of the attribute. Accept only a safe CSS color token; else a brand fallback.
+function safeColor(c){
+  const v = String(c == null ? '' : c).trim();
+  return /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,\s%]+\)|[a-zA-Z]{1,20})$/.test(v) ? v : '#0EA5E9';
+}
 
 // v0.1.150 (fix #25 reported by tester MR): chat messages used to render
 // URLs as plain text, so users had to copy-paste them into the browser.
@@ -7561,7 +7611,11 @@ function linkifyText(s){
   // v0.1.176 (DB): ловим и ссылки с http(s)://, и www.*, и ГОЛЫЕ домены
   // (google.com, x.io/path) по белому списку TLD — чтобы «google.com» в чате
   // тоже становилась синей кликабельной ссылкой.
-  const rx = /\b(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|dev|ai|app|co|me|ru|info|biz|xyz|cc|gg|edu|gov|uk|de|fr|es|it|pl|nl|se|no|fi|cz|ee|tech|site|online|cloud|design)(?:\/[^\s<>"']*)?)/gi;
+  // v0.1.181: the bare-domain alternative gets a (?<![@\w.]) guard so it no
+  // longer linkifies the domain part of an email address (user@google.com) or
+  // a token that merely contains a dot+TLD-looking suffix. http(s):// and www.
+  // forms are unaffected.
+  const rx = /\b(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|(?<![@\w.])[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|dev|ai|app|co|me|ru|info|biz|xyz|cc|gg|edu|gov|uk|de|fr|es|it|pl|nl|se|no|fi|cz|ee|tech|site|online|cloud|design)(?:\/[^\s<>"']*)?)/gi;
   if(!rx.test(src)){ return escapeHtml(src); }
   rx.lastIndex = 0;
   let out = ''; let last = 0; let m;
@@ -7675,7 +7729,7 @@ function toggleChat(e, taskId){
   if(!t) return;
   if(!t.chat) t.chat = [];
   const cnt = (t.chat||[]).length;
-  document.getElementById('chatTitle').innerHTML = (t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${t.w} · ${cnt} message${cnt===1?'':'s'}</span>`;
+  document.getElementById('chatTitle').innerHTML = escapeHtml(t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${escapeHtml(t.w||'')} · ${cnt} message${cnt===1?'':'s'}</span>`;
   renderChatMsgs(t);
   pop.classList.add('open');
   setTimeout(() => document.getElementById('chatInput').focus(), 60);
@@ -7693,10 +7747,10 @@ function renderChatMsgs(t){
   msgs.innerHTML = t.chat.map(m => {
     const isMine = m.a === 'AS';
     return `<div class="cp-msg ${isMine?'mine':''}">
-      <div class="cp-msg-av ${m.a}" title="${m.a}">${m.a}</div>
+      <div class="cp-msg-av ${escapeHtml(m.a||'?')}" title="${escapeHtml(m.a||'?')}">${escapeHtml(m.a||'?')}</div>
       <div class="cp-msg-bd">
-        
-        <div class="cp-msg-bub">${m.text}</div>
+
+        <div class="cp-msg-bub">${linkifyText(m.text||'')}</div>
       </div>
     </div>`;
   }).join('');
@@ -7715,7 +7769,7 @@ function sendChat(){
   // Comment count is now reflected in preview mode (slideshow), not in row.
   // Update header counter
   const cnt = t.chat.length;
-  document.getElementById('chatTitle').innerHTML = (t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${t.w} · ${cnt} message${cnt===1?'':'s'}</span>`;
+  document.getElementById('chatTitle').innerHTML = escapeHtml(t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${escapeHtml(t.w||'')} · ${cnt} message${cnt===1?'':'s'}</span>`;
 }
 
 // ━━━ DASHBOARD ━━━
@@ -8065,8 +8119,14 @@ document.addEventListener('keydown', e => {
     return;
   }
   if(document.getElementById('present').classList.contains('on')){
-    if(e.key === 'ArrowRight'){e.preventDefault();presentNext();return;}
-    if(e.key === 'ArrowLeft'){e.preventDefault();presentPrev();return;}
+    // v0.1.181: don't hijack Left/Right while typing in the present-mode chat
+    // input or the notes textarea — the caret must move, not the slideshow.
+    const _tag = (e.target.tagName||'').toLowerCase();
+    const _typing = _tag === 'input' || _tag === 'textarea' || e.target.isContentEditable;
+    if(!_typing){
+      if(e.key === 'ArrowRight'){e.preventDefault();presentNext();return;}
+      if(e.key === 'ArrowLeft'){e.preventDefault();presentPrev();return;}
+    }
   }
   // P2-2 — dynamic shortcut matching
   if(matchShortcut(e, 'toggleSidebar')){
@@ -8141,7 +8201,7 @@ function openChatForTask(taskId){
     activeChatTaskId = taskId;
     if(!t.chat) t.chat = [];
     const cnt = t.chat.length;
-    document.getElementById('chatTitle').innerHTML = (t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${t.w} · ${cnt} message${cnt===1?'':'s'}</span>`;
+    document.getElementById('chatTitle').innerHTML = escapeHtml(t.n.length>40?t.n.slice(0,40)+'…':t.n) + `<span class="meta">${escapeHtml(t.w||'')} · ${cnt} message${cnt===1?'':'s'}</span>`;
     renderChatMsgs(t);
     document.getElementById('chatPop').classList.add('open');
   }, 100);
@@ -8209,8 +8269,8 @@ function renderDashboardSection(){
       : `<button class="dproj-arch-btn" onclick="event.stopPropagation();archiveProject('${p.id}')" title="Move to archive">Archive</button>`;
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="${p.archived ? '' : `switchProject('${p.id}');setSection('projects')`}">
       <div class="dproj-head">
-        <div style="min-width:0"><div class="dproj-name">${(p.name||'').replace(/[<>]/g,'')}</div>
-          <div class="dproj-meta">${p.code || ''}${p.client?' · '+p.client:''}${p.lang?' · '+p.lang:''}</div></div>
+        <div style="min-width:0"><div class="dproj-name">${escapeHtml(p.name||'')}</div>
+          <div class="dproj-meta">${escapeHtml(p.code || '')}${p.client?' · '+escapeHtml(p.client):''}${p.lang?' · '+escapeHtml(p.lang):''}</div></div>
         ${archiveBtn}
       </div>
       <div class="dproj-progress-row">
@@ -8235,8 +8295,8 @@ function renderDashboardSection(){
       return cnt > 0 ? `<div style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
     }).join('');
     return `<div class="dash-list-item" onclick="switchProject('${p.id}');setSection('projects')">
-      <span class="dli-name">${p.name}</span>
-      ${p.code ? `<span class="dli-code">${p.code}</span>` : ''}
+      <span class="dli-name">${escapeHtml(p.name||'')}</span>
+      ${p.code ? `<span class="dli-code">${escapeHtml(p.code)}</span>` : ''}
       <div class="dli-bar">${segs}</div>
       <span class="dli-pct">${pct}%</span>
       <span class="dli-meta">${done}/${total}${probs>0?' · '+probs+' ⚠':''}</span>
@@ -9365,22 +9425,64 @@ function taskMenuDelete(taskId){
     );
   });
 }
-function taskMenuDuplicate(taskId){
+async function taskMenuDuplicate(taskId){
   document.getElementById('_ebTaskMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
+  const idx = TASKS.findIndex(x => x.id === taskId);
+  const newTitle = (t.title || t.n || 'Task') + ' (copy)';
+  // v0.1.181 fix: previously a cloud-backed parent created BOTH a local copy
+  // (with a fake 't…' id, _cloud deleted) AND a separate empty cloud row via
+  // createTaskFor() — two visible rows, and the rich copy vanished on reload.
+  // Now there is ONE insert: the DB generates the uuid, and the in-memory copy
+  // is built from the returned row so it survives reload.
+  if(t._cloud && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      const payload = {
+        title: newTitle, project_id: t.proj,
+        desktop_status: t.s, week_tag: t.w || null,
+        // don't push in-memory base64 into the URL columns
+        shot1_url: (t.shot1 && !String(t.shot1).startsWith('data:')) ? t.shot1 : null,
+        shot2_url: (t.shot2 && !String(t.shot2).startsWith('data:')) ? t.shot2 : null,
+        shots_extra: (t.shots || []).filter(s => !String(s).startsWith('data:')),
+        hidden: !!t.hidden, pinned: false,
+        deadline: t.deadline || null, notes: t.notes || '',
+        priority: 'medium', created_by: u?.id, position: nextTaskUid(t.proj)
+      };
+      const { data, error } = await sb.from('tasks').insert(payload).select().single();
+      if(error || !data){ throw (error || new Error('no row returned')); }
+      const copy = {
+        id: data.id, proj: t.proj, uid: data.position || nextTaskUid(t.proj),
+        n: newTitle, title: newTitle, s: t.s, w: t.w || '', chat: [],
+        shot1: t.shot1 || null, shot2: t.shot2 || null, shots: (t.shots || []).slice(),
+        checklist: (t.checklist || []).map(c => ({ ...c })),
+        links: (t.links || []).map(l => ({ ...l })),
+        hidden: !!t.hidden, deadline: t.deadline, notes: t.notes || '',
+        _cloud: true
+      };
+      TASKS.splice(idx + 1, 0, copy);
+      // checklist/links live in their own columns (migration 0022). Tolerated
+      // no-op until that migration is applied.
+      if(copy.checklist.length) db.tasks.update(data.id, { checklist: copy.checklist }).catch(()=>{});
+      if(copy.links.length) db.tasks.update(data.id, { links: copy.links }).catch(()=>{});
+      try { auditLog('create', 'task', data.id, null, { title: newTitle }, t.proj); } catch(_){}
+      render(); updateHeader();
+      toast('✓ Task duplicated');
+    } catch(e){
+      console.warn('[cloud] duplicate failed:', e?.message || e);
+      toast('Duplicate failed: ' + (e?.message || 'cloud error'));
+    }
+    return;
+  }
+  // Local (no cloud): deep copy with a fresh local id.
   const copy = JSON.parse(JSON.stringify(t));
   copy.id = 't' + Date.now();
   copy.uid = nextTaskUid(t.proj);
-  copy.title = (t.title || t.n || 'Task') + ' (copy)';
-  copy.n = copy.title;
-  delete copy._cloud;  // local duplicate; user can re-sync if needed
-  const idx = TASKS.findIndex(x => x.id === taskId);
+  copy.title = newTitle;
+  copy.n = newTitle;
+  delete copy._cloud;
   TASKS.splice(idx + 1, 0, copy);
-  // Persist to cloud if original was cloud-backed
-  if(t._cloud && db && db.ready){
-    createTaskFor(t.proj, copy.title, true).catch(()=>{});
-  }
   render(); updateHeader();
   toast('✓ Task duplicated');
 }
@@ -10436,7 +10538,10 @@ async function runExportPDF(opts){
   const proj = projId ? PROJECTS.find(p => p.id === projId) : null;
   let tasks = projId ? TASKS.filter(t => t.proj === projId) : [...TASKS];
   // v0.1.173 (DB): фильтры из диалога — типы задач (статусы) + период по дедлайну.
-  if(opts.statuses && opts.statuses.size) tasks = tasks.filter(t => opts.statuses.has(t.s));
+  // v0.1.181: if a status Set is supplied, honour it even when empty — all
+  // checkboxes off must yield zero tasks (→ the 'No tasks' toast below), not
+  // silently fall through to exporting every status.
+  if(opts.statuses instanceof Set) tasks = tasks.filter(t => opts.statuses.has(t.s));
   if(opts.from || opts.to){
     tasks = tasks.filter(t => {
       if(!t.deadline) return true;               // задачи no deadline не отсекаем
@@ -11348,15 +11453,20 @@ async function exportWeeklySummaryPDF(){
     let curY = 18;
     for(const t of wTasks){
       const st = STATUSES[t.s] || STATUSES[0];
-      if(curY + 8 > pageH - margin){ doc.addPage(); curY = margin; }
+      // v0.1.181: render up to two wrapped title lines (was [0] — a long task
+      // title was silently clipped to its first line) and advance curY by the
+      // real block height so the page-break check stays correct.
+      doc.setFontSize(9);
+      const titleLines = doc.splitTextToSize(t.n||'(untitled)', pageW-2*margin-28).slice(0, 2);
+      const blockH = 6 + (titleLines.length - 1) * 4.5;
+      if(curY + blockH + 2 > pageH - margin){ doc.addPage(); curY = margin; }
       doc.setFillColor(...hexToRgb(st.c));
       doc.circle(margin+1.5, curY-1.5, 1.5, 'F');
-      doc.setFontSize(9); doc.setFont(undefined,'normal'); doc.setTextColor(15,23,42);
-      const titleLine = doc.splitTextToSize(t.n||'(untitled)', pageW-2*margin-28)[0];
-      doc.text(titleLine, margin+5, curY);
+      doc.setFont(undefined,'normal'); doc.setTextColor(15,23,42);
+      doc.text(titleLines, margin+5, curY);
       doc.setFontSize(7.5); doc.setTextColor(100,116,139);
       doc.text(st.l, pageW-margin-doc.getTextWidth(st.l), curY);
-      curY += 6;
+      curY += blockH;
       if(Array.isArray(t.checklist) && t.checklist.length){
         doc.setFontSize(7.5); doc.setFont(undefined,'normal');
         for(const item of t.checklist){

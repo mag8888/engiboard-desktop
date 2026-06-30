@@ -320,6 +320,19 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 <!-- v0.1.74: html2canvas CDN removed — native compositeToDataUrl() replaces it
      (no network dependency, captures the background reliably). -->
 <script>
+// v0.1.181 (security): comment / label text comes from collaborators via the
+// shared tasks.annotations JSONB (postMessage / applyPayload) and was rendered
+// raw into innerHTML — a stored-XSS sink inside this editor iframe. Escape it.
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// Allow only a safe CSS color token (hex / rgb[a] / named word); else fall back.
+function safeColor(c){
+  const v = String(c == null ? '' : c).trim();
+  return /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,\s%]+\)|[a-zA-Z]{1,20})$/.test(v) ? v : '#FF453A';
+}
 let tool='select', color='#FF453A', sw=2, opVal=1;
 // v0.1.156 (#29/#31/#32 MR): per-tool drawing options.
 let shapeFill = false;        // #29 toggle: rect/circle filled vs. stroked
@@ -710,8 +723,8 @@ function makeAnnotEl(a,prev=false){
           onclick="event.stopPropagation()"
           onmousedown="event.stopPropagation()"
           style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px;width:100%;background:rgba(255,255,255,.85);border:1px dashed ${a.color};border-radius:3px;outline:none;padding:1px 2px">`
-      : `<div style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px">${labelText}</div>`;
-    wrap.innerHTML = `<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${a.color}"></div><div style="flex:1;height:${a.sw}px;background:${a.color}"></div><div style="width:1px;height:10px;background:${a.color}"></div></div>${editable}`;
+      : `<div style="text-align:center;font-size:9px;font-weight:700;color:${safeColor(a.color)};font-family:monospace;margin-top:2px">${escapeHtml(labelText)}</div>`;
+    wrap.innerHTML = `<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${safeColor(a.color)}"></div><div style="flex:1;height:${a.sw}px;background:${safeColor(a.color)}"></div><div style="width:1px;height:10px;background:${safeColor(a.color)}"></div></div>${editable}`;
     return{el:wrap,layer:'div'};
   }
   if(a.type==='freehand'){
@@ -802,7 +815,7 @@ function toggleBubble(c){
   bub.dataset.cmtId = c.id;
   bub.className='cbbl cbbl-r';
   bub.style.cssText=`left:${Math.min(c.px+3,62)}%;top:${c.py-4}%`;
-  bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${c.text}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
+  bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${escapeHtml(c.text)}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
   bub.onmousedown=ev=>ev.stopPropagation();
   annRoot.appendChild(bub);
   _applyCmtInvScale();
@@ -839,8 +852,8 @@ function updateList(){
   } else {
     annEl.innerHTML = annotations.map(a => `
       <div class="ali ${a.id===selId?'on':''}" onclick="selAnn('${a.id}')">
-        <span style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block"></span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.type==='emoji'?(a.emoji||'☺'):(ICONS[a.type]||'·')} ${a.type==='text'?(a.text||'').slice(0,16):a.type==='emoji'?'Emoji':(NAMES[a.type]||a.type)}</span>
+        <span style="width:10px;height:10px;border-radius:50%;background:${safeColor(a.color)};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.type==='emoji'?escapeHtml(a.emoji||'☺'):(ICONS[a.type]||'·')} ${a.type==='text'?escapeHtml((a.text||'').slice(0,16)):a.type==='emoji'?'Emoji':(NAMES[a.type]||a.type)}</span>
         <button class="adel" onclick="event.stopPropagation();delAnn('${a.id}')">×</button>
       </div>
     `).join('');
@@ -853,8 +866,8 @@ function updateList(){
   } else {
     cmtEl.innerHTML = comments.map(c => `
       <div class="ali" onclick="selComment(${c.id})">
-        <span style="width:18px;height:18px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${c.num}</span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--t1)">${(c.text||'').slice(0,28)}</span>
+        <span style="width:18px;height:18px;border-radius:50%;background:${safeColor(c.color)};flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${c.num}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--t1)">${escapeHtml((c.text||'').slice(0,28))}</span>
         <button class="adel" onclick="event.stopPropagation();delCmt(${c.id})">×</button>
       </div>
     `).join('');
