@@ -4387,6 +4387,18 @@ function setSortMode(projId, mode){
   try { localStorage.setItem(_ebSortKey(projId), mode || 'manual'); } catch(_){}
   render();
 }
+// v0.1.183: a manual reorder (drag or ↑/↓ arrows) has no visible effect while
+// the project is sorted by Status/etc — render() re-sorts the list and the move
+// snaps back. So when the user reorders by hand, switch that project to Manual
+// (once, with a heads-up toast) so the new order actually sticks. Callers
+// already render() afterwards, so this only flips the stored mode.
+function _ensureManualSort(projId){
+  if(!projId) return;
+  if(getSortMode(projId) !== 'manual'){
+    try { localStorage.setItem(_ebSortKey(projId), 'manual'); } catch(_){}
+    try { toast('Sorting switched to Manual so the order sticks', 2600); } catch(_){}
+  }
+}
 function _cmpBySortMode(a, b, mode){
   if(mode === 'status'){
     return (a.s ?? 0) - (b.s ?? 0) || (a.uid ?? 0) - (b.uid ?? 0);
@@ -6671,6 +6683,7 @@ function _mDragUp(e){
           if(typeof logHist === 'function') logHist(item, 'week', `moved to ${item.w || 'unscheduled'}`);
         }
         TASKS.splice(isTop ? ins : ins+1, 0, item);
+        _ensureManualSort(item.proj);   // v0.1.183: drag-reorder must stick even if the project was sorted by Status/etc
         const projTasks = TASKS.filter(t => t.proj === item.proj);
         projTasks.forEach((t,i) => { t.uid = i+1; });
         if(db?.ready){
@@ -6712,6 +6725,7 @@ function _moveTaskBy(id, dir){
   const tgtIdx = groupIdx[tgtPos];
   // swap двух элементов массива (их относительный порядок в группе меняется)
   const tmp = TASKS[idx]; TASKS[idx] = TASKS[tgtIdx]; TASKS[tgtIdx] = tmp;
+  _ensureManualSort(item.proj);   // v0.1.183: keep the move from snapping back under a non-manual sort
   // персист порядка по проекту — как в _mDragUp (6386-6395)
   const projTasks = TASKS.filter(t => t.proj === item.proj);
   projTasks.forEach((t, i) => { t.uid = i + 1; });
