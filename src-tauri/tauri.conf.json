@@ -1,6 +1,6 @@
 {
   "productName": "EngiBoard",
-  "version": "0.1.181",
+  "version": "0.1.182",
   "identifier": "com.engiboard.desktop",
   "build": {
     "frontendDist": "../dist"
@@ -55,6 +55,9 @@
       "signingIdentity": null
     },
     "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      },
       "wix": {
         "language": [
           "en-US"
