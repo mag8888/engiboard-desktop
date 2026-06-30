@@ -1,6 +1,8 @@
 # Rust
 src-tauri/target/
-src-tauri/Cargo.lock
+# NB: Cargo.lock MUST be committed for a binary app — without it CI resolves
+# deps fresh and can pull an incompatible transitive crate (e.g. time 0.3.52
+# broke cookie 0.18.1, failing every platform's release build on 2026-06-30).
 
 # OS
 .DS_Store
