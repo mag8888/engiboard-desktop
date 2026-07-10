@@ -588,6 +588,34 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 }
 /* v0.1.164 (DB): mini-chat — ~2 сообщения в свёрнутом виде, скролл дальше. */
 .list.cv-list .chat-col .chat-list{min-height:0;max-height:56px;overflow-y:auto}
+/* v0.1.184 (DB fix, #4): when a row is manually resized taller, the chat panel
+   grows with it instead of staying capped — the extra height is usable, not empty.
+   The grid track must stretch to the row's min-height first (align-content),
+   otherwise align-items:stretch only fills the content-height track and the extra
+   space is dead at the bottom. Then the chat-list flexes to fill its column. */
+.list.cv-list .row.row-resized,
+.list.cv-expanded .row.row-resized{align-content:stretch;grid-template-rows:minmax(0,1fr)}
+.list.cv-list .row.row-resized .chat-col,
+.list.cv-expanded .row.row-resized .chat-col{align-self:stretch;height:100%}
+.list.cv-list .row.row-resized .chat-col .chat-list,
+.list.cv-expanded .row.row-resized .chat-col .chat-list{max-height:none;flex:1 1 auto;min-height:0}
+/* v0.1.184 (DB fix, #17): a task in a CLOSED (complete) week is read-only.
+   Editing controls are disabled; viewing (Presentation, links, screenshots)
+   stays available. Reopen the week to edit again. */
+.row.wk-locked .tc-status,
+.row.wk-locked .st-wrap,
+.row.wk-locked .card-assignee,
+.row.wk-locked [contenteditable],
+.row.wk-locked .nt-chat-input,
+.row.wk-locked .drag-handle,
+.row.wk-locked .rh-arrow,
+.row.wk-locked .resize-h,
+.row.wk-locked .card-kebab,
+.row.wk-locked .card-archive,
+.row.wk-locked .bug-toggle,
+.row.wk-locked .pres-del,
+.row.wk-locked .newInpProj{pointer-events:none !important;opacity:.5}
+.row.wk-locked [contenteditable]{-webkit-user-modify:read-only;user-select:none}
 /* v0.1.169 (DB): чат-инпут показываем и в свёрнутом виде (компактно). */
 .list.cv-list .nt-chat-input{display:flex;padding:2px;margin-top:1px}
 .list.cv-list .nt-chat-input input{font-size:11px;padding:4px 6px}
@@ -752,6 +780,14 @@ body.dark-mode .tit-col .tc-title:hover{background:rgba(255,255,255,.04)}
 }
 .row .pi.has .pi-lbl{background:rgba(15,23,42,.55)}
 body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
+/* v0.1.184 (DB fix): saved-comments badge on a screenshot thumbnail */
+.row .pi-cmt{
+  position:absolute;top:6px;right:6px;z-index:2;pointer-events:none;
+  display:inline-flex;align-items:center;gap:3px;background:#0EA5E9;color:#fff;
+  font-family:var(--mono);font-size:9px;font-weight:700;line-height:1;
+  padding:3px 6px;border-radius:9px;box-shadow:0 1px 3px rgba(15,23,42,.35)
+}
+.row .pi-cmt svg{display:block}
 
 .row .nt{padding:0 12px;display:flex;flex-direction:column;gap:2px;min-width:0;height:100%}
 .row .nt-t{
@@ -1558,6 +1594,17 @@ body.dark-mode .cmp-pane{ background:#1e2531 }
   position:relative;min-height:0;overflow:hidden
 }
 body.dark-mode .pres-pic{ background:#1e2531; }
+/* v0.1.184: on-image "remove screenshot" button (top-right, opposite the label) */
+.pres-pic .pres-del{
+  position:absolute;top:8px;right:8px;z-index:4;width:28px;height:28px;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:none;border-radius:7px;cursor:pointer;color:#fff;
+  background:rgba(15,23,42,.55);backdrop-filter:blur(3px);
+  opacity:0;transition:opacity .12s,background .12s
+}
+.pres-pic:hover .pres-del{opacity:1}
+.pres-pic .pres-del:hover{background:#DC2626}
+.pres-pic .pres-del:focus-visible{opacity:1;outline:2px solid #fff;outline-offset:1px}
 .pres-pic .lbl{
   position:absolute;top:12px;left:12px;background:rgba(15,23,42,.7);color:#fff;padding:4px 10px;
   border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.05em;z-index:2
@@ -2498,29 +2545,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
 <!-- PRESENT -->
 <div id="present"><div class="pres-card" id="presCard"></div></div>
 
-<!-- v0.1.137: Compare modal — side-by-side BEFORE/AFTER like Presentation,
-     no wipe (cleaner, no overlap issues, images sized by object-fit:contain). -->
-<div id="compare">
-  <div class="cmp-card">
-    <div class="cmp-head">
-      <h3 id="cmpTitle">Compare</h3>
-      <span class="cmp-meta" id="cmpMeta"></span>
-      <button class="cmp-x" onclick="closeCompare()" title="Close (Esc)">×</button>
-    </div>
-    <div class="cmp-stage" id="cmpStage">
-      <div class="cmp-pane">
-        <span class="cmp-lbl" data-t="col.before">BEFORE</span>
-        <img id="ciBefore" alt="">
-        <span class="cmp-empty" id="ciBeforeEmpty">No before yet</span>
-      </div>
-      <div class="cmp-pane">
-        <span class="cmp-lbl" data-t="col.after">AFTER</span>
-        <img id="ciAfter" alt="">
-        <span class="cmp-empty" id="ciAfterEmpty">No after yet</span>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- v0.1.184: Before/After Compare modal removed per client request -->
 
 <!-- DASHBOARD -->
 <div id="dash"></div>
@@ -2533,6 +2558,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="npm-field"><label>Project name</label><input id="npmName" placeholder="Production Line #5"></div>
     <div class="npm-field"><label>Client</label><input id="npmClient" placeholder="Acme Manufacturing"></div>
     <div class="npm-field"><label>Language</label><input id="npmLang" placeholder="EN / RU / DE…"></div>
+    <!-- v0.1.184 (DB fix, #14): add an engineer on project creation -->
+    <div class="npm-field"><label>Engineer (email, optional)</label><input id="npmEngineer" placeholder="engineer@company.com — comma-separate for several"></div>
     <div class="npm-foot">
       <button class="npm-cancel" onclick="closeNewProjModal()">Cancel</button>
       <button class="npm-create" onclick="createNewProject()">Create</button>
@@ -2852,6 +2879,13 @@ function passesStatusFilter(t){ return curFilter.size === 0 || curFilter.has(t.s
 let curSearch = '';
 let activeChatTaskId = null;
 let pendingScreenshot = null;
+// v0.1.184 (DB fix): vector annotations + pin-comments captured in the editor of
+// a FRESH screenshot, carried through paste-mode so they land in the slot's
+// annBySlot/cmtBySlot when the image is dropped into BEFORE/AFTER. Without this,
+// a comment added during the first capture was lost the moment the shot was
+// pasted — before any reopen — so it never came back.
+let pendingScreenshotAnn = [];
+let pendingScreenshotCmt = [];
 let pasteMode = false;
 let presentTask = null;
 let openStMenu = null;
@@ -4371,6 +4405,10 @@ let _showHidden = false;
 // со всех проектов. Включается из сайдбара, сбрасывается при переходе в
 // обычный раздел Projects.
 let _favoritesOnly = false;
+// v0.1.184 (DB fix, #12): Favorites forces All-projects scope, which used to
+// strand the user in All-projects after they returned to the Projects tab.
+// Remember the real project and restore it on return.
+let _projectBeforeFavorites = null, _allByFavorites = false;
 // v0.1.164 (DB): фильтр «только баги» — переключается чипом в фильтр-баре.
 let _hideBugs = false;
 
@@ -4931,9 +4969,16 @@ function render(){
       if(b==='') return -1;
       return a.localeCompare(b);
     });
-    if(weekKeys.length <= 1){
-      // Single week (or no weeks) — render flat, as before, no folder chrome.
+    // v0.1.184 (DB fix, bugs: "week not shown in header when it has a few tasks"
+    // and "week name disappears while a filter is on"). Previously ANY single
+    // week key (even a real week tag) rendered flat with no header. Now we only
+    // drop the folder chrome when there are literally no real weeks (everything
+    // Unscheduled) — a single real week keeps its header.
+    const onlyUnscheduled = weekKeys.length === 0 || (weekKeys.length === 1 && weekKeys[0] === '');
+    if(onlyUnscheduled){
+      // No real weeks — render flat with one bottom add-row.
       _sortMaybe(unpinned, proj.id).forEach(t => { html += renderRow(t); });
+      html += renderEmptyRowForProject(proj.id);
     } else {
       for(const w of weekKeys){
         const tasks = groups.get(w) || [];
@@ -4955,12 +5000,13 @@ function render(){
         </div>`;
         if(!collapsed){
           _sortMaybe(tasks, proj.id).forEach(t => { html += renderRow(t); });
+          // v0.1.184 (DB fix, bug: "add a task in EVERY week, not only the last
+          // row"). Each open week gets its own "+ Add task" input; complete
+          // weeks are read-only so they don't.
+          if(!complete) html += renderEmptyRowForProject(proj.id, w);
         }
       }
     }
-    // v0.1.164 (DB): пустая «таска-призрак» снизу списка — как было, для
-    // быстрого создания новых задач.
-    html += renderEmptyRowForProject(proj.id);
     replaceListWith(html);
     wireUpEmptyInput();
     setTimeout(() => { patchGuardedImages(); if(typeof updateRowPresenceAvatars === 'function') updateRowPresenceAvatars(); }, 0);
@@ -5081,6 +5127,8 @@ const ICON_INFO = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" s
 const ICON_COPY = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 const ICON_DUPLICATE = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="13" height="13" rx="2"/><path d="M8 21h11a2 2 0 0 0 2-2V8"/></svg>`;
 const ICON_TRASH = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+// v0.1.184: compact trash glyph for the on-image "remove screenshot" button.
+const ICON_TRASH_SM = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 const ICON_USER = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>`;
 const ICON_HISTORY = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`;
 
@@ -5488,8 +5536,6 @@ function renderRow(t){
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
   const presLabel = (typeof T==='function' ? T('btn.presentation') : 'Presentation');
   const slideshowLabel = totalShots > 2 ? `${ICON('play')} ${presLabel} · ${totalShots}` : `${ICON('play')} ${presLabel}`;
-  const compareLabel = (typeof T==='function' ? T('btn.compare') : 'Compare');
-  const hasBoth = !!(t.shot1 && t.shot2);
   // v0.1.33: inline chat preview — last 8 msgs in DOM, ~3 visible at once via max-height,
   // scroll for the rest. Empty state removed (user feedback: 'не нужно empty state')
   const chatMsgs = (t.chat || []).slice(-8);
@@ -5531,7 +5577,8 @@ function renderRow(t){
   const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}${t.pinned ? ' pinned' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
+  const _wkLocked = !!(t.w && typeof isWeekComplete === 'function' && isWeekComplete(t.proj, t.w));   // v0.1.184 (#17)
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}${t.pinned ? ' pinned' : ''}${t.h ? ' row-resized' : ''}${_wkLocked ? ' wk-locked' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
     oncontextmenu="showTaskMenu(event,'${t.id}')"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${selDot}${firstCell}
@@ -5569,7 +5616,7 @@ function renderRow(t){
       <div class="chat-row-actions">
         <div class="chat-row-actions-r1">
           <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-          ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}">${ICON('swap')} ${compareLabel}</span>` : ''}
+          <!-- v0.1.184: Before/After Compare mode removed per client request -->
           <span class="row-presence" data-task-id="${t.id}" style="display:none"></span>
         </div>
         <div class="chat-row-actions-r2">
@@ -5629,8 +5676,14 @@ function renderPic(t, slot){
     // tools loaded (Roman: "сразу пусть будут инструменты, не надо в отдельный
     // режим переходить"). img draggable=false so the browser doesn't hijack
     // the drag-reorder with native image drag.
+    // v0.1.184 (DB fix): show a badge when this slot has saved pin-comments, so
+    // the thumbnail makes it obvious comments were stored (they are NOT baked
+    // into the image — baking them would leave a ghost pin after a delete).
+    const cmtN = (t.cmtBySlot && Array.isArray(t.cmtBySlot[slotIdx])) ? t.cmtBySlot[slotIdx].length : 0;
+    const cmtBadge = cmtN ? `<span class="pi-cmt" title="${cmtN} comment${cmtN!==1?'s':''} saved">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${cmtN}</span>` : '';
     return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();piClick('${t.id}',${slotIdx})" title="Click to open in editor · paste-mode: click to insert here">
-      <span class="pi-lbl">${lblText}</span>
+      <span class="pi-lbl">${lblText}</span>${cmtBadge}
       <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
   }
@@ -5667,6 +5720,7 @@ function piClick(taskId, slotIdx){
     const t = TASKS.find(x => x.id === taskId);
     if(t && pendingScreenshot){
       assignShotToSlot(t, slotIdx, pendingScreenshot);
+      _persistPastedVectors(t, slotIdx);   // v0.1.184: keep fresh-capture comments
       exitPasteMode();
       toast('✓ Screenshot inserted');
     }
@@ -5832,15 +5886,18 @@ function renderEmptyRow(){
   </div>`;
 }
 
-function renderEmptyRowForProject(projId){
+function renderEmptyRowForProject(projId, week){
   // v0.1.75: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
   // JS binding (it could be missed if render order changed, leaving Enter
   // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
-  return `<div class="row empty eb-addrow" data-task-id="new-${projId}" data-target-proj="${projId}" style="min-height:54px">
+  // v0.1.184: `week` (optional) files the new task into that week folder.
+  week = week || '';
+  const ph = week ? ('+ Add task to ' + week + '…') : T('placeholder.newtaskProj');
+  return `<div class="row empty eb-addrow" data-task-id="new-${projId}-${week}" data-target-proj="${projId}" data-week="${week}" style="min-height:54px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
-      <input class="newInpProj" data-proj="${projId}" placeholder="${T('placeholder.newtaskProj')}"
-        onkeydown="if(event.key==='Enter'&&this.value.trim()){const v=this.value.trim();this.value='';createTaskFor('${projId}',v,(PROJECTS.find(p=>p.id==='${projId}')||{})._cloud,v).then(()=>toast('✓ Task created'));}"
+      <input class="newInpProj" data-proj="${projId}" data-week="${week}" placeholder="${ph}"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){const v=this.value.trim();this.value='';createTaskFor('${projId}',v,(PROJECTS.find(p=>p.id==='${projId}')||{})._cloud,v,'${week}').then(()=>toast('✓ Task created'));}"
         style="border:none;border-radius:7px;padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:transparent;color:var(--t1)">
     </div>
     <div class="pc"><div class="pi"><span class="pi-lbl">BEFORE</span><span style="opacity:.55">paste·drop</span></div></div>
@@ -5872,6 +5929,7 @@ function wireUpEmptyInput(){
     inp.onkeydown = async function(e){
       if(e.key === 'Enter' && this.value.trim()){
         const projId = this.dataset.proj;
+        const week = this.dataset.week || '';   // v0.1.184: per-week add row
         const text = this.value.trim();
         const proj = PROJECTS.find(p => p.id === projId);
         this.value = '';
@@ -5880,11 +5938,11 @@ function wireUpEmptyInput(){
         // what they typed. Previously this 4th arg was omitted and the chat
         // started empty (the inline onkeydown attribute already did this, but
         // wireUpEmptyInput overrides it via inp.onkeydown=).
-        await createTaskFor(projId, text, proj && proj._cloud, text);
-        toast('✓ Task added to ' + (proj?.name || 'project'));
-        // Re-focus the same project input after re-render
+        await createTaskFor(projId, text, proj && proj._cloud, text, week);
+        toast('✓ Task added' + (week ? ' to ' + week : (' to ' + (proj?.name || 'project'))));
+        // Re-focus the same week's input after re-render
         setTimeout(() => {
-          const newInp = document.querySelector('.newInpProj[data-proj="'+projId+'"]');
+          const newInp = document.querySelector('.newInpProj[data-proj="'+projId+'"][data-week="'+week+'"]');
           if(newInp) newInp.focus();
         }, 50);
       }
@@ -5894,7 +5952,10 @@ function wireUpEmptyInput(){
 
 // v0.1.61: shared helper — create a task, cloud-first if the parent project
 // is a cloud project (i.e. came from Supabase). Falls back to local insert.
-async function createTaskFor(projectId, title, cloudParent, initialChatText){
+async function createTaskFor(projectId, title, cloudParent, initialChatText, week){
+  // v0.1.184: `week` (optional) files the new task straight into a week folder
+  // so each week can have its own "+ Add task" row, not just the list bottom.
+  week = week || '';
   // v0.1.163 (DB regression «пропало добавление задач»): новая задача
   // создаётся со статусом Info/Blocked. Если активен фильтр по статусу
   // (теперь множественный), она бы им скрылась — пользователь жмёт Enter и
@@ -5925,9 +5986,10 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText){
             id: data.id, proj: projectId, uid: data.position || 0,
             n: data.title, title: data.title,
             s: (typeof data.desktop_status === 'number') ? data.desktop_status : 7,
-            w: '', chat: chatArr, shot1: null, shot2: null, shots: [],
+            w: week, chat: chatArr, shot1: null, shot2: null, shots: [],
             _cloud: true
           });
+          if(week) db.tasks.update(data.id, { week_tag: week }).catch(()=>{});
           // persist initial message to cloud if any
           if(initialChatText){
             db.taskComments.create({ task_id: data.id, body: initialChatText, author_id: u.id }).catch(()=>{});
@@ -5948,7 +6010,7 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText){
     // v0.1.181: was w:'26W17' (a stale demo-week literal) / s:0 — now matches
     // the cloud path (unscheduled week, 'Upcoming' status) so offline-created
     // and zero-state tasks don't misfile into a hardcoded past week.
-    w: '', s: 7, title, n: title, chat: makeInitialMsg('AS')
+    w: week, s: 7, title, n: title, chat: makeInitialMsg('AS')
   });
   logHist(newId, 'create', 'task created');
   render(); updateHeader();
@@ -6057,18 +6119,53 @@ function changeStatus(taskId, sid){
 
 let _mDragStartX = 0, _mDragStartY = 0, _mDragging = false;
 
+// v0.1.184 (DB fix, bug: "task can't be dragged to another week / kebab dead
+// after a failed move"). The drag used to end ONLY on a document `mouseup`.
+// If the pointer was released outside the window (common when dragging toward a
+// week header — WKWebView drops the mouseup), the once:true `_mDragUp` never
+// fired: the mousemove listener, `_mDragId`, `.dragging` class and the pending
+// `_mDragUp` all stayed live. The next click's mouseup then triggered that stale
+// `_mDragUp`, which ran a drop + render() and swallowed the click meant for the
+// kebab. `_endDrag()` is the single, side-effect-free teardown used everywhere.
+function _endDrag(){
+  document.removeEventListener('mousemove', _mDragMove, {capture:true});
+  document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
+  document.body.style.cursor = '';
+  document.querySelectorAll('.row').forEach(r =>
+    r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
+  document.querySelectorAll('.week-hdr').forEach(h =>
+    h.classList.remove('drop-target','drop-forbidden'));
+  _removeDropSlot();
+  _stopDragScroll();
+  _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
+}
+// v0.1.184: auto-scroll the task list while dragging near its top/bottom edge,
+// so a task CAN be dropped on a week that is currently scrolled off-screen.
+let _dragScrollTimer = null, _dragLastY = 0;
+function _startDragScroll(){
+  if(_dragScrollTimer) return;
+  _dragScrollTimer = setInterval(() => {
+    const list = document.querySelector('.list.cv-list') || document.querySelector('.list');
+    if(!list){ return; }
+    const r = list.getBoundingClientRect(), EDGE = 60;
+    let dy = 0;
+    if(_dragLastY < r.top + EDGE)         dy = -Math.ceil((r.top + EDGE - _dragLastY) / 3);
+    else if(_dragLastY > r.bottom - EDGE) dy =  Math.ceil((_dragLastY - (r.bottom - EDGE)) / 3);
+    if(dy) list.scrollTop += dy;
+  }, 16);
+}
+function _stopDragScroll(){ if(_dragScrollTimer){ clearInterval(_dragScrollTimer); _dragScrollTimer = null; } }
+// v0.1.184: a fresh mousedown anywhere means any earlier drag is over. If its
+// mouseup was missed, flush it HERE (side-effect-free) so the pending `_mDragUp`
+// can't fire on this interaction's mouseup and eat the click (e.g. the kebab).
+document.addEventListener('mousedown', () => { if(_mDragId) _endDrag(); }, true);
+// v0.1.184: releasing outside the window / losing focus also ends the drag.
+window.addEventListener('blur', () => { if(_mDragId) _endDrag(); });
+
 let _suppressNextRowClick = false;
 function dragHandleDown(e, taskId){
   // Clean up any stale drag state (e.g. mouse left window mid-drag) instead of blocking
-  if(_mDragId){
-    document.removeEventListener('mousemove', _mDragMove, {capture:true});
-    document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
-    document.querySelectorAll('.row').forEach(r =>
-      r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
-    _removeDropSlot();
-    document.body.style.cursor = '';
-    _mDragId = null; _mDragEl = null; _mDragging = false; _mDragLastTgt = null;
-  }
+  if(_mDragId) _endDrag();
   if(selectMode) return;
   if(e.button !== 0) return;
   // Don't preventDefault on mousedown — would block click events
@@ -6323,7 +6420,16 @@ function deleteDriveLink(taskId, linkId){
 }
 function openDriveLinkMenu(e, taskId, linkId){
   e?.preventDefault?.();
-  document.getElementById('_ebDriveMenu')?.remove();
+  e?.stopPropagation?.();
+  // v0.1.184 (DB fix): real toggle. The kebab's onclick stops propagation, so the
+  // outside-click closer never fired — clicking the dots again just rebuilt the
+  // menu (looked stuck). Now a second click on the SAME link's dots closes it.
+  const existing = document.getElementById('_ebDriveMenu');
+  if(existing){
+    const same = existing.dataset.taskId === String(taskId) && existing.dataset.linkId === String(linkId || '');
+    existing.remove();
+    if(same) return;
+  }
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
   const link = _findDriveLink(t, linkId);
@@ -6331,6 +6437,8 @@ function openDriveLinkMenu(e, taskId, linkId){
   const idArg = link.id ? `'${link.id}'` : `''`;
   const menu = document.createElement('div');
   menu.id = '_ebDriveMenu';
+  menu.dataset.taskId = String(taskId);
+  menu.dataset.linkId = String(linkId || '');
   menu.className = 'task-ctx-menu';
   menu.innerHTML = `
     <div class="tcm-item" onclick="editDriveLink('${taskId}',${idArg})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:8px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit URL</div>
@@ -6523,7 +6631,9 @@ function _mDragMove(e){
     _mDragging = true;
     if(_mDragEl) _mDragEl.classList.add('dragging');
     document.body.style.cursor = 'grabbing';
+    _startDragScroll();   // v0.1.184: enable edge auto-scroll for off-screen weeks
   }
+  _dragLastY = e.clientY; // v0.1.184: feed the auto-scroll loop
   document.querySelectorAll('.row[data-task-id]').forEach(r =>
     r.classList.remove('drag-over-top','drag-over-bottom'));
   document.querySelectorAll('.week-hdr').forEach(h =>
@@ -6589,6 +6699,7 @@ function _removeDropSlot(){ document.getElementById('_ebDropSlot')?.remove(); }
 function _mDragUp(e){
   document.removeEventListener('mousemove', _mDragMove, {capture:true});
   document.removeEventListener('mouseup',   _mDragUp,   {capture:true});
+  _stopDragScroll();   // v0.1.184: stop edge auto-scroll on release
   document.body.style.cursor = '';
   document.querySelectorAll('.row').forEach(r =>
     r.classList.remove('dragging','drag-over-top','drag-over-bottom'));
@@ -6747,6 +6858,10 @@ function onResizeStart(e, taskId){
   e.preventDefault();
   e.stopPropagation();
   const row = e.target.closest('.row');
+  // v0.1.184 (DB fix, #4): apply the resized state immediately so the chat panel
+  // grows LIVE while dragging — onUp used to store t.h without re-rendering, so
+  // the row was tall but .row-resized (and the chat-grow CSS) never applied.
+  row.classList.add('row-resized');
   const startY = e.clientY;
   const startH = row.offsetHeight;
   function onMove(ev){
@@ -7175,6 +7290,7 @@ function renderPresent(){
       </div>`;
     }
     return `<div class="pres-pic" style="height:100%;min-height:0"><div class="lbl">${label}</div>
+      <button class="pres-del" title="Remove ${label} screenshot" aria-label="Remove screenshot" onclick="event.stopPropagation();deletePresentShot('${t.id}',${slotIdx})">${ICON_TRASH_SM}</button>
       <img src="${src}" alt="" style="cursor:zoom-in" title="Click to open editor"
            onerror="this.style.display='none'"
            onclick="openExistingShotEditor('${t.id}',${slotIdx})">
@@ -7206,6 +7322,7 @@ function renderPresent(){
     afterColHTML = `<div class="pres-after-col">
       <div class="pres-pic" style="flex:1;min-height:0">
         <div class="lbl" id="presViewLbl">${view.label}</div>
+        <button class="pres-del" title="Remove this screenshot" aria-label="Remove screenshot" onclick="event.stopPropagation();deletePresentShot('${t.id}',${view.slotIdx})">${ICON_TRASH_SM}</button>
         <img id="presViewImg" src="${view.src}" data-slot="${view.slotIdx}" alt="" style="cursor:zoom-in" title="Click to open editor"
              onerror="this.style.display='none'" onclick="openExistingShotEditor('${t.id}',parseInt(this.dataset.slot,10))">
       </div>
@@ -7804,7 +7921,7 @@ function openNewProjModal(){
   // on subsequent opens.
   if(!openNewProjModal._wired){
     openNewProjModal._wired = true;
-    ['npmName','npmCode','npmClient','npmLang'].forEach(id => {
+    ['npmName','npmCode','npmClient','npmLang','npmEngineer'].forEach(id => {
       const el = document.getElementById(id);
       if(!el) return;
       el.addEventListener('keydown', e => {
@@ -7820,12 +7937,16 @@ function closeNewProjModal(){
   document.getElementById('npmCode').value = '';
   document.getElementById('npmClient').value = '';
   const lang = document.getElementById('npmLang'); if(lang) lang.value = '';
+  const eng = document.getElementById('npmEngineer'); if(eng) eng.value = '';
 }
 async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
   const client = document.getElementById('npmClient').value.trim();
   const lang = (document.getElementById('npmLang')?.value || '').trim();
+  // v0.1.184 (#14): optional engineer(s) by email → project.members[]
+  const engineers = (document.getElementById('npmEngineer')?.value || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
   if(!name){toast('Name required');return;}
 
   // v0.1.61: try cloud-first if signed in
@@ -7844,11 +7965,13 @@ async function createNewProject(){
         if(!error && data){
           PROJECTS.push({
             id: data.id, name: data.title, code: data.project_code,
-            client: data.client || 'Internal', status: data.status, lang, _cloud: true
+            client: data.client || 'Internal', status: data.status, lang,
+            members: engineers, _cloud: true
           });
           auditLog('create', 'project', data.id, null, { title: data.title }, data.id);
           closeNewProjModal();
           switchProject(data.id);
+          if(typeof renderProjPicker === 'function') renderProjPicker();   // #18: dropdown shows the new project immediately
           // v0.1.180 (DB): новый проект иногда не перерисовывался сразу
           // (WKWebView: фокус был на инпуте закрытой модалки, focus-probe в
           // render не срабатывал). Принудительная перерисовка на след. кадре.
@@ -7862,24 +7985,44 @@ async function createNewProject(){
   }
 
   // Fallback: local-only
-  const p = {id:'p'+Date.now(),name,code:code||name.substring(0,4).toUpperCase(),client:client||'Internal',lang,status:'active'};
+  const p = {id:'p'+Date.now(),name,code:code||name.substring(0,4).toUpperCase(),client:client||'Internal',lang,status:'active',members:engineers};
   PROJECTS.push(p);
   closeNewProjModal();
   switchProject(p.id);
+  if(typeof renderProjPicker === 'function') renderProjPicker();   // #18: dropdown shows the new project immediately
   requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
   toast('✓ Project created (local)');
 }
 
 // ━━━ PASTE / DROP / TAURI ━━━
-function enterPasteMode(dataUrl){
+function enterPasteMode(dataUrl, ann, cmt){
   pendingScreenshot = dataUrl; pasteMode = true;
+  // v0.1.184: keep the editor's vectors with the pending image so a comment
+  // added during a fresh capture survives being pasted into a slot.
+  pendingScreenshotAnn = Array.isArray(ann) ? ann : [];
+  pendingScreenshotCmt = Array.isArray(cmt) ? cmt : [];
   document.getElementById('pasteOverlay').classList.add('on');
   document.body.classList.add('paste-on');
 }
 function exitPasteMode(){
   pasteMode = false; pendingScreenshot = null;
+  pendingScreenshotAnn = []; pendingScreenshotCmt = [];
   document.getElementById('pasteOverlay').classList.remove('on');
   document.body.classList.remove('paste-on');
+}
+// v0.1.184: write the carried vectors into the slot the pasted image landed in,
+// and persist to the cloud (pin-comments live in the annotations JSONB under
+// _cmt, same as the editor-save path). Call BEFORE exitPasteMode clears them.
+function _persistPastedVectors(t, slotIdx){
+  if(!t || (slotIdx !== 0 && slotIdx !== 1)) return;
+  t.annBySlot = t.annBySlot || {};
+  t.cmtBySlot = t.cmtBySlot || {};
+  t.annBySlot[slotIdx] = Array.isArray(pendingScreenshotAnn) ? pendingScreenshotAnn.slice() : [];
+  t.cmtBySlot[slotIdx] = Array.isArray(pendingScreenshotCmt) ? pendingScreenshotCmt.slice() : [];
+  if(slotIdx === 0){ t.annotations = t.annBySlot[0]; t.comments = t.cmtBySlot[0]; }
+  if(t._cloud && db && db.ready){
+    db.tasks.update(t.id, { annotations: { ...t.annBySlot, _cmt: t.cmtBySlot } }).catch(()=>{});
+  }
 }
 
 document.addEventListener('paste', e => {
@@ -7948,14 +8091,25 @@ if(window.__TAURI__){
     // v0.1.39: capture started from slideshow "+ Add" button → attach directly
     if(pendingPresentAttach && presentTask){
       pendingPresentAttach = false;
+      // v0.1.184: consume the slot captured for THIS cycle, then clear it so it
+      // can never leak into a later paste/drop.
+      const slot = pendingPresentSlot; pendingPresentSlot = null;
       if(typeof addShotToPresentTask === 'function'){
-        addShotToPresentTask(newUrl);
+        addShotToPresentTask(newUrl, slot);
+        // v0.1.184: a BEFORE/AFTER capture from present mode must also keep the
+        // comment pins added in the editor.
+        if(slot === 0 || slot === 1){
+          pendingScreenshotAnn = annPayload; pendingScreenshotCmt = cmtPayload;
+          _persistPastedVectors(presentTask, slot);
+          pendingScreenshotAnn = []; pendingScreenshotCmt = [];
+        }
         render(); // refresh row chips/counts in main list as well
         return;
       }
     }
-    // Default flow: paste mode
-    enterPasteMode(newUrl);
+    // Default flow: paste mode — carry the editor's vectors so a fresh-capture
+    // comment survives being pasted into a slot (v0.1.184).
+    enterPasteMode(newUrl, annPayload, cmtPayload);
   });
 
   // v0.1.45: backend сигнал что captured PNG подозрительно мал — обычно
@@ -8010,6 +8164,7 @@ document.addEventListener('click', e => {
   if(t && pendingScreenshot){
     const slot = pi.dataset.slot === 'before' ? 0 : 1;
     assignShotToSlot(t, slot, pendingScreenshot);
+    _persistPastedVectors(t, slot);   // v0.1.184: keep fresh-capture comments
     exitPasteMode();
     toast('✓ Screenshot inserted');
   }
@@ -8050,29 +8205,61 @@ async function assignShotToSlot(t, slot, dataUrl){
 // t.shots[] (extras) instead of t.shot1/t.shot2. The fromPresent path
 // stashes the requested slot here and addShotToPresentTask honours it.
 let pendingPresentSlot = null;
-function addShotToPresentTask(dataUrl){
+// v0.1.184 (DB fix, bugs: "+Add replaces BEFORE/AFTER" / "target depends on what
+// was open before"). The target slot is now an EXPLICIT argument. Only the
+// desktop capture round-trip (which must survive an async sniper hop) passes the
+// slot it stashed for THIS cycle; drop/paste always append. This kills the leak
+// where a stale `pendingPresentSlot` from an abandoned targeted capture made the
+// next paste/drop silently overwrite BEFORE or AFTER.
+function addShotToPresentTask(dataUrl, slot){
   if(!presentTask || !dataUrl) return;
-  if(pendingPresentSlot === 0){
+  if(slot === 0){
     presentTask.shot1 = dataUrl;
-    pendingPresentSlot = null;
     renderPresent();
     toast('Before screenshot saved');
     if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot1_url: dataUrl }).catch(()=>{});
     return;
   }
-  if(pendingPresentSlot === 1){
+  if(slot === 1){
     presentTask.shot2 = dataUrl;
-    pendingPresentSlot = null;
     renderPresent();
     toast('After screenshot saved');
     if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot2_url: dataUrl }).catch(()=>{});
     return;
   }
-  // No specific slot requested — append to extras (legacy behaviour).
+  // No specific slot — always ADD a new screenshot to the extras gallery.
   if(!Array.isArray(presentTask.shots)) presentTask.shots = [];
   presentTask.shots.push(dataUrl);
+  _presViewSlot = presentTask.shots.length + 1; // focus the newly added shot
   renderPresent();
-  toast('Screenshot added to task');
+  toast('Screenshot added');
+}
+// v0.1.184 (DB fix, bug: "unable to delete picture"). Removes the screenshot in
+// a slot (0=BEFORE, 1=AFTER, >=2=extra) and registers an undo so the old image
+// can be restored with ⌘Z — addressing "not possible to restore the old image".
+function deletePresentShot(taskId, slotIdx){
+  const t = TASKS.find(x => x.id === taskId) || (presentTask && presentTask.id === taskId ? presentTask : null);
+  if(!t) return;
+  const prev1 = t.shot1, prev2 = t.shot2, prevShots = Array.isArray(t.shots) ? t.shots.slice() : [];
+  const apply = () => {
+    if(slotIdx === 0){ t.shot1 = ''; if(db?.ready && t._cloud) db.tasks.update(t.id, { shot1_url: null }).catch(()=>{}); }
+    else if(slotIdx === 1){ t.shot2 = ''; if(db?.ready && t._cloud) db.tasks.update(t.id, { shot2_url: null }).catch(()=>{}); }
+    else if(Array.isArray(t.shots)){ t.shots.splice(slotIdx - 2, 1); }
+    _presViewSlot = 1;
+    renderPresent(); render();
+  };
+  const restore = () => {
+    t.shot1 = prev1; t.shot2 = prev2; t.shots = prevShots.slice();
+    if(db?.ready && t._cloud){
+      if(slotIdx === 0) db.tasks.update(t.id, { shot1_url: prev1 || null }).catch(()=>{});
+      if(slotIdx === 1) db.tasks.update(t.id, { shot2_url: prev2 || null }).catch(()=>{});
+    }
+    _presViewSlot = 1;
+    renderPresent(); render();
+  };
+  if(typeof pushUndo === 'function') pushUndo('Delete screenshot', restore, apply);
+  apply();
+  toast('Screenshot removed · ⌘Z to undo', 3200);
 }
 
 document.addEventListener('dragover', e => {
@@ -8122,7 +8309,6 @@ document.addEventListener('drop', e => {
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape'){
     if(pasteMode) exitPasteMode();
-    else if(document.getElementById('compare')?.classList.contains('on')) closeCompare();
     else if(document.getElementById('lightbox').classList.contains('on')) closeLightbox();
     else if(document.getElementById('present').classList.contains('on')) closePresent();
     else if(document.getElementById('newProjModal').classList.contains('on')) closeNewProjModal();
@@ -8179,7 +8365,18 @@ function setSection(sec){
     // v0.1.163 (#7): Favorites переиспользует тот же tasks-body, но через
     // _favoritesOnly показывает только запиненные таски со всех проектов.
     _favoritesOnly = (sec === 'favorites');
-    if(_favoritesOnly){ currentProject = 'all'; }
+    if(_favoritesOnly){
+      // remember the real project so returning to Projects doesn't strand us in
+      // 'all'. Only flag a hijack when we actually replaced a real project — if
+      // the user deliberately chose All-projects, leave it be.
+      if(currentProject !== 'all'){ _projectBeforeFavorites = currentProject; _allByFavorites = true; }
+      currentProject = 'all';
+    } else {
+      // back to Projects — restore the project Favorites hijacked (but not if the
+      // user deliberately chose All-projects from the picker)
+      if(_allByFavorites && _projectBeforeFavorites){ currentProject = _projectBeforeFavorites; }
+      _allByFavorites = false;
+    }
     tasksBody.dataset.hidden = '';
     render();
     updateHeader();
@@ -8664,14 +8861,17 @@ function captureScreenshot(opts){
   }
   // If called from slideshow's "+ Add", set the flag — handler in screenshot-ready
   // will directly call addShotToPresentTask without needing the user to click target.
+  // v0.1.184: start every capture from a clean slate so an abandoned prior
+  // capture (e.g. sniper opened for an empty AFTER slot, then cancelled) can't
+  // misroute this screenshot into BEFORE/AFTER.
+  pendingPresentAttach = false;
+  pendingPresentSlot = null;
   if(opts && opts.fromPresent && presentTask){
     pendingPresentAttach = true;
     // v0.1.153: empty-state hero passes targetSlot 0/1 so the result goes
     // into shot1/shot2 instead of the extras pile.
     if(typeof opts.targetSlot === 'number' && (opts.targetSlot === 0 || opts.targetSlot === 1)){
       pendingPresentSlot = opts.targetSlot;
-    } else {
-      pendingPresentSlot = null;
     }
   }
   // Hide window briefly so it doesn't appear in screenshot
@@ -8727,8 +8927,16 @@ function renderProjPicker(){
   const search = (document.getElementById('ppSearch')?.value || '').toLowerCase().trim();
 
   let bodyHtml = '';
-  // v0.1.169 (DB): «All projects» убрана из пикера — работаем по одному проекту.
-  // (режим 'all' остаётся внутренним для раздела Избранное.)
+  // v0.1.184 (DB fix, #10 "how to get to all projects after choosing one"):
+  // restore an explicit "All projects" entry at the top of the picker. Hidden
+  // while searching (a text query is looking for a specific project).
+  if(!search){
+    const allOn = currentProject === 'all';
+    bodyHtml += `<div class="proj-picker-item${allOn ? ' on' : ''}" onclick="selectProject('all')" style="display:flex;align-items:center;gap:6px">
+      <span class="ppi-name" style="font-weight:600">All projects</span>
+      <span class="ppi-meta">${TASKS.length}</span>
+    </div>`;
+  }
   // Build matching projects, then either group by client (default) or
   // render flat (when the user is searching — folds would hide matches).
   const matches = [];
@@ -8961,6 +9169,7 @@ function removeProjMember(email){
 
 function selectProject(id){
   currentProject = id;
+  _allByFavorites = false;   // v0.1.184 (#12): deliberate pick — don't auto-restore later
   localStorage.setItem('eb_current_project', id);
   if(typeof bumpProjectOpens === 'function') bumpProjectOpens(id);
   document.getElementById('projPicker').classList.remove('open');
@@ -9037,27 +9246,8 @@ function saveTaskNotes(taskId, notes){
   }, 600));
 }
 
-// v0.1.137: Compare modal — side-by-side BEFORE/AFTER, identical look to
-// Presentation (object-fit:contain in each pane, no wipe slider).
-function openCompare(taskId){
-  const t = TASKS.find(x => x.id === taskId);
-  if(!t || (!t.shot1 && !t.shot2)){
-    toast('Need at least one screenshot to compare');
-    return;
-  }
-  document.getElementById('cmpTitle').textContent = t.title || t.n || 'Compare';
-  const b = document.getElementById('ciBefore');
-  const a = document.getElementById('ciAfter');
-  // override the global img guard (which set display:none for empty src)
-  if(t.shot1){ b.src = t.shot1; b.style.display = ''; }
-  else { b.removeAttribute('src'); b.style.display = 'none'; }
-  if(t.shot2){ a.src = t.shot2; a.style.display = ''; }
-  else { a.removeAttribute('src'); a.style.display = 'none'; }
-  document.getElementById('compare').classList.add('on');
-}
-function closeCompare(){
-  document.getElementById('compare').classList.remove('on');
-}
+// v0.1.184: openCompare/closeCompare removed — Before/After Compare mode dropped
+// per client request. Presentation mode covers side-by-side viewing.
 
 // v0.1.33: inline chat send from task row — keeps last 8 in DOM, scrolls to bottom
 // ━━━ EMOJI PICKER (v0.1.111) ━━━
@@ -9332,6 +9522,12 @@ function setAssignee(taskId, name){
 function showTaskMenu(e, taskId){
   e.preventDefault();
   e.stopPropagation();
+  // v0.1.184 (#17): tasks in a closed week are read-only — no edit menu.
+  const _lt = TASKS.find(x => x.id === taskId);
+  if(_lt && _lt.w && typeof isWeekComplete === 'function' && isWeekComplete(_lt.proj, _lt.w)){
+    toast('Week ' + _lt.w + ' is closed — reopen it to edit', 3000);
+    return;
+  }
   // Toggle: if a menu is already open for this same task, close and return.
   const existing = document.getElementById('_ebTaskMenu');
   if(existing){
@@ -10520,7 +10716,11 @@ function exportPDF(){
       </div>
       <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Task types (statuses)</div>
       <div id="_pdfStatuses" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:16px">${statusOpts}</div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:18px;cursor:pointer"><input type="checkbox" id="_pdfDetailed"> Detailed (one task per page)</label>
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Layout</div>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px">
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="_pdfLayout" value="compact" checked style="margin-top:2px;accent-color:var(--acc)"><span>Compact <span style="color:var(--t3)">— several tasks per page with small before/after thumbnails (recommended)</span></span></label>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;cursor:pointer"><input type="radio" name="_pdfLayout" value="detailed" style="margin-top:2px;accent-color:var(--acc)"><span>Detailed <span style="color:var(--t3)">— one full page per task with large screenshots</span></span></label>
+      </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="chip" id="_pdfCancel" style="font-size:12px;padding:7px 16px">Cancel</button>
         <button class="chip" id="_pdfGo" style="font-size:12px;padding:7px 16px;background:var(--acc);color:#fff;border-color:var(--acc)">Export</button>
@@ -10533,7 +10733,7 @@ function exportPDF(){
     const from = modal.querySelector('#_pdfFrom').value || null;
     const to = modal.querySelector('#_pdfTo').value || null;
     const statuses = new Set([...modal.querySelectorAll('#_pdfStatuses input:checked')].map(c => +c.dataset.st));
-    const detailed = modal.querySelector('#_pdfDetailed').checked;
+    const detailed = modal.querySelector('input[name="_pdfLayout"]:checked')?.value === 'detailed';
     modal.remove();
     runExportPDF({ from, to, statuses, detailed });
   };

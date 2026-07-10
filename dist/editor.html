@@ -489,6 +489,11 @@ function setSW(el){
 function setOp(v){ /* no-op */ }
 
 paper.addEventListener('mousedown',e=>{
+  // v0.1.184 (DB fix, #6): only the LEFT button places/draws. Previously any
+  // button ran the tool — so a RIGHT-click dropped an emoji AND opened the
+  // context menu ("emoji added with both buttons"). Right/middle now fall
+  // through to the browser context menu only.
+  if(e.button !== 0) return;
   if(e.target.closest('#cmtPop,#textInp')) return;
   closeCmtPop();
   if(tool==='hand'){isPanning=true;paper.style.cursor='grabbing';panStart={x:e.clientX,y:e.clientY,ox:panOff.x,oy:panOff.y};return;}
@@ -805,6 +810,16 @@ function showCmtPopUI(e){
 function closeCmtPop(){document.getElementById('cmtPop').style.display='none';cmtPos=null;}
 function onCmtKey(e){if(e.key==='Enter') submitCmt();if(e.key==='Escape') closeCmtPop();e.stopPropagation();}
 function submitCmt(){const inp=document.getElementById('cmtInp');if(!cmtPos||!inp.value.trim()){closeCmtPop();return;}comments.push({id:++commentCount,num:commentCount,px:cmtPos.x,py:cmtPos.y,color,text:inp.value.trim(),av:'AS'});closeCmtPop();renderAll();updateList();updateCount();}
+// v0.1.184 (DB fix): read-mode bubble body — comment text + Edit / Delete / close.
+function cmtViewHtml(c){
+  const btn = 'font-size:11px;border:none;background:none;cursor:pointer;font-family:var(--font)';
+  return `<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${escapeHtml(c.text)}</div>`
+    + `<div style="padding:6px 10px;display:flex;gap:12px;border-top:1px solid #eee">`
+    + `<button onclick="editCmt(${c.id});event.stopPropagation()" style="${btn};color:#0EA5E9;font-weight:600">Edit</button>`
+    + `<button onclick="delCmt(${c.id});event.stopPropagation()" style="${btn};color:#888">Delete</button>`
+    + `<button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="${btn};color:#888;margin-left:auto">✕</button>`
+    + `</div>`;
+}
 function toggleBubble(c){
   // v0.1.163 (DB): настоящий toggle — повторный клик по пину закрывает пузырь
   // (как в Figma: ткнул — открылось/почиталось, ткнул ещё — закрылось).
@@ -815,10 +830,45 @@ function toggleBubble(c){
   bub.dataset.cmtId = c.id;
   bub.className='cbbl cbbl-r';
   bub.style.cssText=`left:${Math.min(c.px+3,62)}%;top:${c.py-4}%`;
-  bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${escapeHtml(c.text)}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
+  bub.innerHTML=cmtViewHtml(c);
   bub.onmousedown=ev=>ev.stopPropagation();
   annRoot.appendChild(bub);
   _applyCmtInvScale();
+}
+// v0.1.184 (DB fix): switch an open bubble into edit mode so restored (or fresh)
+// comments can have their text changed, not just deleted.
+function editCmt(id){
+  const bub=document.querySelector(`.cbbl-r[data-cmt-id="${id}"]`);
+  const c=comments.find(x=>x.id===id);
+  if(!bub||!c) return;
+  const btn='font-size:11px;border:none;background:none;cursor:pointer;font-family:var(--font)';
+  bub.innerHTML=`<div style="padding:10px 12px"><input class="cbbl-edit" type="text" style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:6px;padding:6px 8px;font-size:12px;font-family:var(--font);color:#1a1a1a;outline:none" onkeydown="onCmtEditKey(event,${id})" onmousedown="event.stopPropagation()"></div>`
+    + `<div style="padding:6px 10px;display:flex;gap:12px;border-top:1px solid #eee">`
+    + `<button onclick="saveCmtEdit(${id});event.stopPropagation()" style="${btn};color:#0EA5E9;font-weight:600">Save</button>`
+    + `<button onclick="closeCmtEdit(${id});event.stopPropagation()" style="${btn};color:#888">Cancel</button>`
+    + `</div>`;
+  const inp=bub.querySelector('.cbbl-edit');
+  inp.value=c.text; inp.focus(); inp.select();
+}
+function saveCmtEdit(id){
+  const bub=document.querySelector(`.cbbl-r[data-cmt-id="${id}"]`);
+  const c=comments.find(x=>x.id===id);
+  if(!bub||!c) return;
+  const inp=bub.querySelector('.cbbl-edit');
+  const val=inp?inp.value.trim():'';
+  if(val){ c.text=val; }
+  bub.innerHTML=cmtViewHtml(c);
+  updateList();
+}
+function closeCmtEdit(id){
+  const bub=document.querySelector(`.cbbl-r[data-cmt-id="${id}"]`);
+  const c=comments.find(x=>x.id===id);
+  if(bub&&c) bub.innerHTML=cmtViewHtml(c);
+}
+function onCmtEditKey(e,id){
+  e.stopPropagation();
+  if(e.key==='Enter'){ e.preventDefault(); saveCmtEdit(id); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeCmtEdit(id); }
 }
 function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());renderAll();updateList();updateCount();}
 
@@ -1240,8 +1290,16 @@ function loadScreenshotAsBg(dataUrl){
   // Rust registered this scheme as an HTTP-style handler that returns the
   // image bytes. The WebView loads it like any normal image URL — no IPC
   // payload size limits, no asset:// URL construction headaches.
-  const applyPayload = async (dataUrl, annotations, comments, filePath, shotUrl) => {
-    dbg(`applyPayload: shotUrl=${shotUrl||'null'} filePath=${filePath?'set':'null'} dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annotations?.length||0} com=${comments?.length||0}`);
+  // v0.1.184 (DB fix): the params below used to be named `annotations`/`comments`,
+  // which SHADOWED the module-level state arrays declared at the top of this file.
+  // The old code then wrote the restored data to `window.comments` — a property
+  // renderAll() never reads (it reads the lexical `comments`). Result on desktop:
+  // reopening a screenshot lost every saved pin-comment. We now assign the REAL
+  // lexical `comments`/`commentCount`. Vector annotations are already flattened
+  // into the slot image on save, so re-overlaying them here would double every
+  // arrow/box against the baked background — we deliberately skip that.
+  const applyPayload = async (dataUrl, annPayload, cmtPayload, filePath, shotUrl) => {
+    dbg(`applyPayload: shotUrl=${shotUrl||'null'} filePath=${filePath?'set':'null'} dataUrl=${dataUrl?'len='+dataUrl.length:'null'} ann=${annPayload?.length||0} com=${cmtPayload?.length||0}`);
     let resolvedSrc = null;
     if(shotUrl){
       // Add a cache-buster so repeat opens don't reuse a stale image
@@ -1260,23 +1318,18 @@ function loadScreenshotAsBg(dataUrl){
       }
     }
     try {
-      if(Array.isArray(annotations) && annotations.length){
-        window.annotations = annotations;
-        if(typeof undoStack !== 'undefined'){ undoStack = []; redoStack = []; }
+      if(Array.isArray(cmtPayload) && cmtPayload.length){
+        comments = cmtPayload;
+        // Resume numbering from the highest existing pin so new comments don't
+        // collide with restored ones.
+        commentCount = cmtPayload.reduce((m,c)=>Math.max(m, c.num||c.id||0), 0);
+        undoStack = []; redoStack = [];
         if(typeof renderAll === 'function') renderAll();
         if(typeof updateList === 'function') updateList();
         if(typeof updateCount === 'function') updateCount();
+        notify(`Restored ${cmtPayload.length} comment${cmtPayload.length!==1?'s':''}`);
       }
-      if(Array.isArray(comments) && comments.length){
-        window.comments = comments;
-        window.commentCount = comments.length;
-        if(typeof renderAll === 'function') renderAll();
-        if(typeof updateList === 'function') updateList();
-        if(typeof updateCount === 'function') updateCount();
-      }
-      const total = (annotations?.length||0) + (comments?.length||0);
-      if(total) notify(`Restored ${total} annotations`);
-    } catch(err){ console.warn('apply annotations failed:', err); }
+    } catch(err){ console.warn('apply comments failed:', err); }
   };
 
   // v0.1.84: PRIMARY load path — pull from Rust state via invoke.

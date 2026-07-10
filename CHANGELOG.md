@@ -1,3 +1,178 @@
+## [v0.1.184g] — 2026-07-07 — Fix: Drive-link kebab did not toggle closed
+
+The Drive split-button kebab stopped propagation, so the outside-click closer
+never fired and a second click just rebuilt the menu (looked stuck open).
+`openDriveLinkMenu` now toggles: a second click on the same link's dots closes it
+(stores data-taskId/data-linkId to compare). Verified in-browser.
+
+## [v0.1.184f] — 2026-07-07 — Projects navigation + closed-week lock
+
+Closes the projects cluster from the DEBUG sheet.
+
+### #10 — how to get to All projects after choosing one
+Restored an "All projects" entry at the top of the project picker
+(`selectProject('all')`), hidden while searching.
+
+### #12 — switching tabs stranded you in All-projects; keep position
+Favorites forces All-projects scope, which used to persist after returning to
+the Projects tab. Now the real project is remembered (`_projectBeforeFavorites` /
+`_allByFavorites`) and restored on return — while a deliberate "All projects"
+pick from the picker is left untouched. Verified: real project restored, Dashboard
+round-trip keeps the project, deliberate All-projects stays All.
+
+### #14 — add an engineer when creating a project
+New "Engineer (email, optional)" field in the create dialog (comma-separate for
+several) → `project.members[]`. Wired to Enter/Esc and cleared on close.
+
+### #18 — new project not visible until refresh
+`createNewProject` now calls `renderProjPicker()` after creating (both cloud and
+local paths) so the dropdown shows the new project immediately.
+
+### #17 — lock editing when a week is closed
+Tasks in a complete week get a `.wk-locked` row class: status, assignee, inline
+name, chat input, drag handle, arrows, resize, kebab, archive and the per-week
+add row are `pointer-events:none`; the right-click task menu bails with a "reopen
+the week to edit" toast. Viewing (Presentation, links, screenshots) stays live.
+
+Verified in-browser for all five; no console errors. Root `index.html` mirrored.
+
+## [v0.1.184e] — 2026-07-07 — Resizable-row chat height + emoji/tools left-click only
+
+### #4 — chat panel should grow when a task ROW is stretched taller
+In the compact list view the chat was capped at `max-height:56px` regardless of
+row height, so dragging a row taller left empty space. Rows with a manual height
+(`t.h`) now get a `.row-resized` class; CSS drops the cap for those so the chat
+fills the extra height (`max-height:none; flex:1`).
+
+### #6 — emoji (and every tool) placed on BOTH mouse buttons
+The editor's `paper` mousedown handler didn't check `e.button`, so a RIGHT-click
+ran the active tool (dropping an emoji / starting a shape) AND opened the browser
+context menu. Added `if(e.button !== 0) return;` — only the left button
+places/draws; right-click is left for the context menu.
+
+Verified in-browser: resized row grows chat 56px→151px (shows all messages);
+right-click with emoji/rect tool places nothing, left-click places. Root
+`index.html`/`editor.html` mirrored.
+
+## [v0.1.184d] — 2026-07-07 — Week headers, per-week add-task, remove Compare
+
+Batch (part 1 of the QA list).
+
+### Week not shown in header / week name disappears under a filter
+`render()` dropped the week folder chrome whenever `weekKeys.length <= 1` — so a
+project whose tasks all sit in ONE real week, or a filtered view that leaves one
+week, rendered flat with no week label. Now the chrome is dropped ONLY when there
+are no real weeks (everything Unscheduled); a single real week keeps its header.
+
+### Add a task in EVERY week (not just the list bottom)
+Each open week now renders its own "+ Add task to <week>…" input.
+`renderEmptyRowForProject(projId, week)` + `createTaskFor(..., week)` file the new
+task straight into that week (local + cloud `week_tag`). `wireUpEmptyInput` reads
+`data-week`. Complete (closed) weeks get no add row.
+
+### Removed Before/After Compare mode (client request)
+Dropped the row "Compare" button, the `#compare` modal, `openCompare`/
+`closeCompare`, the Esc handler branch and the `compareLabel`/`hasBoth` locals.
+Presentation mode covers side-by-side viewing.
+
+Verified in-browser: single-week header shows; header persists under a status
+filter that leaves one week; per-week input files the task into the right week;
+zero Compare buttons; no console errors. Root `index.html` mirrored.
+
+## [v0.1.184c] — 2026-07-07 — Fix: fresh-capture pin-comments were lost at PASTE time (before any reopen)
+
+Follow-up to v0.1.184. That fix restored comments on reopen, but a comment added
+during the FIRST capture never reached storage: the fresh screenshot goes through
+paste-mode (`enterPasteMode` → click a slot → `assignShotToSlot`), which carried
+only the flat image. The editor's pin-comments were dropped the moment the shot
+landed in BEFORE/AFTER — so there was nothing to restore later.
+
+- `enterPasteMode(dataUrl, ann, cmt)` now carries the editor's vectors alongside
+  the pending image (`pendingScreenshotAnn` / `pendingScreenshotCmt`).
+- `_persistPastedVectors(t, slotIdx)` writes them into `annBySlot`/`cmtBySlot`
+  and to the cloud (annotations JSONB `_cmt`, same as the editor-save path).
+  Called from both paste-assign sites (`piClick`, the `.pi` click handler) and
+  from the present-mode BEFORE/AFTER capture.
+- `exitPasteMode` clears the carried vectors.
+
+Verified in-browser: fresh capture with a comment → paste into BEFORE →
+`cmtBySlot[0]` holds the comment text; reopen path already feeds that back to the
+editor (v0.1.184). Root `index.html` mirrored.
+
+## [v0.1.184b] — 2026-07-07 — Fix batch: drag-to-week, screenshot slots, delete picture, PDF layout
+
+Five bugs from the client's screenshot batch.
+
+### Bug 5 — task can't be dragged to another week / kebab dead after a failed move
+Root cause: the drag ended ONLY on a document `mouseup`. Released outside the
+window (common when dragging toward a week header — WKWebView drops the mouseup),
+the once:true `_mDragUp` never fired, so `_mDragId`, the mousemove listener and
+the `.dragging` class stayed live. The next click's mouseup then triggered that
+stale `_mDragUp`, which ran a drop + render() and swallowed the click meant for
+the kebab.
+- Single side-effect-free `_endDrag()` teardown, used everywhere.
+- Global capture `mousedown` + `window blur` flush a stuck drag so it can't eat
+  the next interaction (kebab now always opens; no spurious move).
+- Edge auto-scroll while dragging (`_startDragScroll`) so a task CAN be dropped
+  on a week that is scrolled off-screen.
+- Verified in-browser: stuck-drag → kebab opens, no spurious move; off-screen
+  week reachable; normal drag-to-week still commits.
+
+### Bugs 2 & 3 — "+Add screenshot" replaced BEFORE/AFTER; target depended on what was open before
+`addShotToPresentTask(dataUrl, slot)` now takes an EXPLICIT slot. Only the desktop
+capture round-trip passes the slot it stashed for THIS cycle (then clears it);
+drop/paste always append. `captureScreenshot` resets `pendingPresentAttach`/
+`pendingPresentSlot` at the start of every capture. Kills the leak where a stale
+slot from an abandoned targeted capture made the next paste/drop overwrite a slot.
+"+Add screenshot" now always ADDS a new shot.
+
+### Bug 4 — unable to delete a picture
+`deletePresentShot(taskId, slotIdx)` + an on-image trash button (hover, top-right)
+on BEFORE / AFTER / extra viewers. Registers an undo so ⌘Z restores the removed
+image (addresses "not possible to restore the old image"). `.pres-del` style,
+`ICON_TRASH_SM`.
+
+### Bug 1 — PDF: "one task per sheet is way too much / shall be more compact"
+Compact (several tasks per page with before/after thumbnails) was already the
+default but hidden behind a "Detailed (one task per page)" checkbox that the
+client had toggled on. Replaced with explicit **Layout** radios — Compact
+(recommended) selected by default, Detailed clearly opt-in. Date-range and
+task-type filters were already present.
+
+Verified in-browser: append vs explicit-slot, delete + ⌘Z restore, drag recovery,
+auto-scroll, PDF dialog defaults. Root `index.html`/`editor.html` mirrored.
+
+## [v0.1.184] — 2026-07-07 — Fix: pin-comments now survive reopen (edit/delete + thumbnail badge)
+
+Client bug: "Comments are not saved and cannot be reopened, even when editing."
+
+### Root cause
+`editor.html applyPayload` (the desktop/Tauri load path) named its params
+`annotations`/`comments`, which SHADOWED the module-level state arrays, then
+wrote the restored data to `window.comments` — a property `renderAll()` never
+reads. So on desktop every saved pin-comment was lost on reopen. (The web
+postMessage path assigned the lexical vars correctly, which is why it worked in
+the browser but not in the app.)
+
+### Fixes
+- `dist/editor.html` — `applyPayload` restores into the real lexical `comments`
+  + `commentCount` (resumes numbering from the highest pin). Vector annotations
+  are baked into the slot image on save, so they are intentionally NOT
+  re-overlaid (would double every mark against the baked background).
+- `dist/editor.html` — comment bubble gains **Edit** (was Delete-only): a pin's
+  text can now be changed, not just removed. `editCmt`/`saveCmtEdit`/
+  `closeCmtEdit`/`onCmtEditKey` + shared `cmtViewHtml`.
+- `dist/index.html` — `renderPic` shows a **comment-count badge** on a slot
+  thumbnail when it has saved pins, so it is visible that comments were stored
+  (pins are deliberately not baked into the image — baking would leave a ghost
+  pin after a delete). New `.pi-cmt` style.
+- Root `index.html` / `editor.html` mirrored from `dist/` (Pages parity).
+
+Verified in-browser: 2 comments restore into lexical state + render as pins,
+edit updates text and returns to view mode, delete removes pin, badge shows the
+count on a populated slot and is absent on an empty one. Rust already forwards
+`comments` in the editor-pending payload — no backend change needed.
+
 ## [v0.1.62] — 2026-05-13 — Phase E/G minimal: annotations persist, invites, audit
 
 Builds on v0.1.61's cloud wiring. Three more capabilities, each tied to a
