@@ -1,3 +1,20 @@
+## [v0.1.185] — 2026-07-10 — New-project repaint + week moves
+
+- Fix (#18 follow-up): new project sometimes did not paint until you clicked
+  (WKWebView compositor). `createNewProject` now focuses the new board's
+  add-task input (`_focusNewProjectBoard`) — a real input focus WebKit repaints
+  on, and the cursor is ready for the first task. Verified at DOM level in Chrome;
+  WKWebView repaint to confirm on the next Mac build.
+
+- Fix (weeks): moving tasks to/from a newly-created week.
+  - "Move to week…" now lists manually-created (empty) weeks via `_manualWeeks`,
+    not just weeks that already have tasks — the new week was missing.
+  - An empty week's whole "+ Add task" area is now a large drag drop-target
+    (its header alone is a ~37px line, easy to miss). `_rowAtPoint` excludes the
+    add-rows; `_mDragMove`/`_mDragUp` resolve `.eb-addrow-emptywk` to the week
+    header. Verified: move-via-menu + drag-into-empty-week work; no reorder
+    regression (within / to-end / between / header / 15-op stress all clean).
+
 ## [v0.1.184g] — 2026-07-07 — Fix: Drive-link kebab did not toggle closed
 
 The Drive split-button kebab stopped propagation, so the outside-click closer

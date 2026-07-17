@@ -5002,8 +5002,10 @@ function render(){
           _sortMaybe(tasks, proj.id).forEach(t => { html += renderRow(t); });
           // v0.1.184 (DB fix, bug: "add a task in EVERY week, not only the last
           // row"). Each open week gets its own "+ Add task" input; complete
-          // weeks are read-only so they don't.
-          if(!complete) html += renderEmptyRowForProject(proj.id, w);
+          // weeks are read-only so they don't. `weekEmpty` marks the row so an
+          // empty week's whole area becomes a drag drop-target (not just its
+          // thin header).
+          if(!complete) html += renderEmptyRowForProject(proj.id, w, weekEmpty);
         }
       }
     }
@@ -5191,10 +5193,13 @@ function openMoveToWeekMenu(e, taskId){
   document.getElementById('_ebWeekMenu')?.remove();
   const t = TASKS.find(x => x.id === taskId);
   if(!t) return;
-  // Collect every week tag used by tasks in the same project, sorted.
-  const weeks = [...new Set(TASKS.filter(x => x.proj === t.proj).map(x => x.w || ''))]
-    .filter(w => w !== '')
-    .sort();
+  // Collect every week tag in the same project, sorted. v0.1.184 (DB fix):
+  // include manually-created (possibly EMPTY) weeks from _manualWeeks — a new
+  // empty week was missing from "Move to week…" because it had no tasks yet.
+  const weeks = [...new Set([
+    ...TASKS.filter(x => x.proj === t.proj).map(x => x.w || ''),
+    ...(typeof _manualWeeks === 'function' ? _manualWeeks(t.proj) : [])
+  ])].filter(w => w !== '').sort();
   const menu = document.createElement('div');
   menu.id = '_ebWeekMenu';
   menu.className = 'task-ctx-menu';
@@ -5886,14 +5891,16 @@ function renderEmptyRow(){
   </div>`;
 }
 
-function renderEmptyRowForProject(projId, week){
+function renderEmptyRowForProject(projId, week, isEmptyWk){
   // v0.1.75: inline onkeydown — do NOT rely solely on wireUpEmptyInput()'s
   // JS binding (it could be missed if render order changed, leaving Enter
   // dead and the typed text stuck — Roman: "жму enter и не пойму где таска").
   // v0.1.184: `week` (optional) files the new task into that week folder.
+  // `isEmptyWk` marks an empty week's add-row as a large drag drop-target.
   week = week || '';
   const ph = week ? ('+ Add task to ' + week + '…') : T('placeholder.newtaskProj');
-  return `<div class="row empty eb-addrow" data-task-id="new-${projId}-${week}" data-target-proj="${projId}" data-week="${week}" style="min-height:54px">
+  const emptyCls = (isEmptyWk && week) ? ' eb-addrow-emptywk' : '';
+  return `<div class="row empty eb-addrow${emptyCls}" data-task-id="new-${projId}-${week}" data-target-proj="${projId}" data-week="${week}" style="min-height:54px">
     <div></div>
     <div class="chat-col" style="padding:10px 8px;justify-content:center">
       <input class="newInpProj" data-proj="${projId}" data-week="${week}" placeholder="${ph}"
@@ -6610,15 +6617,17 @@ function refreshClPanel(taskId){
 // then fall back to elementFromPoint + closest() for WKWebView compatibility.
 function _rowAtPoint(x, y, excludeId){
   const stack = document.elementsFromPoint(x, y);
+  // v0.1.184: exclude the "+ Add task" placeholder rows (id "new*") — they are
+  // week drop-targets, not reorder targets.
   let tgt = stack.find(el =>
     el.classList?.contains('row') &&
     el.dataset?.taskId &&
     el.dataset.taskId !== excludeId &&
-    el.dataset.taskId !== 'new');
+    !el.dataset.taskId.startsWith('new'));
   if(!tgt){
     const el = document.elementFromPoint(x, y);
     const row = el?.closest?.('.row[data-task-id]');
-    if(row && row.dataset.taskId !== excludeId && row.dataset.taskId !== 'new') tgt = row;
+    if(row && row.dataset.taskId !== excludeId && !row.dataset.taskId.startsWith('new')) tgt = row;
   }
   return tgt || null;
 }
@@ -6642,7 +6651,15 @@ function _mDragMove(e){
   // drop directly onto a folder label (including collapsed weeks).
   // v0.1.152 (#18 DB): if the target week is marked complete, refuse the
   // drop visually so the user can see it before releasing.
-  const hdr = document.elementFromPoint(e.clientX, e.clientY)?.closest('.week-hdr');
+  // v0.1.184: hovering an EMPTY week's "+ Add task" area counts as hovering its
+  // header — the whole empty week is one big drop-target (its header alone is a
+  // thin ~37px line that's easy to miss when dragging).
+  const _hit = document.elementFromPoint(e.clientX, e.clientY);
+  let hdr = _hit?.closest('.week-hdr');
+  if(!hdr){
+    const addr = _hit?.closest('.eb-addrow-emptywk[data-week]');
+    if(addr) hdr = document.querySelector('.week-hdr[data-week="' + (addr.dataset.week || '') + '"]');
+  }
   if(hdr){
     _removeDropSlot();
     if(hdr.classList.contains('complete')){
@@ -6713,7 +6730,14 @@ function _mDragUp(e){
   // row order. Useful for collapsed weeks where there's nothing to drop on.
   // v0.1.152 (#18 DB): if the target week was marked complete, abort the
   // drop and tell the user instead of silently moving the task.
-  const hoveredHdr = document.elementFromPoint(e.clientX, e.clientY)?.closest('.week-hdr');
+  // v0.1.184: an EMPTY week's "+ Add task" area resolves to its header, so
+  // dropping anywhere on the empty week moves the task there.
+  const _hitUp = document.elementFromPoint(e.clientX, e.clientY);
+  let hoveredHdr = _hitUp?.closest('.week-hdr');
+  if(!hoveredHdr){
+    const addr = _hitUp?.closest('.eb-addrow-emptywk[data-week]');
+    if(addr) hoveredHdr = document.querySelector('.week-hdr[data-week="' + (addr.dataset.week || '') + '"]');
+  }
   const hdrDrop = hoveredHdr
     || (_mDragLastTgt?.weekHdr ? document.querySelector(`.week-hdr[data-week="${_mDragLastTgt.week}"]`) : null);
   if(hdrDrop && _mDragId){
@@ -7939,6 +7963,20 @@ function closeNewProjModal(){
   const lang = document.getElementById('npmLang'); if(lang) lang.value = '';
   const eng = document.getElementById('npmEngineer'); if(eng) eng.value = '';
 }
+// v0.1.184 (DB fix, #18 follow-up "project doesn't appear until you click"):
+// after creating a project the freshly-switched empty board sometimes didn't
+// PAINT until the user interacted (WKWebView compositor). Focusing a REAL input
+// in the new board is the action WebKit reliably repaints on — and it leaves the
+// cursor ready for the first task. Falls back to the focus-probe if not found.
+function _focusNewProjectBoard(){
+  setTimeout(() => {
+    try {
+      const inp = document.querySelector('.list .newInpProj');
+      if(inp){ inp.focus({preventScroll:true}); }
+      else if(typeof forceCompositorRepaint === 'function'){ forceCompositorRepaint(); }
+    } catch(_){}
+  }, 40);
+}
 async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
@@ -7972,10 +8010,8 @@ async function createNewProject(){
           closeNewProjModal();
           switchProject(data.id);
           if(typeof renderProjPicker === 'function') renderProjPicker();   // #18: dropdown shows the new project immediately
-          // v0.1.180 (DB): новый проект иногда не перерисовывался сразу
-          // (WKWebView: фокус был на инпуте закрытой модалки, focus-probe в
-          // render не срабатывал). Принудительная перерисовка на след. кадре.
-          requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
+          // v0.1.184: repaint the new board via a real input focus (see helper).
+          _focusNewProjectBoard();
           toast('✓ Project created (cloud)');
           return;
         }
@@ -7990,7 +8026,7 @@ async function createNewProject(){
   closeNewProjModal();
   switchProject(p.id);
   if(typeof renderProjPicker === 'function') renderProjPicker();   // #18: dropdown shows the new project immediately
-  requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
+  _focusNewProjectBoard();   // v0.1.184: WKWebView repaint via real input focus
   toast('✓ Project created (local)');
 }
 
