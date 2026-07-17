@@ -494,7 +494,12 @@ paper.addEventListener('mousedown',e=>{
   // context menu ("emoji added with both buttons"). Right/middle now fall
   // through to the browser context menu only.
   if(e.button !== 0) return;
-  if(e.target.closest('#cmtPop,#textInp')) return;
+  // v0.1.186 (DB fix): a click on an existing pin-comment (or its bubble) must
+  // reach the pin's own click handler. Without .cpin/.cbbl here the Select tool
+  // ran its hit-test (pins live in `comments`, not `annotations`), missed, and
+  // called renderAll() — which rebuilds every pin, so the pending `click` never
+  // landed and the bubble never opened ("just a circle with a number").
+  if(e.target.closest('#cmtPop,#textInp,.cpin,.cbbl')) return;
   closeCmtPop();
   if(tool==='hand'){isPanning=true;paper.style.cursor='grabbing';panStart={x:e.clientX,y:e.clientY,ox:panOff.x,oy:panOff.y};return;}
   if(tool==='select'){

@@ -1,3 +1,20 @@
+## [v0.1.186] — 2026-07-10 — Comment bubble opens + real WKWebView repaint on project create
+
+- Fix (editor): a pin-comment was "just a circle with a number" — clicking it
+  never opened the bubble. Root cause: the click bubbled to the `paper` mousedown
+  handler; with the default Select tool it hit-tested `annotations` (pins live in
+  `comments`), missed, and called `renderAll()` — which rebuilds every pin, so the
+  pending `click` never reached the pin's handler. `.cpin`/`.cbbl` added to the
+  handler's early-return guard. Verified: pin node survives mousedown, bubble
+  opens with text + Edit/Delete, second click toggles closed, and the Comment tool
+  no longer starts a new comment when clicking an existing pin.
+
+- Fix (#18, real fix): new project still didn't paint until you clicked. The Rust
+  `flush_repaint` command (native 1px window resize-bump — the WKWebView compositor
+  flush that always lands) has existed since v0.1.105 but was NEVER invoked from
+  JS. `_focusNewProjectBoard` now calls it. Verified: creating a project invokes
+  exactly `flush_repaint`; no-op in the browser.
+
 ## [v0.1.185] — 2026-07-10 — New-project repaint + week moves
 
 - Fix (#18 follow-up): new project sometimes did not paint until you clicked

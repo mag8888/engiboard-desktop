@@ -7975,6 +7975,14 @@ function _focusNewProjectBoard(){
       if(inp){ inp.focus({preventScroll:true}); }
       else if(typeof forceCompositorRepaint === 'function'){ forceCompositorRepaint(); }
     } catch(_){}
+    // v0.1.186 (DB fix): the focus-probe alone still left the new project unpainted
+    // until a click. `flush_repaint` (native 1px window resize-bump) is the only
+    // WKWebView compositor flush that always lands — it existed in Rust since
+    // v0.1.105 but was NEVER called from JS. Desktop-only; no-op in the browser.
+    try {
+      const inv = window.__TAURI__ && (window.__TAURI__.core?.invoke || window.__TAURI__.invoke);
+      if(inv) inv('flush_repaint').catch(()=>{});
+    } catch(_){}
   }, 40);
 }
 async function createNewProject(){
