@@ -613,6 +613,23 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.biggerNum).toBe(true);                // number larger than description
   });
 
+  test('R31 new-project language is a dropdown (was an ambiguous free text field)', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const el = document.getElementById('npmLang');
+      return {
+        tag: el?.tagName,
+        options: el && el.tagName === 'SELECT' ? el.querySelectorAll('option').length : 0,
+        hasRU: el ? !![...el.querySelectorAll('option')].find(o => o.value === 'RU') : false,
+        label: el?.closest('.npm-field')?.querySelector('label')?.textContent,
+      };
+    });
+    expect(r.tag).toBe('SELECT');       // dropdown, not <input>
+    expect(r.options).toBeGreaterThan(3);
+    expect(r.hasRU).toBe(true);         // real language choices
+    expect(r.label).toContain('language'); // clearer label
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through

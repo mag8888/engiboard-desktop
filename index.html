@@ -1903,11 +1903,13 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   display:block;font-size:11px;font-weight:600;color:var(--t4);
   text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px
 }
-.npm-field input{
+.npm-field input,
+.npm-field select{
   width:100%;border:1px solid var(--line-2);padding:9px 12px;border-radius:7px;
-  font-size:13px;outline:none;font-family:inherit;color:var(--t1)
+  font-size:13px;outline:none;font-family:inherit;color:var(--t1);background:var(--surf)
 }
-.npm-field input:focus{border-color:var(--acc)}
+.npm-field input:focus,
+.npm-field select:focus{border-color:var(--acc)}
 .npm-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .npm-foot button{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .npm-cancel{border:1px solid var(--line-2);background:var(--surf);color:var(--t2)}
@@ -2612,7 +2614,21 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="npm-field"><label>Project number</label><input id="npmCode" placeholder="PL-5 / 2024-017 — your own numbering"></div>
     <div class="npm-field"><label>Project name</label><input id="npmName" placeholder="Production Line #5"></div>
     <div class="npm-field"><label>Client</label><input id="npmClient" placeholder="Acme Manufacturing"></div>
-    <div class="npm-field"><label>Language</label><input id="npmLang" placeholder="EN / RU / DE…"></div>
+    <!-- v0.1.187 (DB P2 #25): свободный ввод «Language» был непонятен (что вписывать?).
+         Заменили на выпадашку с ясным лейблом — язык документации проекта. -->
+    <div class="npm-field"><label>Project language</label>
+      <select id="npmLang">
+        <option value="">— not set —</option>
+        <option value="EN">English (EN)</option>
+        <option value="RU">Русский (RU)</option>
+        <option value="DE">Deutsch (DE)</option>
+        <option value="FR">Français (FR)</option>
+        <option value="ES">Español (ES)</option>
+        <option value="IT">Italiano (IT)</option>
+        <option value="PL">Polski (PL)</option>
+        <option value="ZH">中文 (ZH)</option>
+      </select>
+    </div>
     <!-- v0.1.184 (DB fix, #14): add an engineer on project creation -->
     <div class="npm-field"><label>Engineer (email, optional)</label><input id="npmEngineer" placeholder="engineer@company.com — comma-separate for several"></div>
     <div class="npm-foot">
