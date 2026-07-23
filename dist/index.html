@@ -2448,6 +2448,15 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       </button>
       <span id="filterChips" style="display:contents"></span>
       <span style="flex:1"></span>
+      <!-- v0.1.187 (DB P2 #15): видимые кнопки Undo/Redo (плюс Cmd/Ctrl+Z / +Shift). -->
+      <button class="chip eb-undo-btn" id="undoBtn" onclick="doUndo()" title="Отменить (Cmd/Ctrl+Z)" aria-label="Undo"
+        style="padding:6px 8px;display:inline-flex;align-items:center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </button>
+      <button class="chip eb-redo-btn" id="redoBtn" onclick="doRedo()" title="Вернуть (Cmd/Ctrl+Shift+Z)" aria-label="Redo"
+        style="padding:6px 8px;display:inline-flex;align-items:center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+      </button>
       <!-- v0.1.156 (#1 DB / #27 MR): sort dropdown — Manual / Status / Deadline / Created. Persisted per project. -->
       <button class="chip" id="sortChip" onclick="openSortMenu(event)" title="Sort tasks"
         style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:4px">
@@ -4557,6 +4566,13 @@ function pushUndo(label, undo, redo){
   _undoStack.push({ label, undo, redo, ts: Date.now() });
   if(_undoStack.length > _UNDO_MAX) _undoStack.shift();
   _redoStack.length = 0;
+  updateUndoButtons();
+}
+// v0.1.187 (DB P2 #15): гасим кнопки Undo/Redo, когда соответствующий стек пуст.
+function updateUndoButtons(){
+  const u = document.getElementById('undoBtn'), r = document.getElementById('redoBtn');
+  if(u){ const e = _undoStack.length === 0; u.style.opacity = e ? '.35' : ''; u.style.pointerEvents = e ? 'none' : ''; u.title = e ? 'Отменять нечего' : ('Отменить: ' + _undoStack[_undoStack.length-1].label + ' (Cmd/Ctrl+Z)'); }
+  if(r){ const e = _redoStack.length === 0; r.style.opacity = e ? '.35' : ''; r.style.pointerEvents = e ? 'none' : ''; r.title = e ? 'Возвращать нечего' : ('Вернуть: ' + _redoStack[_redoStack.length-1].label + ' (Cmd/Ctrl+Shift+Z)'); }
 }
 function _runWithoutUndo(fn){
   _suppressUndoPush = true;
@@ -4567,12 +4583,14 @@ function doUndo(){
   if(!a){ toast('Nothing to undo', 1500); return; }
   try { _runWithoutUndo(a.undo); _redoStack.push(a); toast(`Undone: ${a.label}`, 2000); }
   catch(e){ console.error('undo failed', e); toast('Undo failed — state may be stale', 3000); }
+  updateUndoButtons();
 }
 function doRedo(){
   const a = _redoStack.pop();
   if(!a){ toast('Nothing to redo', 1500); return; }
   try { _runWithoutUndo(a.redo); _undoStack.push(a); toast(`Redone: ${a.label}`, 2000); }
   catch(e){ console.error('redo failed', e); toast('Redo failed', 3000); }
+  updateUndoButtons();
 }
 // Global keyboard binding — Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z = redo.
 // Skipped when focus is in an editable element so the user's native undo
@@ -5102,6 +5120,7 @@ function render(){
     replaceListWith(html);
     wireUpEmptyInput();
     if(typeof updateCollapseAllLabel === 'function') updateCollapseAllLabel();
+    if(typeof updateUndoButtons === 'function') updateUndoButtons();
     setTimeout(() => { patchGuardedImages(); if(typeof updateRowPresenceAvatars === 'function') updateRowPresenceAvatars(); }, 0);
     try { updateSortChipLabel(); } catch(_){}
     forceCompositorRepaint();
@@ -5468,6 +5487,10 @@ function _weekTagModal(title, defVal, okLabel, onCommit){
 function createWeekForProject(projId){
   _weekTagModal('New week', _defaultNextWeekTag(), 'Create', (tag) => {
     _addManualWeek(projId, tag);
+    // v0.1.187 (DB P2 #15): undo/redo для создания недели.
+    if(typeof pushUndo === 'function') pushUndo('Create week ' + tag,
+      () => { _removeManualWeek(projId, tag); render(); },
+      () => { _addManualWeek(projId, tag); render(); });
     toast('Week ' + tag + ' created');
     render();
   });
@@ -5514,6 +5537,10 @@ function deleteWeek(projId, w){
     });
   } catch(_){}
   document.getElementById('_ebWeekMenu')?.remove();
+  // v0.1.187 (DB P2 #15): undo/redo для удаления недели (неделя пустая — данных нет).
+  if(typeof pushUndo === 'function') pushUndo('Delete week ' + w,
+    () => { _addManualWeek(projId, w); render(); },
+    () => { _removeManualWeek(projId, w); render(); });
   toast('Week ' + w + ' deleted');
   render();
 }

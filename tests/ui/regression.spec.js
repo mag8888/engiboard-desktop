@@ -497,6 +497,29 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.lblExpanded).toBe('Collapse');
   });
 
+  test('R26 global undo/redo restores state and toggles the toolbar buttons', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      _undoStack.length = 0; _redoStack.length = 0; updateUndoButtons();
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      const undoDimStart = document.getElementById('undoBtn')?.style.opacity;
+      const s0 = t.s, newS = (s0 + 1) % 8;
+      changeStatus(t.id, newS);
+      const undoActive = document.getElementById('undoBtn')?.style.opacity;
+      doUndo();
+      const sUndo = t.s;
+      doRedo();
+      const sRedo = t.s;
+      return { skip: false, undoDimStart, undoActive, s0, newS, sUndo, sRedo };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.undoDimStart).toBe('0.35');   // empty stack → dimmed
+    expect(r.undoActive).not.toBe('0.35'); // an action lights it up
+    expect(r.sUndo).toBe(r.s0);            // undo restores
+    expect(r.sRedo).toBe(r.newS);          // redo re-applies
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
