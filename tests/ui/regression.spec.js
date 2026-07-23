@@ -520,6 +520,26 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.sRedo).toBe(r.newS);          // redo re-applies
   });
 
+  test('R27 presence is wired and degrades gracefully offline', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const fns = ['joinBoardPresence','leaveBoardPresence','setMyViewing','renderBoardPresence','updateRowPresenceAvatars','joinTaskPresence'];
+      const allFns = fns.every(n => typeof window[n] === 'function');
+      const slot = document.getElementById('boardPresence');
+      let threw = null;
+      try {
+        joinBoardPresence(currentProject); leaveBoardPresence();
+        setMyViewing('t1'); setMyViewing(null);
+        renderBoardPresence(); updateRowPresenceAvatars();
+      } catch(e){ threw = e.message; }
+      return { allFns, slotExists: !!slot, slotHidden: slot?.style.display === 'none', threw };
+    });
+    expect(r.allFns).toBe(true);        // presence API present
+    expect(r.slotExists).toBe(true);    // header avatar slot rendered
+    expect(r.threw).toBe(null);         // no crash without a realtime session
+    expect(r.slotHidden).toBe(true);    // nobody online → hidden
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
