@@ -591,6 +591,28 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.shortUnchanged).toBe('short.io/x');  // short links untouched
   });
 
+  test('R30 present header shows a bold task number and a smaller description', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      t.n = 'Проверка зазоров по чертежу';
+      openPresent(t.id);
+      const num = document.querySelector('#presCard .pres-titleblock .pres-num');
+      const desc = document.querySelector('#presCard .pres-titleblock .pres-desc');
+      const numWeight = num ? getComputedStyle(num).fontWeight : null;
+      const numSize = num ? parseFloat(getComputedStyle(num).fontSize) : 0;
+      const descSize = desc ? parseFloat(getComputedStyle(desc).fontSize) : 0;
+      return { skip: false, hasNum: !!num, hasDesc: !!desc, numText: num?.textContent, descText: desc?.textContent, numWeight, biggerNum: numSize > descSize };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.hasNum).toBe(true);
+    expect(r.numText).toMatch(/^#\d+$/);           // number, prefixed with #
+    expect(Number(r.numWeight)).toBeGreaterThanOrEqual(700); // bold
+    expect(r.descText).toContain('Проверка зазоров');        // the description
+    expect(r.biggerNum).toBe(true);                // number larger than description
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through

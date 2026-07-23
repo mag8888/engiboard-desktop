@@ -1600,6 +1600,10 @@ body.dark-mode .cmp-pane{ background:#1e2531 }
 .pres-head{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
 .pres-status{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:4px 12px;border-radius:20px}
 .pres-title{font-size:18px;font-weight:600;flex:1;letter-spacing:-.01em}
+/* v0.1.187 (DB P2 #24): номер задачи жирным/крупнее, описание мельче и приглушённо. */
+.pres-titleblock{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
+.pres-titleblock .pres-num{font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.02em;flex-shrink:0;font-variant-numeric:tabular-nums}
+.pres-titleblock .pres-desc{font-size:13px;font-weight:500;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .pres-close{border:none;background:none;font-size:22px;cursor:pointer;color:var(--t3);padding:0 6px}
 .pres-body{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 24px;overflow:auto}
 /* v0.1.130: plain light-grey background (no pattern), clear frame so the
@@ -7613,6 +7617,8 @@ function renderPresent(){
         <span class="pip" style="width:7px;height:7px;border-radius:50%;background:${st.c}"></span>${st.l} <span style="font-size:8px;opacity:.6">▾</span>
       </div>
       ${renderAssignee(t)}${renderDeadline(t)}
+      <!-- v0.1.187 (DB P2 #24): номер задачи ЖИРНЫМ/крупнее, описание мельче. -->
+      <div class="pres-titleblock"><span class="pres-num">#${taskNum}</span><span class="pres-desc" title="${escapeHtml(t.n||'')}">${escapeHtml(t.n||'')}</span></div>
       <!-- v0.1.154 (#20 MR): live presence stack — populated by
            updatePresenceUi() after the realtime channel sync. -->
       <span id="presPresence" class="pres-presence" style="display:none"></span>
