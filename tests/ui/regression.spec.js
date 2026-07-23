@@ -354,6 +354,35 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.bytes).toBeGreaterThan(3000);
   });
 
+  test('R20 present add-screenshot targets an explicit slot (no ambiguity)', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR4nGP8z8Dwn4EIwDiqEAAqAgQBhlY6DwAAAABJRU5ErkJggg==';
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      // empty task → bottom button aims at BEFORE (slot 0)
+      delete t.shot1; delete t.shot2; delete t.shots;
+      openPresent(t.id);
+      const btnEmpty = [...document.querySelectorAll('.pres-nav button')].find(b => b.textContent.includes('Add screenshot'));
+      const emptyTargetsBefore = /targetSlot:0\b/.test(btnEmpty?.getAttribute('onclick') || '');
+      // both filled → per-slot "+" tile present; extras actually persist
+      t.shot1 = png; t.shot2 = png; delete t.shots;
+      openPresent(t.id);
+      const hasAddTile = !!document.querySelector('#presCard .pres-thumb-add');
+      await assignShotToSlot(t, 2, png);       // capture into an extra slot
+      const extraSaved = Array.isArray(t.shots) && t.shots[0] === png;
+      openPresent(t.id);
+      const btnFull = [...document.querySelectorAll('.pres-nav button')].find(b => b.textContent.includes('Add screenshot'));
+      const fullTargetsNextExtra = /targetSlot:3\b/.test(btnFull?.getAttribute('onclick') || '');
+      return { skip: false, emptyTargetsBefore, hasAddTile, extraSaved, fullTargetsNextExtra };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.emptyTargetsBefore).toBe(true);    // empty → first free slot, not a guess
+    expect(r.hasAddTile).toBe(true);            // explicit "+" per the after gallery
+    expect(r.extraSaved).toBe(true);            // extra slots now persist (were dropped)
+    expect(r.fullTargetsNextExtra).toBe(true);  // bottom button points at the next free slot
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through

@@ -1711,6 +1711,11 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   background:linear-gradient(transparent,rgba(0,0,0,.75));
   color:#fff;font-size:10px;font-weight:600;letter-spacing:.04em;
   font-family:var(--mono);padding:8px 6px 4px;text-align:center}
+/* v0.1.187 (DB fix #7): «+»-плитка добавления скриншота в конце полосы миниатюр */
+.pres-thumb-add{display:flex;align-items:center;justify-content:center;
+  border:1.5px dashed var(--line-2);background:transparent;color:var(--t3)}
+.pres-thumb-add:hover{border-color:var(--acc);color:var(--acc);
+  background:rgba(14,165,233,.05);transform:translateY(-1px)}
 /* v0.1.163: убрали draggable-разделитель pics/chat в режиме презентации —
    он не работал и был не нужен. Картинки фиксированы на --pres-split (58%),
    чат заполняет остаток. */
@@ -7377,9 +7382,14 @@ function renderPresent(){
   } else {
     const view = afterShots.find(s => s.slotIdx === _presViewSlot) || afterShots[0];
     _presViewSlot = view.slotIdx;
-    const thumbs = afterShots.length > 1 ? `<div class="pres-after-thumbs" role="list" aria-label="Switch screenshot">${
-      afterShots.map(sh => `<button class="pres-thumb${sh.slotIdx===view.slotIdx?' active':''}" role="listitem" data-slot="${sh.slotIdx}" title="Show ${sh.label}" onclick="event.stopPropagation();presSwitchView('${t.id}',${sh.slotIdx})"><img src="${sh.src}" alt="" loading="lazy"><span class="pres-thumb-lbl">${sh.label}</span></button>`).join('')
-    }</div>` : '';
+    // v0.1.187 (DB fix #7): «каждому плюсик». Полоса миниатюр теперь показывается
+    // всегда (даже при одном AFTER-скрине) и заканчивается «+»-плиткой, которая
+    // добавляет следующий скриншот в явный слот — не надо гадать, куда вставится.
+    const nextAfterSlot = (!t.shot2 || t.shot2.length < 32) ? 1 : (2 + (Array.isArray(t.shots) ? t.shots.length : 0));
+    const addTile = `<button class="pres-thumb pres-thumb-add" title="Добавить ещё скриншот" aria-label="Add another screenshot" onclick="event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${nextAfterSlot}})"><span style="font-size:26px;line-height:1">+</span></button>`;
+    const thumbs = `<div class="pres-after-thumbs" role="list" aria-label="Screenshots">${
+      afterShots.map(sh => `<button class="pres-thumb${sh.slotIdx===view.slotIdx?' active':''}" role="listitem" data-slot="${sh.slotIdx}" title="Show ${sh.label}" onclick="event.stopPropagation();presSwitchView('${t.id}',${sh.slotIdx})"><img src="${sh.src}" alt="" loading="lazy"><span class="pres-thumb-lbl">${sh.label}</span></button>`).join('') + addTile
+    }</div>`;
     afterColHTML = `<div class="pres-after-col">
       <div class="pres-pic" style="flex:1;min-height:0">
         <div class="lbl" id="presViewLbl">${view.label}</div>
@@ -7392,6 +7402,12 @@ function renderPresent(){
   }
 
   const st = STATUSES[t.s] || STATUSES[0];   // v0.1.181: fallback (was the only unguarded status lookup — crashed present-mode on an out-of-range desktop_status)
+  // v0.1.187 (DB fix #7): нижняя кнопка «+ Add screenshot» больше не «гадает» слот —
+  // целится в первый свободный (BEFORE → AFTER → следующий экстра) и показывает куда.
+  const _nextFreeSlot = (!t.shot1 || t.shot1.length < 32) ? 0
+    : (!t.shot2 || t.shot2.length < 32) ? 1
+    : (2 + (Array.isArray(t.shots) ? t.shots.length : 0));
+  const _nextFreeLabel = _nextFreeSlot === 0 ? 'BEFORE' : _nextFreeSlot === 1 ? 'AFTER' : '#' + (_nextFreeSlot - 1);
   const card = document.getElementById('presCard');
   card.classList.add('with-chat');
   const proj = PROJECTS.find(p => p.id === t.proj);
@@ -7450,7 +7466,7 @@ function renderPresent(){
       <button class="pres-nav-arrow" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
       <div class="pres-counter">${taskNum} / ${taskTotal}</div>
       <button class="pres-nav-arrow" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
-      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:14px">+ Add screenshot</button>
+      <button onclick="captureScreenshot({fromPresent:true,targetSlot:${_nextFreeSlot}})" title="Захватить и добавить в ${_nextFreeLabel}" style="margin-left:14px">+ Add screenshot → ${_nextFreeLabel}</button>
     </div>`;
   // v0.1.150: restore previous scroll positions (Lead UX review). If the
   // chat panel was scrolled to the bottom already we keep auto-scrolling
@@ -8258,10 +8274,18 @@ async function assignShotToSlot(t, slot, dataUrl){
   // 1) Optimistic local — UI updates immediately with base64
   if(slot === 0) t.shot1 = dataUrl;
   else if(slot === 1) t.shot2 = dataUrl;
+  else {
+    // v0.1.187 (DB fix #7): экстра-слоты (2+) раньше НЕ сохранялись — из-за
+    // этого «добавить ещё скриншот» из презентации ничего не делало. Пишем в
+    // t.shots[slot-2]. Экстры пока держим локально (в БД только shot1/shot2).
+    if(!Array.isArray(t.shots)) t.shots = [];
+    t.shots[slot - 2] = dataUrl;
+  }
   render();
 
-  // 2) Cloud upload in the background (only for cloud-tracked tasks)
-  if(t._cloud && db && db.ready){
+  // 2) Cloud upload in the background (only for cloud-tracked tasks; only the
+  //    two primary slots have DB columns — экстры остаются локальными).
+  if(t._cloud && db && db.ready && slot < 2){
     try {
       const { url } = await db.storage.uploadShot(t.id, dataUrl);
       if(!url) return;
@@ -8951,7 +8975,10 @@ function captureScreenshot(opts){
     pendingPresentAttach = true;
     // v0.1.153: empty-state hero passes targetSlot 0/1 so the result goes
     // into shot1/shot2 instead of the extras pile.
-    if(typeof opts.targetSlot === 'number' && (opts.targetSlot === 0 || opts.targetSlot === 1)){
+    // v0.1.187 (#7): также принимаем экстра-слоты (2+) — «+»-плитки и нижняя
+    // кнопка целятся в конкретный слот; addShotToPresentTask для 2+ добавляет
+    // новый экстра-скрин в галерею.
+    if(typeof opts.targetSlot === 'number' && opts.targetSlot >= 0){
       pendingPresentSlot = opts.targetSlot;
     }
   }
