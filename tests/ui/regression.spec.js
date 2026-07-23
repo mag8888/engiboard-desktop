@@ -404,6 +404,45 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.chat).toBeGreaterThan(r.actions);
   });
 
+  test('R22 tasks under a week are indented (folder look)', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      document.querySelector('.list')?.classList.add('cv-list');
+      render();
+      const hdr = document.querySelector('.week-hdr:not(.pinned-hdr)');
+      const row = document.querySelector('.row.in-week');
+      if (!hdr || !row) return { skip: true };
+      return {
+        skip: false,
+        hdrLeft: hdr.getBoundingClientRect().left,
+        rowLeft: row.getBoundingClientRect().left,
+      };
+    });
+    test.skip(r.skip === true, 'no weeked rows in demo data');
+    expect(r.rowLeft).toBeGreaterThan(r.hdrLeft + 8);   // rows sit indented under the header
+  });
+
+  test('R23 status filter chips show per-project counts', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      renderFilters();
+      const scope = TASKS.filter(t => t.proj === currentProject && !t.hidden);
+      const byS = {}; scope.forEach(t => { byS[t.s] = (byS[t.s] || 0) + 1; });
+      const allChip = document.querySelector('#filterChips .chip[data-f="all"] .chip-ct');
+      // pick a status that actually has tasks
+      const sid = Object.keys(byS)[0];
+      const stChip = document.querySelector(`#filterChips .chip[data-f="${sid}"] .chip-ct`);
+      return {
+        allCt: allChip ? parseInt(allChip.textContent) : null,
+        total: scope.length,
+        stCt: stChip ? parseInt(stChip.textContent) : null,
+        stActual: byS[sid],
+      };
+    });
+    expect(r.allCt).toBe(r.total);       // All chip counts every task in scope
+    expect(r.stCt).toBe(r.stActual);     // per-status chip matches the real count
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
