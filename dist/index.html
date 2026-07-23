@@ -2454,6 +2454,12 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/></svg>
         <span id="sortChipLabel">Sort</span>
       </button>
+      <!-- v0.1.187 (DB P2 #14): свернуть/развернуть все недели одним кликом. -->
+      <button class="chip" id="collapseAllChip" onclick="toggleAllWeeks()" title="Свернуть / развернуть все недели" aria-label="Collapse or expand all weeks"
+        style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:4px;padding:6px 8px">
+        <svg id="collapseAllIco" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        <span id="collapseAllLbl">Collapse</span>
+      </button>
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <!-- v0.1.150 (fix #4 reported by DB): export buttons are used rarely, so
            collapse them into a single "More" kebab on the right of the toolbar.
@@ -4339,6 +4345,39 @@ function toggleWeek(projId, w){
   render();
 }
 
+// v0.1.187 (DB P2 #14): Collapse All / Expand All недель одной кнопкой.
+// Все ключи недель проекта (задачи + ручные недели + служебные __pinned__/'').
+function _allWeekKeys(projId){
+  const set = new Set(['']);
+  TASKS.forEach(t => { if(t.proj === projId) set.add(t.w || ''); });
+  if(typeof _manualWeeks === 'function') _manualWeeks(projId).forEach(w => set.add(w));
+  set.add('__pinned__');
+  return [...set];
+}
+function _collapsedWeekSet(projId){
+  try { return new Set(JSON.parse(localStorage.getItem(_ebWkKey(projId)) || '[]')); }
+  catch(_){ return new Set(); }
+}
+function toggleAllWeeks(){
+  const projId = currentProject;
+  const keys = _allWeekKeys(projId);
+  const collapsed = _collapsedWeekSet(projId);
+  // если хоть одна неделя развёрнута — сворачиваем все; иначе разворачиваем все.
+  const anyExpanded = keys.some(w => !collapsed.has(w));
+  localStorage.setItem(_ebWkKey(projId), anyExpanded ? JSON.stringify(keys) : '[]');
+  render();
+  if(typeof updateCollapseAllLabel === 'function') updateCollapseAllLabel();
+}
+// Подпись кнопки отражает следующее действие.
+function updateCollapseAllLabel(){
+  const lbl = document.getElementById('collapseAllLbl');
+  if(!lbl) return;
+  const projId = currentProject;
+  const collapsed = _collapsedWeekSet(projId);
+  const anyExpanded = _allWeekKeys(projId).some(w => !collapsed.has(w));
+  lbl.textContent = anyExpanded ? 'Collapse' : 'Expand';
+}
+
 // v0.1.152 (#18 DB): per-week "complete" flag. Like the collapse state,
 // persisted locally per project — completed weeks render a green check
 // and refuse drag-drop. Functional but local-only for now; can promote to
@@ -5062,6 +5101,7 @@ function render(){
     }
     replaceListWith(html);
     wireUpEmptyInput();
+    if(typeof updateCollapseAllLabel === 'function') updateCollapseAllLabel();
     setTimeout(() => { patchGuardedImages(); if(typeof updateRowPresenceAvatars === 'function') updateRowPresenceAvatars(); }, 0);
     try { updateSortChipLabel(); } catch(_){}
     forceCompositorRepaint();

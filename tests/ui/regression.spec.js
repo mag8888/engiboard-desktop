@@ -473,6 +473,30 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.rendered).toBe(true);   // and shows up as a week header
   });
 
+  test('R25 Collapse All / Expand All toggles every week', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      localStorage.setItem(_ebWkKey(currentProject), '[]');   // start expanded
+      render();
+      const total = [...document.querySelectorAll('.week-hdr:not(.eb-addweek):not(.pinned-hdr)')].length;
+      if (!total) return { skip: true };
+      toggleAllWeeks();                                       // collapse all
+      const collapsed = [...document.querySelectorAll('.week-hdr:not(.eb-addweek):not(.pinned-hdr)')].filter(h => h.classList.contains('collapsed')).length;
+      const rowsCollapsed = document.querySelectorAll('.row[data-task-id]:not(.eb-addrow)').length;
+      const lblCollapsed = document.getElementById('collapseAllLbl')?.textContent;
+      toggleAllWeeks();                                       // expand all
+      const rowsExpanded = document.querySelectorAll('.row[data-task-id]:not(.eb-addrow)').length;
+      const lblExpanded = document.getElementById('collapseAllLbl')?.textContent;
+      return { skip: false, total, collapsed, rowsCollapsed, lblCollapsed, rowsExpanded, lblExpanded };
+    });
+    test.skip(r.skip === true, 'no weeks in demo data');
+    expect(r.collapsed).toBe(r.total);       // every week collapsed
+    expect(r.rowsCollapsed).toBe(0);         // no task rows visible when all collapsed
+    expect(r.lblCollapsed).toBe('Expand');   // label flips
+    expect(r.rowsExpanded).toBeGreaterThan(0); // expand brings them back
+    expect(r.lblExpanded).toBe('Collapse');
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
