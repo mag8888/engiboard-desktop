@@ -216,6 +216,8 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
     <div class="fb-sep"></div>
     <button class="fb" data-id="text" data-tip="Text" data-key="T" onclick="setTool('text')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg></button>
+    <!-- v0.1.187 (DB P2 #21): выноска — потяни лидер к цели, затем впиши текст. -->
+    <button class="fb" data-id="callout" data-tip="Callout (текст со стрелкой)" data-key="G" onclick="setTool('callout')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="11" height="8" rx="1.5"/><path d="M11 12l8 8"/><path d="M19 20l-3.5 .3.3-3.5"/></svg></button>
     <!-- v0.1.187 (DB P2 #23): Dimension вернули по просьбе на созвоне 2026-07-17,
          но теперь метка ВВОДИТСЯ ВРУЧНУЮ (напр. «30 mm») — не авто-«153 mm», из-за
          которого его в v0.1.157 и убрали. Рисуется как линия (drag), метка правится
@@ -596,10 +598,15 @@ function commitCurrent(){
   const valid=cur.type==='freehand'?(cur.pts?.length||0)>2:Math.abs(cur.w)>0.5||Math.abs(cur.h)>0.5;
   if(valid){
     pushHistory();
+    const committed=cur;
     annotations.push(cur);
     cur=null;
     clearPrev();
+    // v0.1.187 (DB P2 #21): у выноски сразу после лидера открываем поле текста —
+    // выделяем её, чтобы появился редактируемый ярлык, и фокусируем.
+    if(committed.type==='callout') selId=committed.id;
     renderAll();updateList();updateCount();
+    if(committed.type==='callout') setTimeout(()=>{const i=document.querySelector('.callout-inp');if(i){i.focus();i.select();}},10);
     return true;
   }
   cur=null;clearPrev();
@@ -799,9 +806,33 @@ function makeAnnotEl(a,prev=false){
   return null;
 }
 
+// v0.1.187 (DB P2 #21): выноска (callout) — стрелка-лидер от текста к цели +
+// редактируемый ярлык. Геометрия: (x,y)=остриё (цель), (x+w,y+h)=якорь текста.
+function renderCallout(a){
+  const op=(a.op??1), sel=a.id===selId;
+  const tipX=a.x, tipY=a.y, ancX=a.x+a.w, ancY=a.y+a.h;
+  // лидер-стрелка: переиспользуем проверенный arrow-рендер (голова на 'end'=остриё)
+  const arrow=makeAnnotEl({type:'arrow',x:ancX,y:ancY,w:tipX-ancX,h:tipY-ancY,color:a.color,sw:a.sw,op:a.op,headDir:'end',headSize:a.headSize||1},false);
+  if(arrow&&arrow.layer==='svg') fhSvg.appendChild(arrow.el);
+  const box=document.createElement('div');
+  box.className='callout-box';
+  box.style.cssText=`position:absolute;left:${ancX}%;top:${ancY}%;transform:translate(-50%,-115%);opacity:${op};pointer-events:auto`;
+  const labelText=a.text||'';
+  if(sel){
+    box.innerHTML=`<input class="callout-inp" value="${String(labelText).replace(/"/g,'&quot;')}" placeholder="Текст выноски…" oninput="updateCalloutText('${a.id}',this.value)" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'){event.preventDefault();selId=null;renderAll();}event.stopPropagation()" style="font:600 12px/1.2 var(--font);color:${a.color};background:rgba(255,255,255,.92);border:1px dashed ${a.color};border-radius:5px;padding:2px 6px;outline:none;min-width:60px">`;
+  } else {
+    box.innerHTML=`<div style="font:600 12px/1.2 var(--font);color:${safeColor(a.color)};background:rgba(255,255,255,.85);border-radius:5px;padding:2px 6px;white-space:nowrap">${escapeHtml(labelText||'…')}</div>`;
+    box.addEventListener('click',ev=>{ev.stopPropagation();selId=a.id;renderAll();updateList();});
+  }
+  annRoot.appendChild(box);
+}
+function updateCalloutText(id,val){ const a=annotations.find(x=>x.id===id); if(a) a.text=val; }
+
 function renderAll(){
   annRoot.innerHTML='';fhSvg.innerHTML='';
   for(const a of annotations){
+    // v0.1.187 (DB P2 #21): выноска = стрелка-лидер (в fhSvg) + текст (в annRoot).
+    if(a.type==='callout'){ renderCallout(a); continue; }
     const r=makeAnnotEl(a);
     if(!r) continue;
     if(r.layer==='svg'){fhSvg.appendChild(r.el);}
@@ -848,6 +879,10 @@ function renderPrev(){
       if(_polyPreview) line(`M ${pts[pts.length-1].x} ${pts[pts.length-1].y} L ${_polyPreview.x} ${_polyPreview.y}`, true, 0.55);
       pts.forEach(pt=>{const c=document.createElementNS(ns,'circle');c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);c.setAttribute('r','0.7');c.setAttribute('fill',cur.color);prevSvg.appendChild(c);});
     }
+  }else if(cur.type==='callout'){
+    // предпросмотр лидера выноски (стрелка от якоря к цели)
+    const r=makeAnnotEl({type:'arrow',x:cur.x+cur.w,y:cur.y+cur.h,w:-cur.w,h:-cur.h,color:cur.color,sw:cur.sw,op:0.7,headDir:'end',headSize:1},true);
+    if(r&&r.layer==='svg') prevSvg.appendChild(r.el);
   }else{const r=makeAnnotEl(cur,true);if(r){if(r.layer==='svg') prevSvg.appendChild(r.el);else prevDiv.appendChild(r.el);}}
 }
 function clearPrev(){prevDiv.innerHTML='';prevSvg.innerHTML='';}
@@ -947,8 +982,8 @@ function toggleMarksHidden(){
   if(_marksHidden) document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
 }
 
-const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',polyline:'∿',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
-const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',polyline:'Polyline',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
+const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',polyline:'∿',freehand:'~',text:'T',callout:'⌇',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
+const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',polyline:'Polyline',freehand:'Freehand',text:'Label',callout:'Callout',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
 function updateList(){
   // v0.1.29: split into Layers (annotations) and Comments (pin-comments) panels
   const annEl = document.getElementById('annList');
@@ -1090,12 +1125,33 @@ function compositeToDataUrl(){
       ctx.stroke();
     }
     else if(a.type==='dimension'){
-      const mm=Math.round(Math.abs(a.w||0)*4.2);
+      // v0.1.187 (DB P2 #23): в PNG тоже ручная метка a.label (не авто-mm).
+      const labelTxt = a.label || (Math.round(Math.abs(a.w||0)*4.2)+'mm');
       ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+w,y); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x,y-6); ctx.lineTo(x,y+6);
                        ctx.moveTo(x+w,y-6); ctx.lineTo(x+w,y+6); ctx.stroke();
       ctx.font='bold 13px monospace'; ctx.textAlign='center';
-      ctx.fillText(mm+'mm', x+w/2, y+20);
+      ctx.fillText(labelTxt, x+w/2, y+20);
+    }
+    else if(a.type==='callout'){
+      // v0.1.187 (DB P2 #21): лидер-стрелка (якорь→остриё) + текст у якоря.
+      const tx=PX(a.x), ty=PY(a.y), ax=PX(a.x+(a.w||0)), ay=PY(a.y+(a.h||0));
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(tx,ty); ctx.stroke();
+      const ang=Math.atan2(ty-ay,tx-ax), hs=(8+(a.sw||2)*2);
+      ctx.beginPath(); ctx.moveTo(tx,ty);
+      ctx.lineTo(tx-hs*Math.cos(ang-Math.PI/7), ty-hs*Math.sin(ang-Math.PI/7));
+      ctx.lineTo(tx-hs*Math.cos(ang+Math.PI/7), ty-hs*Math.sin(ang+Math.PI/7));
+      ctx.closePath(); ctx.fill();
+      if(a.text){
+        const fs=Math.max(12,Math.round(H*0.022));
+        ctx.font='600 '+fs+'px -apple-system,system-ui,sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+        const tw=ctx.measureText(a.text).width, pad=6;
+        ctx.fillStyle='rgba(255,255,255,.88)';
+        ctx.fillRect(ax-tw/2-pad, ay-fs-pad-8, tw+pad*2, fs+pad);
+        ctx.fillStyle=a.color;
+        ctx.fillText(a.text, ax, ay-10);
+      }
     }
     else if(a.type==='text' && a.text){
       ctx.font='600 14px -apple-system,system-ui,sans-serif';
@@ -1170,7 +1226,7 @@ async function discard(){
 // is dropped — pressing D used to activate the tool even after the button
 // was hidden in v0.1.157.
 // v0.1.164 (DB): 'b'/blur убран — инструмент Blur удалён из тулбара.
-const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker',n:'polyline',d:'dimension'};
+const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker',n:'polyline',d:'dimension',g:'callout'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();

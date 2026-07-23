@@ -71,6 +71,30 @@ test.describe('EngiBoard editor — annotation tools', () => {
     expect(r.dom).toBe(true);        // rendered as an SVG path
   });
 
+  test('E5 Callout: leader drag creates a callout with an editable label + arrow', async ({ page }) => {
+    await loadEditor(page);
+    await page.evaluate(() => setTool('callout'));
+    await drawDrag(page, [0.3, 0.6], [0.6, 0.3]);   // drag the leader (target → text)
+    const r = await page.evaluate(() => {
+      const c = annotations.find(a => a.type === 'callout');
+      const autoInput = !!document.querySelector('.callout-inp');   // auto-selected → editable
+      if (c) updateCalloutText(c.id, 'зазор 2мм');
+      selId = null; renderAll();
+      return {
+        created: !!c,
+        autoInput,
+        text: c ? c.text : null,
+        arrow: !!document.querySelector('#fhSvg path'),      // leader arrow rendered
+        box: !!document.querySelector('.callout-box'),        // text box rendered
+      };
+    });
+    expect(r.created).toBe(true);
+    expect(r.autoInput).toBe(true);   // text field opens right after drawing the leader
+    expect(r.text).toBe('зазор 2мм'); // label is editable
+    expect(r.arrow).toBe(true);       // arrow leader present
+    expect(r.box).toBe(true);         // text box present
+  });
+
   test('E4 Polyline: Escape cancels an unfinished polyline', async ({ page }) => {
     await loadEditor(page);
     await page.evaluate(() => setTool('polyline'));
