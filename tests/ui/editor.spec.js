@@ -53,4 +53,36 @@ test.describe('EngiBoard editor — annotation tools', () => {
     expect(r.label).toBe('30 mm');
   });
 
+  test('E3 Polyline: click points, finish with double-click', async ({ page }) => {
+    await loadEditor(page);
+    await page.evaluate(() => setTool('polyline'));
+    const r = await page.evaluate(() => {
+      const r = paper.getBoundingClientRect();
+      const click = (fx, fy) => paper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }));
+      click(0.2, 0.2); click(0.5, 0.6); click(0.8, 0.3);   // 3 vertices
+      const building = !!(cur && cur.type === 'polyline' && cur.pts.length === 3);
+      paper.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));   // finish
+      const poly = annotations.find(a => a.type === 'polyline');
+      return { building, committed: !!poly, pts: poly ? poly.pts.length : 0, dom: !!document.querySelector('#fhSvg path') };
+    });
+    expect(r.building).toBe(true);   // accumulates vertices while building
+    expect(r.committed).toBe(true);  // double-click commits it
+    expect(r.pts).toBe(3);           // keeps all 3 points
+    expect(r.dom).toBe(true);        // rendered as an SVG path
+  });
+
+  test('E4 Polyline: Escape cancels an unfinished polyline', async ({ page }) => {
+    await loadEditor(page);
+    await page.evaluate(() => setTool('polyline'));
+    const r = await page.evaluate(() => {
+      const r = paper.getBoundingClientRect();
+      const click = (fx, fy) => paper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }));
+      click(0.3, 0.3); click(0.6, 0.6);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return { curCleared: cur == null, none: annotations.filter(a => a.type === 'polyline').length };
+    });
+    expect(r.curCleared).toBe(true);   // in-progress cleared
+    expect(r.none).toBe(0);            // nothing committed
+  });
+
 });

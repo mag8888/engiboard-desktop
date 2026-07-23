@@ -210,6 +210,8 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="fb" data-id="circle" data-tip="Circle" data-key="C" onclick="setTool('circle')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></button>
     <button class="fb" data-id="arrow" data-tip="Arrow" data-key="A" onclick="setTool('arrow')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg></button>
     <button class="fb" data-id="line" data-tip="Line" data-key="L" onclick="setTool('line')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" stroke-linecap="round"/></svg></button>
+    <!-- v0.1.187 (DB P2 #22): полилиния — клик по точкам, финиш dbl-click/Enter/Esc. -->
+    <button class="fb" data-id="polyline" data-tip="Polyline (кликай точки, финиш — двойной клик)" data-key="N" onclick="setTool('polyline')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 8 8 13 14 21 5"/></svg></button>
     <button class="fb" data-id="freehand" data-tip="Freehand" data-key="P" onclick="setTool('freehand')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
     <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
     <div class="fb-sep"></div>
@@ -505,7 +507,7 @@ paper.addEventListener('mousedown',e=>{
     const p=relPos(e);
     const hit=[...annotations].reverse().find(a=>{
       if(a.locked) return false;
-      if(a.type==='freehand'){const xs=(a.pts||[]).map(q=>q.x),ys=(a.pts||[]).map(q=>q.y);return xs.length&&p.x>=Math.min(...xs)-3&&p.x<=Math.max(...xs)+3&&p.y>=Math.min(...ys)-3&&p.y<=Math.max(...ys)+3;}
+      if(a.type==='freehand'||a.type==='polyline'){const xs=(a.pts||[]).map(q=>q.x),ys=(a.pts||[]).map(q=>q.y);return xs.length&&p.x>=Math.min(...xs)-3&&p.x<=Math.max(...xs)+3&&p.y>=Math.min(...ys)-3&&p.y<=Math.max(...ys)+3;}
       if(a.type==='text') return Math.abs(p.x-a.x)<15&&Math.abs(p.y-a.y)<6;
       if(a.type==='emoji') return Math.abs(p.x-a.x)<6&&Math.abs(p.y-a.y)<6;
       const ax=Math.min(a.x,a.x+a.w),ay=Math.min(a.y,a.y+a.h);
@@ -518,6 +520,9 @@ paper.addEventListener('mousedown',e=>{
   if(tool==='comment'){cmtPos=relPos(e);showCmtPopUI(e);return;}
   if(tool==='emoji'){placeEmoji(relPos(e));return;}
   if(tool==='text'){commitText();textPos=relPos(e);showTextInp(textPos);return;}
+  // v0.1.187 (DB P2 #22): полилиния — клик добавляет вершину; финиш по dbl-click
+  // / Enter / Esc. Не drag-инструмент, поэтому свой путь (drawing остаётся false).
+  if(tool==='polyline'){ addPolyPoint(relPos(e)); return; }
   const p=relPos(e);
   drawing=true;startPos=p;
   const s=tool==='marker'?Math.max(sw*4,8):tool==='pen'?1:sw;
@@ -538,12 +543,14 @@ paper.addEventListener('mousemove',e=>{
     const dx=p.x-dragStart.mx,dy=p.y-dragStart.my;
     annotations=annotations.map(a=>{
       if(a.id!==selId) return a;
-      if(a.type==='freehand') return{...a,x:dragStart.ox+dx,y:dragStart.oy+dy,pts:(a.pts||[]).map(q=>({x:q.x+dx,y:q.y+dy}))};
+      if(a.type==='freehand'||a.type==='polyline') return{...a,x:dragStart.ox+dx,y:dragStart.oy+dy,pts:(a.pts||[]).map(q=>({x:q.x+dx,y:q.y+dy}))};
       return{...a,x:dragStart.ox+dx,y:dragStart.oy+dy};
     });
     dragStart={mx:p.x,my:p.y,ox:dragStart.ox+dx,oy:dragStart.oy+dy};
     renderAll();return;
   }
+  // v0.1.187 (DB P2 #22): предпросмотр текущего сегмента полилинии до курсора.
+  if(tool==='polyline' && cur && cur.type==='polyline'){ _polyPreview={x:p.x,y:p.y}; renderPrev(); return; }
   if(!drawing||!cur) return;
   if(cur.type==='freehand') cur={...cur,pts:[...(cur.pts||[]),{x:p.x,y:p.y}]};
   else {
@@ -598,6 +605,34 @@ function commitCurrent(){
   cur=null;clearPrev();
   return false;
 }
+
+// ─── v0.1.187 (DB P2 #22): полилиния (multi-line) ─────────────────────────
+let _polyPreview=null;
+function addPolyPoint(p){
+  if(!cur || cur.type!=='polyline'){
+    cur={id:'a'+Date.now(),type:'polyline',x:p.x,y:p.y,w:0,h:0,color,sw,op:opVal,pts:[{x:p.x,y:p.y}]};
+  } else {
+    cur.pts.push({x:p.x,y:p.y});
+  }
+  _polyPreview={x:p.x,y:p.y};
+  renderPrev();
+}
+function finishPoly(commit){
+  if(!cur || cur.type!=='polyline'){ return false; }
+  const ok = commit && (cur.pts?.length||0) >= 2;
+  if(ok){
+    pushHistory();
+    const xs=cur.pts.map(q=>q.x), ys=cur.pts.map(q=>q.y);   // bbox для select-хиттеста
+    cur.x=Math.min(...xs); cur.y=Math.min(...ys);
+    cur.w=Math.max(...xs)-cur.x; cur.h=Math.max(...ys)-cur.y;
+    annotations.push(cur);
+  }
+  cur=null; _polyPreview=null; clearPrev();
+  if(ok){ renderAll(); updateList(); updateCount(); }
+  return ok;
+}
+
+paper.addEventListener('dblclick',()=>{ if(cur&&cur.type==='polyline') finishPoly(true); });
 
 paper.addEventListener('mouseup',()=>{
   if(isPanning){isPanning=false;paper.style.cursor='grab';return;}
@@ -736,6 +771,19 @@ function makeAnnotEl(a,prev=false){
     wrap.innerHTML = `<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${safeColor(a.color)}"></div><div style="flex:1;height:${a.sw}px;background:${safeColor(a.color)}"></div><div style="width:1px;height:10px;background:${safeColor(a.color)}"></div></div>${editable}`;
     return{el:wrap,layer:'div'};
   }
+  if(a.type==='polyline'){
+    // v0.1.187 (DB P2 #22): прямые сегменты по вершинам (в отличие от freehand).
+    if(!a.pts||a.pts.length<2) return null;
+    const ns='http://www.w3.org/2000/svg';
+    const d=a.pts.map((pt,i)=>`${i===0?'M':'L'} ${pt.x} ${pt.y}`).join(' ');
+    const path=document.createElementNS(ns,'path');
+    path.setAttribute('d',d);path.setAttribute('fill','none');
+    path.setAttribute('stroke',safeColor(a.color));path.setAttribute('stroke-width',a.sw);
+    path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');
+    path.setAttribute('vector-effect','non-scaling-stroke');path.style.opacity=op;
+    if(sel) path.style.filter=`drop-shadow(0 0 3px ${a.color})`;
+    return{el:path,layer:'svg'};
+  }
   if(a.type==='freehand'){
     if(!a.pts||a.pts.length<2) return null;
     const ns='http://www.w3.org/2000/svg';
@@ -791,6 +839,15 @@ function renderPrev(){
     path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');
     path.setAttribute('vector-effect','non-scaling-stroke');path.style.opacity=0.7;
     prevSvg.appendChild(path);
+  }else if(cur.type==='polyline'){
+    const ns='http://www.w3.org/2000/svg';
+    const pts=cur.pts||[];
+    const line=(d,dash,opacity)=>{const p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',cur.color);p.setAttribute('stroke-width',cur.sw);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.setAttribute('vector-effect','non-scaling-stroke');if(dash)p.setAttribute('stroke-dasharray','2 2');p.style.opacity=opacity;prevSvg.appendChild(p);};
+    if(pts.length){
+      line(pts.map((pt,i)=>`${i===0?'M':'L'} ${pt.x} ${pt.y}`).join(' '), false, 0.9);
+      if(_polyPreview) line(`M ${pts[pts.length-1].x} ${pts[pts.length-1].y} L ${_polyPreview.x} ${_polyPreview.y}`, true, 0.55);
+      pts.forEach(pt=>{const c=document.createElementNS(ns,'circle');c.setAttribute('cx',pt.x);c.setAttribute('cy',pt.y);c.setAttribute('r','0.7');c.setAttribute('fill',cur.color);prevSvg.appendChild(c);});
+    }
   }else{const r=makeAnnotEl(cur,true);if(r){if(r.layer==='svg') prevSvg.appendChild(r.el);else prevDiv.appendChild(r.el);}}
 }
 function clearPrev(){prevDiv.innerHTML='';prevSvg.innerHTML='';}
@@ -890,8 +947,8 @@ function toggleMarksHidden(){
   if(_marksHidden) document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
 }
 
-const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
-const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
+const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',polyline:'∿',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
+const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',polyline:'Polyline',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
 function updateList(){
   // v0.1.29: split into Layers (annotations) and Comments (pin-comments) panels
   const annEl = document.getElementById('annList');
@@ -1026,6 +1083,12 @@ function compositeToDataUrl(){
         ctx.quadraticCurveTo(PX(pv.x),PY(pv.y),PX((pv.x+pt.x)/2),PY((pv.y+pt.y)/2)); }
       ctx.stroke();
     }
+    else if(a.type==='polyline' && a.pts && a.pts.length>1){
+      // v0.1.187 (DB P2 #22): прямые сегменты по вершинам.
+      ctx.beginPath(); ctx.moveTo(PX(a.pts[0].x),PY(a.pts[0].y));
+      for(let i=1;i<a.pts.length;i++){ ctx.lineTo(PX(a.pts[i].x),PY(a.pts[i].y)); }
+      ctx.stroke();
+    }
     else if(a.type==='dimension'){
       const mm=Math.round(Math.abs(a.w||0)*4.2);
       ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+w,y); ctx.stroke();
@@ -1107,13 +1170,19 @@ async function discard(){
 // is dropped — pressing D used to activate the tool even after the button
 // was hidden in v0.1.157.
 // v0.1.164 (DB): 'b'/blur убран — инструмент Blur удалён из тулбара.
-const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker'};
+const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker',n:'polyline',d:'dimension'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();
   // v0.1.69: Enter = Done (save & close), Esc = Discard — Roman's request.
   // Esc first cancels any active text/comment edit or selection; if there's
   // nothing to cancel it discards & closes the window.
+  // v0.1.187 (DB P2 #22): если строится полилиния — Enter завершает ЕЁ (а не
+  // сохраняет весь редактор), Esc отменяет незаконченную полилинию.
+  if(cur && cur.type==='polyline'){
+    if(e.key==='Enter'){ e.preventDefault(); finishPoly(true); return; }
+    if(k==='escape'){ e.preventDefault(); finishPoly(false); return; }
+  }
   if(e.key==='Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey){
     e.preventDefault(); saveTask(); return;
   }
