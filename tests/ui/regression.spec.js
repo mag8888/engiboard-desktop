@@ -138,4 +138,79 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(src).toContain('escapeHtml(name)');            // Team-panel XSS fix
     expect(src).toContain('STATUSES[t.s] || STATUSES[0]'); // present-mode fallback
   });
+
+  // ---------------------------------------------------------------------------
+  // v0.1.184–186 — фиксы, которые Дмитрий лично подтвердил работающими на
+  // созвоне 2026-07-17 ("зелёный список"). Закрепляем, чтобы обновления их не
+  // сломали молча. См. docs/MEETING_2026-07-17_TASKS.md.
+  // ---------------------------------------------------------------------------
+
+  test('R9 "Move to week…" lists a manually-created empty week', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const pid = currentProject;
+      const t = TASKS.find(x => x.proj === pid);
+      if (!t) return { skip: true };
+      const wk = '99W99_reg';                       // a fresh empty week (no tasks)
+      _addManualWeek(pid, wk);
+      openMoveToWeekMenu({ preventDefault(){}, stopPropagation(){}, clientX: 10, clientY: 10 }, t.id);
+      const menu = document.getElementById('_ebWeekMenu');
+      const listed = !!menu && [...menu.querySelectorAll('.tcm-item')]
+        .some(el => el.textContent.includes(wk));
+      _removeManualWeek(pid, wk);
+      menu?.remove();
+      return { skip: false, listed };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.listed).toBe(true);                    // empty week must appear in the menu
+  });
+
+  test('R10 switching a project persists eb_current_project', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const other = (typeof PROJECTS !== 'undefined' && PROJECTS.length > 1)
+        ? PROJECTS.find(p => p.id !== currentProject) : null;
+      if (!other) return { skip: true };
+      switchProject(other.id);
+      return { skip: false, id: other.id, stored: localStorage.getItem('eb_current_project') };
+    });
+    test.skip(r.skip === true, 'need 2+ projects in demo data');
+    expect(r.stored).toBe(r.id);                    // survives a Dashboard round-trip
+  });
+
+  test('R11 an empty week renders a per-week add-row drop target', async ({ page }) => {
+    await load(page);
+    const has = await page.evaluate(() => {
+      const html = renderEmptyRowForProject(currentProject, '77W77', true);
+      return typeof html === 'string' && html.includes('eb-addrow-emptywk');
+    });
+    expect(has).toBe(true);                          // empty-week add/drop target present
+  });
+
+  test('R12 new-project focus helper triggers the native repaint flush', async ({ page }) => {
+    await load(page);
+    const wired = await page.evaluate(() => typeof _focusNewProjectBoard === 'function');
+    expect(wired).toBe(true);
+    const src = await (await page.request.get('/index.html')).text();
+    expect(src).toContain("inv('flush_repaint')");   // WKWebView repaint on project create
+    expect(src).toContain('_focusNewProjectBoard');
+  });
+
+  test('R13 green-list fix code is present in the served frontend', async ({ page }) => {
+    const src = await (await page.request.get('/index.html')).text();
+    expect(src).toContain('_manualWeeks(t.proj)');        // move-to-week lists manual weeks
+    expect(src).toContain('eb-addrow-emptywk');           // empty-week drop target
+    expect(src).toContain('row-resized');                 // chat/row height resize
+    expect(src).toContain("localStorage.setItem('eb_current_project'"); // project persistence
+    expect(src).toContain('_allByFavorites');             // "All projects" toggle/restore
+  });
+
+  test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
+    const src = await (await page.request.get('/editor.html')).text();
+    // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
+    // so the comment opens instead of being eaten by the draw handler.
+    expect(src).toMatch(/closest\([^)]*\.cpin[^)]*\)/);   // pin click passes the guard
+    expect(src).toMatch(/closest\([^)]*\.cbbl[^)]*\)/);   // bubble click passes the guard
+    expect(src).toContain('saveCmtEdit');                 // bubble is editable (edit/save)
+  });
 });
