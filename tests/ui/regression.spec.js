@@ -205,6 +205,88 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(src).toContain('_allByFavorites');             // "All projects" toggle/restore
   });
 
+  test('R15 switching a project from Dashboard forces the Projects section', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const target = (typeof PROJECTS !== 'undefined' && PROJECTS.length > 1)
+        ? PROJECTS.find(p => p.id !== currentProject) : (PROJECTS[0] || null);
+      if (!target) return { skip: true };
+      setSection('dashboard');                          // stand on the Dashboard view
+      const dashOnBefore = document.getElementById('dashView')?.classList.contains('on');
+      switchProject(target.id);                          // pick a project (as a dashboard card does)
+      return {
+        skip: false,
+        dashOnBefore,
+        section: currentSection,
+        dashOnAfter: document.getElementById('dashView')?.classList.contains('on'),
+        tasksHidden: document.getElementById('bodyTasks')?.dataset.hidden,
+        proj: currentProject, want: target.id,
+      };
+    });
+    test.skip(r.skip === true, 'need projects in demo data');
+    expect(r.dashOnBefore).toBe(true);                   // we really were on the dashboard
+    expect(r.section).toBe('projects');                  // forced onto Projects
+    expect(r.dashOnAfter).toBe(false);                   // dashboard view hidden
+    expect(r.tasksHidden).toBe('');                      // tasks body shown
+    expect(r.proj).toBe(r.want);                         // the picked project stuck
+  });
+
+  test('R16 client group toggles without closing the project picker', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const picker = document.getElementById('projPicker');
+      picker?.classList.add('open');
+      localStorage.setItem(_ebClientCollapseKey(), '[]');
+      renderProjPicker();
+      const hdr = document.querySelector('.pp-client-hdr');
+      if (!hdr) return { skip: true };
+      const name = hdr.querySelector('.pp-client-name')?.textContent;
+      const itemsBefore = document.querySelectorAll('#ppList .proj-picker-item').length;
+      // a REAL bubbling click — the failure only reproduces when the event
+      // reaches the document-level outside-click handler.
+      hdr.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      await new Promise(res => setTimeout(res, 20));
+      const openAfter = document.getElementById('projPicker')?.classList.contains('open');
+      const itemsAfter = document.querySelectorAll('#ppList .proj-picker-item').length;
+      return { skip: false, openAfter, collapsed: isClientCollapsed(name), itemsBefore, itemsAfter };
+    });
+    test.skip(r.skip === true, 'no client groups in demo data');
+    expect(r.openAfter).toBe(true);          // picker must NOT close (was the bug)
+    expect(r.collapsed).toBe(true);          // the group did collapse
+    expect(r.itemsAfter).toBeLessThan(r.itemsBefore); // its projects are hidden
+  });
+
+  test('R17 a resized row is bounded to its height and can be reset', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      document.querySelector('.list')?.classList.add('cv-list');
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      // pile on chat so content would overflow a short row (the old bug: row
+      // couldn't shrink below content height)
+      t.chat = Array.from({ length: 14 }, (_, i) => ({ a: 'AB', text: 'chat line ' + i }));
+      t.h = 220;
+      render();
+      const row = document.querySelector(`.row[data-task-id="${t.id}"]`);
+      const bounded = Math.abs(row.offsetHeight - 220) <= 2;   // fixed height wins over content
+      const cl = row.querySelector('.chat-list');
+      const chatScrolls = cl ? cl.scrollHeight > cl.clientHeight + 2 : false;
+      // reset via the helper the dblclick calls
+      onResizeReset({ preventDefault(){}, stopPropagation(){} }, t.id);
+      const row2 = document.querySelector(`.row[data-task-id="${t.id}"]`);
+      return {
+        skip: false, bounded, chatScrolls,
+        clearedTh: t.h === undefined,
+        resizedClassGone: !row2.classList.contains('row-resized'),
+      };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.bounded).toBe(true);          // height caps the row (was: content forced it taller)
+    expect(r.chatScrolls).toBe(true);      // overflow chat scrolls inside instead of growing the row
+    expect(r.clearedTh).toBe(true);        // double-click reset clears the stored height
+    expect(r.resizedClassGone).toBe(true); // back to default row
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through

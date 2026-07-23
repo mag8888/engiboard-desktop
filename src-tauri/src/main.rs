@@ -309,37 +309,49 @@ fn open_sniper(app: tauri::AppHandle) {
     // main app instead of the dim overlay. Now: just hide main + close any stale
     // sniper, then create a fresh sniper window.
 
-    // v0.1.55: multi-monitor — use the monitor the main window is currently on
-    // (current_monitor), not always primary. Without this, sniper opened on the
-    // primary screen even when EngiBoard was on a secondary display.
-    let monitor = app
+    // v0.1.187: multi-monitor — span the sniper overlay across the ENTIRE
+    // virtual desktop (union of ALL monitors), not just the one EngiBoard sits
+    // on. Engineers work on 2+ screens (app on one, drawing/tracker on another);
+    // before this the overlay covered a single screen, so you literally couldn't
+    // draw a selection on the other monitor. Capture already resolves the target
+    // display from the global (x,y) it receives, so a full-span overlay + the
+    // existing screenX/clientX offset math in sniper.html captures correctly.
+    //
+    // Union is computed in LOGICAL (CSS) px — the builder positions/sizes in
+    // logical units and the overlay's coords are CSS px. Exact for the uniform-
+    // DPI setups the engineers use; a mixed-DPI layout only skews the dim mask,
+    // never the captured region (that's clamped per-monitor on the capture side).
+    let monitors = app
         .get_webview_window("main")
-        .and_then(|w| w.current_monitor().ok().flatten())
-        .or_else(|| {
-            app.get_webview_window("main")
-                .and_then(|w| w.primary_monitor().ok().flatten())
-        })
+        .and_then(|w| w.available_monitors().ok())
+        .filter(|m| !m.is_empty())
         .or_else(|| {
             tauri::Manager::webview_windows(&app)
                 .values()
                 .next()
-                .and_then(|w| w.current_monitor().ok().flatten())
-        });
+                .and_then(|w| w.available_monitors().ok())
+        })
+        .unwrap_or_default();
 
-    let (w, h, mx, my) = if let Some(ref m) = monitor {
-        let size = m.size();
-        let pos = m.position();
-        let scale = m.scale_factor();
-        (
-            size.width as f64 / scale,
-            size.height as f64 / scale,
-            pos.x as f64 / scale,
-            pos.y as f64 / scale,
-        )
+    let (w, h, mx, my) = if !monitors.is_empty() {
+        let (mut min_x, mut min_y) = (f64::MAX, f64::MAX);
+        let (mut max_x, mut max_y) = (f64::MIN, f64::MIN);
+        for m in &monitors {
+            let s = m.scale_factor();
+            let px = m.position().x as f64 / s;
+            let py = m.position().y as f64 / s;
+            let pw = m.size().width as f64 / s;
+            let ph = m.size().height as f64 / s;
+            if px < min_x { min_x = px; }
+            if py < min_y { min_y = py; }
+            if px + pw > max_x { max_x = px + pw; }
+            if py + ph > max_y { max_y = py + ph; }
+        }
+        (max_x - min_x, max_y - min_y, min_x, min_y)
     } else {
         (1920.0, 1080.0, 0.0, 0.0)
     };
-    eprintln!("sniper target monitor: {}x{} at ({},{})", w, h, mx, my);
+    eprintln!("sniper spans all monitors: {}x{} at ({},{}) [{} display(s)]", w, h, mx, my, monitors.len());
 
     // Hide main + close any stale editor (we don't open editor anymore in stage 1,
     // but kill it just in case it's hanging from a previous flow).

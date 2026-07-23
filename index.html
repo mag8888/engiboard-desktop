@@ -598,7 +598,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 .list.cv-list .row.row-resized .chat-col,
 .list.cv-expanded .row.row-resized .chat-col{align-self:stretch;height:100%}
 .list.cv-list .row.row-resized .chat-col .chat-list,
-.list.cv-expanded .row.row-resized .chat-col .chat-list{max-height:none;flex:1 1 auto;min-height:0}
+.list.cv-expanded .row.row-resized .chat-col .chat-list{max-height:none;flex:1 1 auto;min-height:0;overflow-y:auto}
 /* v0.1.184 (DB fix, #17): a task in a CLOSED (complete) week is read-only.
    Editing controls are disabled; viewing (Presentation, links, screenshots)
    stays available. Reopen the week to edit again. */
@@ -4248,7 +4248,19 @@ function switchProject(pid){
   if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel();
   updateHeader();
   if(curView === 'dashboard') setView('tasks');
-  render();
+  // v0.1.187 (DB): «принудить переключать на вкладку проекта». Приложение держит
+  // ДВЕ системы вида — старую (curView/setView, строка выше) и новую секционную
+  // (currentSection/setSection: Dashboard, Favorites — это .section-view поверх
+  // tasks-body). switchProject раньше трогал только старую, поэтому выбор проекта
+  // из пикера сайдбара или карточки Dashboard менял данные, но пользователь
+  // оставался смотреть на Dashboard. Теперь: с любой не-Projects секции жёстко
+  // уводим на Projects (setSection сам делает render + показывает tasks-body).
+  _allByFavorites = false;   // явный выбор — не давать setSection восстановить прежний проект
+  if(typeof currentSection !== 'undefined' && currentSection !== 'projects'){
+    setSection('projects');
+  } else {
+    render();
+  }
   // v0.1.178 (DB): подключиться к presence-каналу нового проекта.
   if(typeof joinBoardPresence === 'function') joinBoardPresence(pid);
 }
@@ -5535,7 +5547,13 @@ function renderRow(t){
   // v0.1.131: only force an inline min-height when the user has manually
   // resized this row (t.h set). Otherwise let the view-mode CSS default apply
   // (so the resize handle works without an !important fight).
-  const heightStyle = t.h ? `min-height:${t.h}px` : '';
+  // v0.1.187 (DB fix #4): для изменённой строки задаём ФИКСИРОВАННУЮ высоту
+  // (height+min-height), а не только min-height. Раньше был лишь min-height —
+  // минимум, который контент чата (с max-height:none у .row-resized) мог
+  // превысить, из-за чего строку «меньше не сделать». Фикс-высота + скролл чата
+  // внутри → строка ужимается до нужного размера. min-height:${t.h} снимает и
+  // дефолтный min-height:165, иначе он не дал бы уйти ниже 165.
+  const heightStyle = t.h ? `height:${t.h}px;min-height:${t.h}px` : '';
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
@@ -5655,7 +5673,7 @@ ${(function(){
     <div class="pc">${piAfter}</div>
     ${renderClPanel(t)}
     ${renderLinksPanel(t)}
-    <div class="resize-h" onmousedown="onResizeStart(event,'${t.id}')"></div>
+    <div class="resize-h" title="Потяните, чтобы изменить высоту · двойной клик — сбросить" onmousedown="onResizeStart(event,'${t.id}')" ondblclick="onResizeReset(event,'${t.id}')"></div>
   </div>`;
 }
 
@@ -6886,17 +6904,24 @@ function onResizeStart(e, taskId){
   // grows LIVE while dragging — onUp used to store t.h without re-rendering, so
   // the row was tall but .row-resized (and the chat-grow CSS) never applied.
   row.classList.add('row-resized');
+  // v0.1.187: у .row есть transition:all .12s — при перетаскивании высота
+  // «резинит» на 120мс за курсором. Гасим переход на время активного drag.
+  row.style.transition = 'none';
   const startY = e.clientY;
   const startH = row.offsetHeight;
   function onMove(ev){
+    // v0.1.187: фиксированная высота (height+min-height), чтобы строку можно
+    // было и уменьшать — не только растягивать (см. renderRow heightStyle).
     const newH = Math.max(80, Math.min(900, startH + (ev.clientY - startY)));
+    row.style.height = newH + 'px';
     row.style.minHeight = newH + 'px';
   }
   function onUp(){
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
+    row.style.transition = '';   // v0.1.187: вернуть плавность после drag
     const t = TASKS.find(x => x.id === taskId);
-    if(t) t.h = parseInt(row.style.minHeight);
+    if(t) t.h = parseInt(row.style.height);
     // v0.1.173 (DB): после ресайза гасим следующий click по строке, иначе
     // mouseup рядом со строкой случайно открывал режим презентации (мисклик).
     _suppressNextRowClick = true;
@@ -6904,6 +6929,18 @@ function onResizeStart(e, taskId){
   }
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
+}
+
+// v0.1.187 (DB fix #4): двойной клик по ручке — сброс строки к исходной высоте
+// («просто можно было вернуть изначально моего размера»). Снимаем t.h → renderRow
+// убирает inline-высоту и класс .row-resized, строка возвращается к дефолту вида.
+function onResizeReset(e, taskId){
+  e.preventDefault();
+  e.stopPropagation();
+  const t = TASKS.find(x => x.id === taskId);
+  if(t){ delete t.h; render(); toast('↕ Высота строки сброшена', 1200); }
+  _suppressNextRowClick = true;
+  setTimeout(() => { _suppressNextRowClick = false; }, 300);
 }
 
 // ━━━ ROW CLICK → present ━━━
@@ -8944,7 +8981,14 @@ function isClientCollapsed(name){
   try { return (JSON.parse(localStorage.getItem(_ebClientCollapseKey()) || '[]')).includes(name); }
   catch(_){ return false; }
 }
-function toggleClientGroup(name){
+function toggleClientGroup(e, name){
+  // v0.1.187 (DB fix): клик по хедеру клиента раньше закрывал весь пикер.
+  // renderProjPicker() ниже синхронно заменяет innerHTML #ppList прямо во время
+  // всплытия этого клика — старый e.target отсоединяется от DOM, и document-
+  // level обработчик «клик снаружи» видит closest('#projPicker')===null и
+  // закрывает пикер. Останавливаем всплытие — обработчик снаружи не срабатывает,
+  // группа просто разворачивается/сворачивается.
+  e?.stopPropagation?.();
   let set;
   try { set = new Set(JSON.parse(localStorage.getItem(_ebClientCollapseKey()) || '[]')); }
   catch(_){ set = new Set(); }
@@ -9008,7 +9052,7 @@ function renderProjPicker(){
     clients.forEach(name => {
       const items = byClient.get(name);
       const collapsed = isClientCollapsed(name);
-      bodyHtml += `<div class="pp-client-hdr${collapsed?' collapsed':''}" onclick="toggleClientGroup('${name.replace(/'/g,"\\'")}')">
+      bodyHtml += `<div class="pp-client-hdr${collapsed?' collapsed':''}" onclick="toggleClientGroup(event,'${name.replace(/'/g,"\\'")}')">
         <span class="pp-client-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         <span class="pp-client-name">${name}</span>
         <span class="pp-client-ct">${items.length}</span>
