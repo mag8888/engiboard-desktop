@@ -7989,6 +7989,18 @@ function safeColor(c){
 // URLs as plain text, so users had to copy-paste them into the browser.
 // linkifyText escapes the whole string then turns URLs into <a target=_blank>
 // — clickable, but visually still inline (no chip styling per user feedback).
+// v0.1.187 (DB P2 #18): сокращает длинный URL для показа в чате. Полный адрес
+// остаётся в href/title. Формат: домен + начало пути + «…».
+function _shortenUrl(url){
+  const MAX = 42;
+  let u = String(url).replace(/^https?:\/\//i, '');   // протокол не показываем
+  if(u.length <= MAX) return u;
+  const slash = u.indexOf('/');
+  const domain = slash >= 0 ? u.slice(0, slash) : u;
+  const rest = slash >= 0 ? u.slice(slash) : '';
+  const keep = Math.max(6, MAX - domain.length - 1);
+  return rest.length > keep ? domain + rest.slice(0, keep) + '…' : u;
+}
 function linkifyText(s){
   const src = String(s == null ? '' : s);
   // v0.1.150 fix (Lead UX review): the earlier regex stopped at ')' which
@@ -8023,10 +8035,13 @@ function linkifyText(s){
       }
       break;
     }
-    const display = escapeHtml(url);
+    // v0.1.187 (DB P2 #18): длинные ссылки показываем сокращённо (домен + начало
+    // пути + …); href и подсказка — полный URL, кликабельность сохраняется.
+    const display = escapeHtml(_shortenUrl(url));
     const href = /^https?:\/\//i.test(url) ? url : ('https://' + url);
     const safeHref = escapeHtml(href);
-    out += `<a href="${safeHref}" rel="noopener" class="chat-link" onclick="event.stopPropagation();event.preventDefault();openLink('${safeHref}')">${display}</a>`;
+    const safeTitle = escapeHtml(url);
+    out += `<a href="${safeHref}" rel="noopener" class="chat-link" title="${safeTitle}" onclick="event.stopPropagation();event.preventDefault();openLink('${safeHref}')">${display}</a>`;
     if(trailing) out += escapeHtml(trailing);
     last = m.index + m[0].length;
   }

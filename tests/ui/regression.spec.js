@@ -567,6 +567,30 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.editedFlag).toBe(true);     // marked as edited
   });
 
+  test('R29 long chat links are shortened for display but stay clickable', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const long = 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567890/view?usp=sharing';
+      const div = document.createElement('div');
+      div.innerHTML = linkifyText('see ' + long + ' and short.io/x');
+      const a = div.querySelector('a.chat-link');
+      const shortA = [...div.querySelectorAll('a.chat-link')][1];
+      return {
+        shownLen: a?.textContent.length,
+        ellipsis: /…$/.test(a?.textContent || ''),
+        title: a?.getAttribute('title'),
+        href: a?.getAttribute('href'),
+        longLen: long.length,
+        shortUnchanged: shortA?.textContent,
+      };
+    });
+    expect(r.shownLen).toBeLessThan(r.longLen);   // display is shortened
+    expect(r.ellipsis).toBe(true);                // with an ellipsis
+    expect(r.title).toContain('usp=sharing');     // full URL preserved in title
+    expect(r.href).toContain('usp=sharing');      // and in href (clickable)
+    expect(r.shortUnchanged).toBe('short.io/x');  // short links untouched
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
