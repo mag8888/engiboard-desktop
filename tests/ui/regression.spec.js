@@ -287,6 +287,73 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.resizedClassGone).toBe(true); // back to default row
   });
 
+  test('R18 XLSX export carries the full chat and anchors images in-cell', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR4nGP8z8Dwn4EIwDiqEAAqAgQBhlY6DwAAAABJRU5ErkJggg==';
+      t.chat = [{ a: 'Dmitri', text: 'первое сообщение чата' }, { a: 'Alex', text: 'второе сообщение чата' }];
+      t.shot1 = png; t.shot2 = png;
+      // capture the file list without downloading
+      const origZip = _buildZip; let cap = null;
+      _buildZip = (fl) => { cap = fl; return origZip(fl); };
+      const origUrl = URL.createObjectURL; URL.createObjectURL = () => 'blob:noop';
+      const origClick = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function(){};
+      try { await exportCSV(); }
+      finally { _buildZip = origZip; URL.createObjectURL = origUrl; HTMLAnchorElement.prototype.click = origClick; }
+      if (!cap) return { skip: false, captured: false };
+      const dec = new TextDecoder();
+      const get = n => { const f = cap.find(x => x.name === n); return f ? dec.decode(f.data) : ''; };
+      const drawing = get('xl/drawings/drawing1.xml');
+      const sst = get('xl/sharedStrings.xml');
+      const styles = get('xl/styles.xml');
+      const wf = xml => !new DOMParser().parseFromString(xml, 'application/xml').querySelector('parsererror');
+      return {
+        skip: false, captured: true,
+        sheetWF: wf(get('xl/worksheets/sheet1.xml')),
+        drawingWF: wf(drawing),
+        fullChat: sst.includes('первое сообщение чата') && sst.includes('второе сообщение чата'),
+        twoCell: drawing.includes('twoCellAnchor') && !drawing.includes('oneCellAnchor'),
+        wrap: styles.includes('wrapText="1"'),
+      };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.captured).toBe(true);
+    expect(r.sheetWF).toBe(true);     // valid worksheet XML
+    expect(r.drawingWF).toBe(true);   // valid drawing XML
+    expect(r.fullChat).toBe(true);    // whole chat exported, not just a count
+    expect(r.twoCell).toBe(true);     // images anchored in-cell (was floating oneCellAnchor)
+    expect(r.wrap).toBe(true);        // chat cell wraps
+  });
+
+  test('R19 PDF export renders a valid multi-page table (chat + images)', async ({ page }) => {
+    await load(page);
+    // jsPDF loads from a CDN; skip cleanly when the harness is offline.
+    const ready = await page.evaluate(() => !!(window.jspdf && window.jspdf.jsPDF && typeof renderTasksTablePDF === 'function'));
+    test.skip(!ready, 'jsPDF not loaded (offline harness)');
+    const r = await page.evaluate(async () => {
+      const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEUlEQVR4nGP8z8Dwn4EIwDiqEAAqAgQBhlY6DwAAAABJRU5ErkJggg==';
+      const tasks = TASKS.filter(t => t.proj === currentProject).slice(0, 8);
+      if (!tasks.length) return { skip: true };
+      tasks[0].chat = [{ a: 'Dmitri', text: 'строка чата в pdf' }];
+      tasks[0].shot1 = png; tasks[0].shot2 = png;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      let err = null;
+      try { await renderTasksTablePDF(doc, tasks, { margin: 15 }); }
+      catch(e){ err = e.message; }
+      const buf = doc.output('arraybuffer');
+      const head = new TextDecoder().decode(new Uint8Array(buf).slice(0, 5));
+      return { skip: false, err, isPDF: head === '%PDF-', bytes: buf.byteLength, pages: doc.internal.getNumberOfPages() };
+    });
+    test.skip(r.skip === true, 'no tasks in demo data');
+    expect(r.err).toBe(null);          // table renders without throwing
+    expect(r.isPDF).toBe(true);        // valid PDF output
+    expect(r.pages).toBeGreaterThan(1);// cover + at least one table page
+    expect(r.bytes).toBeGreaterThan(3000);
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through

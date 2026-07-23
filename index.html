@@ -10476,7 +10476,8 @@ async function exportCSV(){
     rowHeights[rowIdx0] = Math.max(rowHeights[rowIdx0] || 0, needed);
   };
 
-  const headers = ['#','Project','Code','Week','Task','Status','Assignee','Deadline','Checklist','Comments','Before','After','Extra','Links'];
+  const headers = ['#','Project','Code','Week','Task','Status','Assignee','Deadline','Checklist','Chat','Before','After','Extra','Links'];
+  const COL_CHAT = 9; // 0-based: колонка J — весь чат задачи (was: только счётчик)
   const COL_BEFORE = 10; // 0-based: column K
   const COL_AFTER  = 11; // column L
   // Build a sharedStrings table for everything text-y.
@@ -10501,6 +10502,11 @@ async function exportCSV(){
     const linkStr = (t.links || []).map(l => l.title || l.url).filter(Boolean).join('; ');
     const deadlineStr = t.deadline ? t.deadline : '';
     const deadlineStyle = (t.deadline && _isOverdue(t.deadline)) ? 2 : (t.deadline ? 3 : 0);
+    // v0.1.187 (DB fix #5): экспортируем ВЕСЬ чат, а не счётчик сообщений —
+    // «должно быть все сообщения которые были». Формат «Автор: текст» по строкам.
+    const chatText = (t.chat || [])
+      .map(c => `${(c.a || '?')}: ${(c.text || '')}`)
+      .join('\n');
     dataRows.push([
       { t: 'n', v: i + 1 },
       { t: 's', v: interned(proj?.name || '') },
@@ -10511,7 +10517,7 @@ async function exportCSV(){
       { t: 's', v: interned(t.assignee || '') },
       { t: 's', v: interned(deadlineStr), c: deadlineStyle },
       { t: 's', v: interned(clStr) },
-      { t: 'n', v: (t.chat || []).length || 0 },
+      { t: 's', v: interned(chatText), c: 4 },   // style 4 = wrapText, valign top
       { t: 's', v: interned(t.shot1 ? 'BEFORE' : '') },
       { t: 's', v: interned(t.shot2 ? 'AFTER' : '') },
       { t: 'n', v: shotsExtra },
@@ -10520,6 +10526,14 @@ async function exportCSV(){
     // Register images for this row
     if(imgPairs[i].a) addImage(imgPairs[i].a, i + 1, COL_BEFORE);   // +1 for header row
     if(imgPairs[i].b) addImage(imgPairs[i].b, i + 1, COL_AFTER);
+    // v0.1.187: строку тянем и под высоту чата (не только картинок), чтобы
+    // сообщения было видно. ~45 симв/строка при ширине колонки Chat.
+    if(chatText){
+      const lines = (t.chat || []).reduce((n, c) =>
+        n + Math.max(1, Math.ceil(((c.a ? c.a.length + 2 : 0) + (c.text || '').length) / 45)), 0);
+      const chatPx = Math.min(520, lines * 16 + 6);
+      rowHeights[i + 1] = Math.max(rowHeights[i + 1] || 0, chatPx);
+    }
   });
 
   // ─── XML files ────────────────────────────────────────────────────
@@ -10554,11 +10568,12 @@ ${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')
   </fills>
   <borders count="1"><border/></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="4">
+  <cellXfs count="5">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="center"/></xf>
     <xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="center"/></xf>
     <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center" horizontal="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" horizontal="left" wrapText="1"/></xf>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -10581,7 +10596,7 @@ ${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')
     }).join('')}</row>`;
   });
   // Column widths (in Excel units; ~7px per unit)
-  const colWidths = [4, 22, 8, 8, 40, 14, 14, 12, 10, 10, 46, 46, 6, 30];
+  const colWidths = [4, 22, 8, 8, 40, 14, 14, 12, 10, 52, 48, 48, 6, 30]; // Chat=52, Before/After=48 (под картинку)
   const colsXml = `<cols>${colWidths.map((w, i) =>
     `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
 
@@ -10600,13 +10615,19 @@ ${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')
     ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 ${drawings.map((d, i) => {
-  // Anchor: top-left corner = (col, row), bottom-right = (col+1, row+1) but
-  // we use absolute extents to keep the image at its natural pixel size.
+  // v0.1.187 (DB fix #5): картинки должны быть В ЯЧЕЙКАХ, а не «плавать» поверх.
+  // Раньше был oneCellAnchor (абсолютный размер, привязан лишь к углу — Excel
+  // считает его свободным объектом, не двигается/не удаляется с ячейкой).
+  // Теперь twoCellAnchor editAs="oneCell": from = верхний-левый угол ячейки с
+  // небольшим отступом, to = тот же угол + натуральный размер картинки (остаёмся
+  // ВНУТРИ той же ячейки). Ширина колонки (48) и высота строки заданы под
+  // картинку, так что она умещается без искажений и принадлежит ячейке.
   const cx = d.w * _PX_TO_EMU;
   const cy = d.h * _PX_TO_EMU;
-  return `<xdr:oneCellAnchor>
-  <xdr:from><xdr:col>${d.colIdx0}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${d.rowIdx0}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>
-  <xdr:ext cx="${cx}" cy="${cy}"/>
+  const INSET = 19050; // ~0.02" отступ от границ ячейки
+  return `<xdr:twoCellAnchor editAs="oneCell">
+  <xdr:from><xdr:col>${d.colIdx0}</xdr:col><xdr:colOff>${INSET}</xdr:colOff><xdr:row>${d.rowIdx0}</xdr:row><xdr:rowOff>${INSET}</xdr:rowOff></xdr:from>
+  <xdr:to><xdr:col>${d.colIdx0}</xdr:col><xdr:colOff>${INSET + Math.round(cx)}</xdr:colOff><xdr:row>${d.rowIdx0}</xdr:row><xdr:rowOff>${INSET + Math.round(cy)}</xdr:rowOff></xdr:to>
   <xdr:pic>
     <xdr:nvPicPr>
       <xdr:cNvPr id="${i+1}" name="${d.name}"/>
@@ -10616,7 +10637,7 @@ ${drawings.map((d, i) => {
     <xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
   </xdr:pic>
   <xdr:clientData/>
-</xdr:oneCellAnchor>`;
+</xdr:twoCellAnchor>`;
 }).join('\n')}
 </xdr:wsDr>`
     : '';
@@ -10919,38 +10940,10 @@ async function runExportPDF(opts){
       await renderTaskPDFPage(doc, t, { pageW, pageH, margin, idx, total: tasks.length });
     }
   } else {
-    // ─── v0.1.173 (DB): КОМПАКТНО — несколько задач на лист ───
-    doc.addPage();
-    let cy = margin;
-    for(let i = 0; i < tasks.length; i++){
-      const t = tasks[i];
-      const st = STATUSES[t.s] || STATUSES[0];
-      const blockH = 34;
-      if(cy + blockH > pageH - margin){ doc.addPage(); cy = margin; }
-      doc.setFillColor(...hexToRgb(st.c)); doc.rect(margin, cy, 2.2, blockH - 6, 'F');
-      doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.setTextColor(15, 23, 42);
-      const tx = margin + 6, textW = pageW - margin - 6 - 92;
-      const tl = doc.splitTextToSize(t.n || '(no title)', textW).slice(0, 2);
-      doc.text(tl, tx, cy + 5);
-      doc.setFontSize(8); doc.setFont(undefined, 'normal'); doc.setTextColor(110, 120, 140);
-      const cmt = Array.isArray(t.chat) ? t.chat.length : 0;
-      doc.text(`${st.l}  ·  ${t.w || '—'}  ·  ${t.deadline || 'no deadline'}  ·  ${cmt} comments`, tx, cy + 5 + tl.length * 4.5 + 2);
-      const thW = 42, thH = 27, thX = pageW - margin - thW * 2 - 4, thY = cy + 1;
-      const addTh = async (data, x, label) => {
-        if(!data) return;
-        try {
-          const small = await downscaleDataUrl(data, 900);
-          const fmt = small.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
-          doc.addImage(small, fmt, x, thY, thW, thH, undefined, 'FAST');
-          doc.setFontSize(6); doc.setTextColor(150); doc.text(label, x + 1, thY + thH - 1);
-        } catch(e){}
-      };
-      await addTh(t.shot1, thX, 'BEFORE');
-      await addTh(t.shot2, thX + thW + 4, 'AFTER');
-      doc.setDrawColor(225, 228, 233); doc.line(margin, cy + blockH - 3, pageW - margin, cy + blockH - 3);
-      doc.setTextColor(15, 23, 42);
-      cy += blockH;
-    }
+    // ─── v0.1.187 (DB fix #6): PDF «по аналогии с Excel» — настоящая ТАБЛИЦА.
+    // Раньше был карточный список со счётчиком комментариев; теперь те же
+    // колонки, что в XLSX, полный чат и before/after картинки В ЯЧЕЙКАХ. ───
+    await renderTasksTablePDF(doc, tasks, { margin });
   }
 
   // Save
@@ -10959,6 +10952,123 @@ async function runExportPDF(opts){
   const filename = `engiboard_${safeName}_${date}.pdf`;
   doc.save(filename);
   toast(`✓ Exported ${tasks.length} task${tasks.length === 1 ? '' : 's'} → ${filename}`, 3000);
+}
+
+// v0.1.187 (DB fix #6): PDF-таблица «по аналогии с Excel». Landscape A4, те же
+// колонки, полный чат с переносом, before/after картинки внутри своих ячеек.
+async function renderTasksTablePDF(doc, tasks, ctx){
+  const M = 10;                 // поля landscape-страницы
+  const PW = 297, PH = 210;
+  const cols = [
+    { w: 8,  h: '#' },
+    { w: 42, h: 'Task' },
+    { w: 16, h: 'Week' },
+    { w: 22, h: 'Status' },
+    { w: 20, h: 'Deadline' },
+    { w: 74, h: 'Chat' },
+    { w: 47, h: 'Before' },
+    { w: 47, h: 'After' },
+  ];
+  const totalW = cols.reduce((s, c) => s + c.w, 0);   // 276 ≤ 277
+  const x0 = M;
+  const colX = []; { let a = x0; cols.forEach(c => { colX.push(a); a += c.w; }); }
+  const LINE = 3.4, PAD = 2, IMG_MAX_H = 36;
+
+  // Заранее готовим (даунскейл + размеры) все картинки.
+  const imgs = await Promise.all(tasks.map(async t => ({
+    before: t.shot1 ? await _pdfPrepImg(t.shot1) : null,
+    after:  t.shot2 ? await _pdfPrepImg(t.shot2) : null,
+  })));
+
+  const header = (y) => {
+    doc.setFillColor(14, 165, 233);
+    doc.rect(x0, y, totalW, 8, 'F');
+    doc.setFontSize(8.5); doc.setFont(undefined, 'bold'); doc.setTextColor(255);
+    cols.forEach((c, i) => doc.text(c.h, colX[i] + PAD, y + 5.4));
+    doc.setFont(undefined, 'normal');
+    return y + 8;
+  };
+  const fit = (info, maxW) => {
+    if(!info) return null;
+    let w = maxW, h = w * info.h / info.w;
+    if(h > IMG_MAX_H){ h = IMG_MAX_H; w = h * info.w / info.h; }
+    return { w, h };
+  };
+
+  doc.addPage('a4', 'landscape');
+  let y = header(M);
+  const bottom = PH - M;
+
+  for(let i = 0; i < tasks.length; i++){
+    const t = tasks[i];
+    const st = STATUSES[t.s] || STATUSES[0];
+    const proj = PROJECTS.find(p => p.id === t.proj);
+    const chatText = (t.chat || []).map(c => `${c.a || '?'}: ${c.text || ''}`).join('\n');
+
+    doc.setFontSize(8); doc.setFont(undefined, 'normal');
+    let taskLines = doc.splitTextToSize(`${t.title || t.n || ''}${proj?.code ? '\n' + proj.code : ''}`, cols[1].w - 2 * PAD);
+    let chatLines = doc.splitTextToSize(chatText || '—', cols[5].w - 2 * PAD);
+    const textH = Math.max(taskLines.length, chatLines.length) * LINE + 2 * PAD;
+
+    const bFit = fit(imgs[i].before, cols[6].w - 2 * PAD);
+    const aFit = fit(imgs[i].after,  cols[7].w - 2 * PAD);
+    const imgH = Math.max(bFit ? bFit.h : 0, aFit ? aFit.h : 0);
+
+    let rowH = Math.max(textH, imgH + 2 * PAD, 10);
+    if(rowH > PH - 2 * M) rowH = PH - 2 * M;   // не выше страницы
+
+    // Обрезаем текст под фактическую высоту строки, чтобы не вылезал за ячейку.
+    const maxLines = Math.max(1, Math.floor((rowH - 2 * PAD) / LINE));
+    const cap = (arr) => arr.length > maxLines
+      ? [...arr.slice(0, maxLines - 1), (arr[maxLines - 1] || '').slice(0, 20) + '…'] : arr;
+    taskLines = cap(taskLines); chatLines = cap(chatLines);
+
+    if(y + rowH > bottom){ doc.addPage('a4', 'landscape'); y = header(M); }
+
+    doc.setFillColor(...hexToRgb(st.c));
+    doc.rect(colX[0], y, 1.6, rowH, 'F');
+    doc.setDrawColor(220, 224, 230); doc.setLineWidth(0.2);
+    doc.rect(x0, y, totalW, rowH);
+    for(let c = 1; c < cols.length; c++) doc.line(colX[c], y, colX[c], y + rowH);
+
+    const ty = y + PAD + 3;
+    doc.setTextColor(30, 41, 59); doc.setFontSize(8);
+    doc.text(String(i + 1), colX[0] + 2.2, y + 5);
+    doc.text(taskLines, colX[1] + PAD, ty);
+    doc.text(doc.splitTextToSize(t.w || '—', cols[2].w - 2 * PAD), colX[2] + PAD, ty);
+    doc.setTextColor(...hexToRgb(st.c)); doc.setFont(undefined, 'bold');
+    doc.text(doc.splitTextToSize(st.l, cols[3].w - 2 * PAD), colX[3] + PAD, ty);
+    doc.setFont(undefined, 'normal'); doc.setTextColor(30, 41, 59);
+    doc.text(t.deadline || '—', colX[4] + PAD, ty);
+    doc.setTextColor(60, 70, 90);
+    doc.text(chatLines, colX[5] + PAD, ty);
+    doc.setTextColor(30, 41, 59);
+
+    const drawImg = (info, fitDim, colIdx) => {
+      if(!info || !fitDim) return;
+      try {
+        const fmt = info.data.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+        doc.addImage(info.data, fmt, colX[colIdx] + PAD, y + PAD, fitDim.w, fitDim.h, undefined, 'FAST');
+      } catch(e){}
+    };
+    drawImg(imgs[i].before, bFit, 6);
+    drawImg(imgs[i].after,  aFit, 7);
+
+    y += rowH;
+  }
+}
+
+// Даунскейл + натуральные размеры картинки для PDF-таблицы.
+async function _pdfPrepImg(dataUrl){
+  try {
+    const small = await downscaleDataUrl(dataUrl, 700);
+    const dim = await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res({ w: im.naturalWidth || im.width, h: im.naturalHeight || im.height });
+      im.onerror = rej; im.src = small;
+    });
+    return { data: small, w: dim.w || 1, h: dim.h || 1 };
+  } catch(e){ return null; }
 }
 
 async function renderTaskPDFPage(doc, t, ctx){
