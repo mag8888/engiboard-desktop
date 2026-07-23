@@ -886,6 +886,15 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
 .row .nt-chat-msg .av.AI{background:linear-gradient(135deg,#6366F1,#4F46E5)}
 .row .nt-chat-msg .txt{flex:1;min-width:0;color:var(--t2);word-break:break-word}
 .row .nt-chat-msg .txt b{color:var(--t1);font-weight:600;margin-right:3px}
+/* v0.1.187 (DB P2 #17): hover-кнопки edit/delete + inline-редактирование +
+   подсветка @упоминаний. Не привязано к .row — работает и в презентации. */
+.nt-msg-actions{margin-left:auto;display:none;gap:1px;flex-shrink:0;align-items:center}
+.nt-chat-msg:hover .nt-msg-actions{display:inline-flex}
+.nt-msg-btn{border:none;background:transparent;color:var(--t3);cursor:pointer;padding:2px 3px;line-height:0;border-radius:3px;display:inline-flex}
+.nt-msg-btn:hover{color:var(--acc);background:rgba(14,165,233,.12)}
+.nt-msg-edit{flex:1;min-width:0;font-size:inherit;font-family:inherit;border:1px solid var(--acc);border-radius:4px;padding:1px 5px;outline:none;background:var(--surf);color:var(--t1)}
+.nt-msg-edited{font-size:.8em;color:var(--t4);font-style:italic}
+.chat-mention{color:var(--acc);font-weight:700;background:rgba(14,165,233,.1);border-radius:3px;padding:0 2px}
 /* v0.1.150 (HoD review): linkified URLs in chat — inherit text color,
    subtle accent underline, brightens on hover. Used in row chat, present
    chat, lightbox comments. */
@@ -5241,6 +5250,83 @@ const ICON_DUPLICATE = `<svg width="15" height="15" viewBox="0 0 24 24" fill="no
 const ICON_TRASH = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 // v0.1.184: compact trash glyph for the on-image "remove screenshot" button.
 const ICON_TRASH_SM = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+// v0.1.187 (DB P2 #17): edit/delete отдельных сообщений чата + @упоминания.
+const ICON_EDIT_SM = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+const ICON_X_SM = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
+// Подсветка @имя в уже экранированном/линкифицированном тексте сообщения.
+function highlightMentions(html){
+  return String(html).replace(/(^|[\s(>])@([A-Za-zА-Яа-яЁё0-9_.\-]{1,30})/g,
+    (m, pre, name) => `${pre}<span class="chat-mention">@${name}</span>`);
+}
+// Единый рендер мини-чата (строка + презентация): индекс сообщения, подсветка
+// упоминаний, hover-кнопки edit/delete. startIdx — смещение среза в t.chat.
+function _chatMsgHtml(t, msgs, startIdx){
+  return msgs.map((m, i) => {
+    const realIdx = startIdx + i;
+    const initials = (m.a || '?').slice(0, 2).toUpperCase();
+    const edited = m._edited ? ` <span class="nt-msg-edited">(изм.)</span>` : '';
+    return `<div class="nt-chat-msg" data-tid="${t.id}" data-idx="${realIdx}" onclick="event.stopPropagation()">
+      <span class="av ${initials}" title="${escapeHtml(m.a||'?')}">${escapeHtml(initials)}</span>
+      <span class="txt"><b>${escapeHtml(m.a||'?')}</b>${highlightMentions(linkifyText(m.text||''))}${edited}</span>
+      <span class="nt-msg-actions">
+        <button class="nt-msg-btn" title="Редактировать" aria-label="Edit message" onclick="event.stopPropagation();editChatMsg('${t.id}',${realIdx})">${ICON_EDIT_SM}</button>
+        <button class="nt-msg-btn" title="Удалить" aria-label="Delete message" onclick="event.stopPropagation();deleteChatMsg('${t.id}',${realIdx})">${ICON_X_SM}</button>
+      </span>
+    </div>`;
+  }).join('');
+}
+function _rerenderChat(taskId){
+  render();
+  if(typeof presentTask !== 'undefined' && presentTask && presentTask.id === taskId && typeof refreshPresChat === 'function') refreshPresChat();
+}
+function editChatMsg(taskId, idx){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.chat) || !t.chat[idx]) return;
+  const txtEl = document.querySelector(`.nt-chat-msg[data-tid="${taskId}"][data-idx="${idx}"] .txt`);
+  if(!txtEl) return;
+  const old = t.chat[idx].text || '';
+  let done = false;
+  const finish = (save) => {
+    if(done) return; done = true;
+    if(save) _commitChatEdit(taskId, idx, old, inp.value.trim());
+    else _rerenderChat(taskId);
+  };
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.className = 'nt-msg-edit'; inp.value = old;
+  inp.onclick = e => e.stopPropagation();
+  inp.onkeydown = e => {
+    e.stopPropagation();
+    if(e.key === 'Enter'){ e.preventDefault(); finish(true); }
+    else if(e.key === 'Escape'){ e.preventDefault(); finish(false); }
+  };
+  inp.onblur = () => finish(true);
+  txtEl.replaceWith(inp); inp.focus(); inp.select();
+}
+function _commitChatEdit(taskId, idx, oldText, newText){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !t.chat[idx]) return;
+  if(!newText || newText === oldText){ _rerenderChat(taskId); return; }
+  const apply = () => { t.chat[idx].text = newText; t.chat[idx]._edited = true; _rerenderChat(taskId); };
+  const restore = () => { t.chat[idx].text = oldText; _rerenderChat(taskId); };
+  if(typeof pushUndo === 'function') pushUndo('Edit message', restore, apply);
+  apply();
+  if(t._cloud && db?.ready && t.chat[idx].id && db.taskComments?.update){
+    try { db.taskComments.update(t.chat[idx].id, { body: newText }); } catch(_){}
+  }
+}
+function deleteChatMsg(taskId, idx){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.chat) || idx < 0 || idx >= t.chat.length) return;
+  const removed = t.chat[idx];
+  const apply = () => { t.chat.splice(idx, 1); _rerenderChat(taskId); };
+  const restore = () => { t.chat.splice(idx, 0, removed); _rerenderChat(taskId); };
+  if(typeof pushUndo === 'function') pushUndo('Delete message', restore, apply);
+  apply();
+  toast('Сообщение удалено · ⌘Z отменит', 2500);
+  if(t._cloud && db?.ready && removed.id && db.taskComments?.delete){
+    try { db.taskComments.delete(removed.id); } catch(_){}
+  }
+}
 const ICON_USER = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>`;
 const ICON_HISTORY = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>`;
 
@@ -5676,16 +5762,11 @@ function renderRow(t, inWeek){
   const slideshowLabel = totalShots > 2 ? `${ICON('play')} ${presLabel} · ${totalShots}` : `${ICON('play')} ${presLabel}`;
   // v0.1.33: inline chat preview — last 8 msgs in DOM, ~3 visible at once via max-height,
   // scroll for the rest. Empty state removed (user feedback: 'не нужно empty state')
-  const chatMsgs = (t.chat || []).slice(-8);
+  const _allChat = (t.chat || []);
+  const chatMsgs = _allChat.slice(-8);
   const chatHTML = chatMsgs.length === 0
     ? ''
-    : chatMsgs.map(m => {
-        const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
-          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
-        </div>`;
-      }).join('');
+    : _chatMsgHtml(t, chatMsgs, Math.max(0, _allChat.length - chatMsgs.length));
   // P2-6 timer state
   const isTimerRunning = !!t.timerStart;
   const totalMin = (t.timeMin || 0) + (isTimerRunning ? Math.floor((Date.now() - t.timerStart) / 60000) : 0);
@@ -7524,15 +7605,7 @@ function renderPresent(){
   const chatMsgs = (t.chat || []);
   const chatBody = chatMsgs.length === 0
     ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
-    : chatMsgs.map(m => {
-        // v0.1.121: identical style to the task-card mini-chat — small avatar,
-        // bold name + inline text, no bubble background, no timestamps, one side.
-        const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg">
-          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
-        </div>`;
-      }).join('');
+    : _chatMsgHtml(t, chatMsgs, 0);
   card.innerHTML = `
     <div class="pres-head">
       <!-- v0.1.122: no project name / no task title — only status + assignee (consistent with task card) -->
@@ -7611,10 +7684,7 @@ function refreshPresChat(){
   const chatMsgs = (t.chat || []);
   msgsEl.innerHTML = chatMsgs.length === 0
     ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
-    : chatMsgs.map(m => {
-        const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg"><span class="av ${initials}" title="${m.a||'?'}">${initials}</span><span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span></div>`;
-      }).join('');
+    : _chatMsgHtml(t, chatMsgs, 0);
   const ct = document.querySelector('#presCard .pres-chat-h .ct');
   if(ct) ct.textContent = `${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}`;
   msgsEl.scrollTop = msgsEl.scrollHeight;
@@ -9605,12 +9675,7 @@ async function sendInlineChat(inp){
   const panel = document.getElementById('ntChat-' + taskId);
   if(panel){
     const chatMsgs = t.chat.slice(-8);
-    panel.innerHTML = chatMsgs.map(m => {
-      const initials = (m.a || '?').slice(0, 2).toUpperCase();
-      return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
-        <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>      </div>`;
-    }).join('');
+    panel.innerHTML = _chatMsgHtml(t, chatMsgs, Math.max(0, t.chat.length - chatMsgs.length));
     panel.scrollTop = panel.scrollHeight;
   }
   // Re-focus input

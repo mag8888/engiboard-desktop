@@ -540,6 +540,33 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.slotHidden).toBe(true);    // nobody online → hidden
   });
 
+  test('R28 chat messages can be edited/deleted (with undo) and @mentions highlight', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      document.querySelector('.list')?.classList.add('cv-list');
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      t.chat = [{ a: 'AS', text: 'привет @Dmitri' }, { a: 'MK', text: 'ок' }];
+      _undoStack.length = 0; _redoStack.length = 0;
+      render();
+      const mention = !!document.querySelector(`.nt-chat-msg[data-tid="${t.id}"] .chat-mention`);
+      const btns = document.querySelector(`.nt-chat-msg[data-tid="${t.id}"][data-idx="0"]`)?.querySelectorAll('.nt-msg-btn').length;
+      deleteChatMsg(t.id, 1);
+      const afterDel = t.chat.length;
+      doUndo();
+      const afterUndo = t.chat.length;
+      _commitChatEdit(t.id, 0, t.chat[0].text, 'новый текст');
+      return { skip: false, mention, btns, afterDel, afterUndo, edited: t.chat[0].text, editedFlag: !!t.chat[0]._edited };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.mention).toBe(true);        // @mention highlighted
+    expect(r.btns).toBe(2);              // edit + delete per message
+    expect(r.afterDel).toBe(1);          // delete removes one
+    expect(r.afterUndo).toBe(2);         // undo restores it
+    expect(r.edited).toBe('новый текст');// edit updates the text
+    expect(r.editedFlag).toBe(true);     // marked as edited
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
