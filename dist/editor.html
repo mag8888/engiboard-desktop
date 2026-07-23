@@ -214,12 +214,11 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
     <div class="fb-sep"></div>
     <button class="fb" data-id="text" data-tip="Text" data-key="T" onclick="setTool('text')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg></button>
-    <!-- v0.1.157 (N7 from 2026-06-05 follow-up): DB asked to remove the
-         dimension/ruler tool entirely. The "153 mm" auto-readout was
-         meaningless on a non-CAD screenshot and confused users. Existing
-         annotations of type 'dimension' still render, but the tool is no
-         longer creatable from the toolbar. -->
-    <!-- <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button> -->
+    <!-- v0.1.187 (DB P2 #23): Dimension вернули по просьбе на созвоне 2026-07-17,
+         но теперь метка ВВОДИТСЯ ВРУЧНУЮ (напр. «30 mm») — не авто-«153 mm», из-за
+         которого его в v0.1.157 и убрали. Рисуется как линия (drag), метка правится
+         при выделении. Засечки по краям уже в рендере (makeAnnotEl type=dimension). -->
+    <button class="fb" data-id="dimension" data-tip="Dimension (ручная подпись)" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="4" y2="18"/><line x1="20" y1="6" x2="20" y2="18"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
     <!-- v0.1.164 (DB): инструмент Blur убран полностью — не нужен. -->
     <button class="fb" data-id="comment" data-tip="Comment" data-key="Q" onclick="setTool('comment')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
     <button class="fb" data-id="emoji" data-tip="Emoji" data-key="E" onclick="toggleEmojiPicker(event)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9.5" x2="9.01" y2="9.5"/><line x1="15" y1="9.5" x2="15.01" y2="9.5"/></svg></button>
