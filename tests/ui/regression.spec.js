@@ -443,6 +443,36 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.stCt).toBe(r.stActual);     // per-status chip matches the real count
   });
 
+  test('R24 "+ Add week" placeholder sits at the bottom and creates a week', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      render();
+      const hdrs = [...document.querySelectorAll('.week-hdr')];
+      const addRow = document.querySelector('.week-hdr.eb-addweek');
+      if (!addRow || !hdrs.length) return { skip: true };
+      const isLast = hdrs[hdrs.length - 1].classList.contains('eb-addweek');
+      // drive the modal end-to-end
+      const proj = currentProject;
+      addRow.click();
+      const inp = document.querySelector('#_ebWkInp');
+      if (!inp) return { skip: false, isLast, modal: false };
+      inp.value = '26W52';
+      const ok = document.querySelector('#_ebWkOk');
+      ok.click();
+      await new Promise(res => setTimeout(res, 60));
+      return {
+        skip: false, isLast, modal: true,
+        created: _manualWeeks(proj).includes('26W52'),
+        rendered: [...document.querySelectorAll('.week-hdr .week-name')].some(e => e.textContent === '26W52'),
+      };
+    });
+    test.skip(r.skip === true, 'no weeked view in demo data');
+    expect(r.isLast).toBe(true);     // placeholder is the last week bar
+    expect(r.modal).toBe(true);      // clicking it opens the create-week modal
+    expect(r.created).toBe(true);    // a new week is registered
+    expect(r.rendered).toBe(true);   // and shows up as a week header
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through

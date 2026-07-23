@@ -1976,6 +1976,13 @@ body.dark-mode .week-hdr{background:rgba(14,165,233,.20);border-color:rgba(56,18
    относительно её заголовка (сужаются, не вылезают за край). Показываем всегда. */
 .list.cv-list .row.in-week,
 .list.cv-expanded .row.in-week{margin-left:48px}
+/* v0.1.187 (DB #13): плейсхолдер «+ Add week» — пунктирный бар как «+ Add task» */
+.week-hdr.eb-addweek{background:transparent;border:1.5px dashed var(--line-2);
+  border-left:1.5px dashed var(--line-2);color:var(--t3);font-weight:600;
+  box-shadow:none;opacity:.9}
+.week-hdr.eb-addweek:hover{border-color:var(--acc);color:var(--acc);
+  background:rgba(14,165,233,.04);opacity:1}
+.week-hdr.eb-addweek .week-caret{transform:none}
 .week-hdr:first-child{margin-top:2px}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
   outline:1px dashed rgba(14,165,233,.5);border-radius:4px}
@@ -5049,6 +5056,9 @@ function render(){
           if(!complete) html += renderEmptyRowForProject(proj.id, w, weekEmpty);
         }
       }
+      // v0.1.187 (DB #13): постоянный плейсхолдер «+ Add week» внизу списка
+      // недель — по образцу «+ Add task» (Дмитрию зашёл этот паттерн).
+      html += renderAddWeekRow(proj.id);
     }
     replaceListWith(html);
     wireUpEmptyInput();
@@ -5421,6 +5431,15 @@ function createWeekForProject(projId){
     toast('Week ' + tag + ' created');
     render();
   });
+}
+// v0.1.187 (DB #13): постоянный плейсхолдер «+ Add week» внизу списка недель —
+// тот же паттерн, что «+ Add task». Клик открывает модалку создания недели.
+function renderAddWeekRow(projId){
+  return `<div class="week-hdr eb-addweek" onclick="createWeekForProject('${projId}')" title="Добавить неделю" role="button" tabindex="0"
+    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();createWeekForProject('${projId}');}">
+    <span class="week-caret" style="opacity:.75"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+    <span class="week-name">Add week</span>
+  </div>`;
 }
 function renameWeek(projId, oldW){
   if(!oldW) return;
