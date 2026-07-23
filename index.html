@@ -562,7 +562,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* v0.1.46: col-hdr no longer rendered, but legacy class kept */
 .col-hdr{display:none;
-  grid-template-columns:30px 240px 240px 1fr 1fr;
+  grid-template-columns:40px 240px 240px 1fr 1fr;
   padding:8px 28px 8px 36px;background:var(--bg);border-bottom:1px solid var(--line);
   font-family:var(--mono);font-size:10px;color:var(--t3);
   text-transform:uppercase;letter-spacing:.1em;flex-shrink:0
@@ -583,7 +583,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* LIST — compact row (~4:3 pics by default), no labels, chat preview */
 .list.cv-list .row{
-  grid-template-columns:30px 1fr 220px 220px;
+  grid-template-columns:40px 1fr 220px 220px;
   min-height:165px;padding:6px 10px;margin:4px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~2 сообщения в свёрнутом виде, скролл дальше. */
@@ -625,7 +625,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* EXPANDED — large card: wider chat + big pics */
 .list.cv-expanded .row{
-  grid-template-columns:30px 380px 1fr 1fr;
+  grid-template-columns:40px 380px 1fr 1fr;
   min-height:380px;padding:16px;margin:14px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~5 сообщений в развёрнутом виде. */
@@ -648,7 +648,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 .row{
   /* v0.1.55: title-col removed (title + id no longer shown), status moved into
      chat-col actions row. Grid: drag · CHAT(+actions+status) · BEFORE · AFTER */
-  display:grid;grid-template-columns:30px 320px 1fr 1fr;
+  display:grid;grid-template-columns:40px 320px 1fr 1fr;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px;
@@ -700,10 +700,10 @@ body.dark-mode .eb-drop-slot.is-hot{
 
 .drag-handle{
   cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
-  font-size:14px;opacity:.35;transition:opacity .12s,color .12s;
+  font-size:20px;opacity:.4;transition:opacity .12s,color .12s;
   -webkit-user-select:none;user-select:none;
   -webkit-user-drag:none;
-  letter-spacing:-1px;touch-action:none;min-width:20px;padding:0 4px
+  letter-spacing:-1px;touch-action:none;min-width:30px;padding:2px 4px
 }
 .row:hover .drag-handle{opacity:1;color:var(--acc)}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
@@ -813,6 +813,11 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
   display:flex;flex-direction:column;gap:5px;height:100%;min-height:0;
   padding:8px 8px 8px 0
 }
+/* v0.1.187 (DB #10): кнопки Presentation/Link — наверх карточки (сразу под
+   шапкой со статусом), чтобы чат занимал полезное место снизу. Делаем через
+   flex order — DOM не трогаем: header(-2) → actions(-1) → chat-list/input(0). */
+.chat-col .card-header{order:-2}
+.chat-col .chat-row-actions{order:-1;margin-bottom:2px}
 .chat-col .chat-list{
   /* v0.1.46: chat fills full row height (was max-height:64px) */
   /* v0.1.157 (N5 from 2026-06-05): when the user resizes a row taller via
@@ -998,7 +1003,7 @@ body.dark-mode .card-move:hover{background:rgba(255,255,255,.08)}
    ручка — по центру. align-self:stretch тянет ячейку на всю высоту, отрицательный
    margin компенсирует padding:10px строки, чтобы стрелки доходили до краёв. */
 .row-handle-stack{display:flex;flex-direction:column;align-items:center;justify-content:space-between;align-self:stretch;margin:-10px 0;padding:4px 0}
-.rh-arrow{width:22px;height:18px;border:none;background:transparent;color:var(--t4);border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.12s}
+.rh-arrow{width:30px;height:24px;border:none;background:transparent;color:var(--t4);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:.12s}
 .rh-arrow:hover{background:rgba(15,23,42,.06);color:var(--acc)}
 body.dark-mode .rh-arrow:hover{background:rgba(255,255,255,.08)}
 .row:hover .rh-arrow{color:var(--t3)}
@@ -5587,9 +5592,9 @@ function renderRow(t){
   // (row-level onmousedown убран ниже). Стрелки/ручка глушат всплытие, чтобы
   // не задеть клик по строке.
   const firstCell = `<div class="row-handle-stack">
-      <button class="rh-arrow rh-up" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskUp('${t.id}')" title="Move up" aria-label="Move task up"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
+      <button class="rh-arrow rh-up" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskUp('${t.id}')" title="Move up" aria-label="Move task up"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
       <div class="drag-handle" draggable="false" onmousedown="event.stopPropagation();event.preventDefault();dragHandleDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⋮⋮</div>
-      <button class="rh-arrow rh-down" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskDown('${t.id}')" title="Move down" aria-label="Move task down"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+      <button class="rh-arrow rh-down" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskDown('${t.id}')" title="Move down" aria-label="Move task down"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
     </div>`;
   // v0.1.169 (DB): select-mode по механике Telegram/WhatsApp — кружок слева,
   // строки сдвигаются вбок (CSS body.select-mode).

@@ -383,6 +383,27 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.fullTargetsNextExtra).toBe(true);  // bottom button points at the next free slot
   });
 
+  test('R21 card action buttons sit above the chat (Presentation/Link moved up)', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      document.querySelector('.list')?.classList.add('cv-list');
+      render();
+      const col = document.querySelector('.row .chat-col');
+      if (!col) return { skip: true };
+      const top = sel => { const el = col.querySelector(sel); return el ? el.getBoundingClientRect().top : null; };
+      return {
+        skip: false,
+        header: top('.card-header'),
+        actions: top('.chat-row-actions'),
+        chat: top('.chat-list'),
+      };
+    });
+    test.skip(r.skip === true, 'no row in demo data');
+    // header first, then the Presentation/Link actions, then the chat
+    expect(r.actions).toBeGreaterThan(r.header);
+    expect(r.chat).toBeGreaterThan(r.actions);
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
