@@ -95,6 +95,31 @@ test.describe('EngiBoard editor — annotation tools', () => {
     expect(r.box).toBe(true);         // text box present
   });
 
+  test('E6 Thickness controls live in a left-side rail (Paint-style)', async ({ page }) => {
+    await loadEditor(page);
+    const r = await page.evaluate(() => {
+      const rail = document.getElementById('thickRail');
+      if (!rail) return { present: false };
+      const btns = rail.querySelectorAll('button.sw[data-w]');
+      // no stray thickness buttons left in the top toolbar
+      const inTopBar = document.querySelectorAll('#ftbar button.sw[data-w]').length;
+      // rail sits to the LEFT of the paper
+      const railRect = rail.getBoundingClientRect(), paperRect = paper.getBoundingClientRect();
+      const onLeft = railRect.left < paperRect.left;
+      // clicking a thickness updates sw and the active highlight
+      btns[2].click();
+      const activeW = sw;
+      const onlyOneActive = rail.querySelectorAll('button.sw.on').length === 1;
+      return { present: true, count: btns.length, inTopBar, onLeft, activeW, onlyOneActive };
+    });
+    expect(r.present).toBe(true);
+    expect(r.count).toBe(4);          // four thickness options
+    expect(r.inTopBar).toBe(0);       // moved out of the top toolbar
+    expect(r.onLeft).toBe(true);      // on the side, like Paint
+    expect(r.activeW).toBe(3);        // clicking sets the stroke width
+    expect(r.onlyOneActive).toBe(true);
+  });
+
   test('E4 Polyline: Escape cancels an unfinished polyline', async ({ page }) => {
     await loadEditor(page);
     await page.evaluate(() => setTool('polyline'));
