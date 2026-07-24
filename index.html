@@ -7112,6 +7112,10 @@ function onDropTask(){}
 function onDragLeave(){}
 
 // ━━━ RESIZE HEIGHT ━━━
+// v0.1.187 (fix): было ли реальное движение мыши в текущем ресайзе. Нужен,
+// чтобы (а) клик без драга не писал NaN-высоту и (б) двойной клик-СБРОС не
+// срабатывал после двух быстрых растягиваний подряд (ОС считает их dblclick).
+let _resizeMoved = false;
 function onResizeStart(e, taskId){
   e.preventDefault();
   e.stopPropagation();
@@ -7119,16 +7123,19 @@ function onResizeStart(e, taskId){
   // v0.1.184 (DB fix, #4): apply the resized state immediately so the chat panel
   // grows LIVE while dragging — onUp used to store t.h without re-rendering, so
   // the row was tall but .row-resized (and the chat-grow CSS) never applied.
+  const hadHeight = !!(TASKS.find(x => x.id === taskId) || {}).h;
   row.classList.add('row-resized');
   // v0.1.187: у .row есть transition:all .12s — при перетаскивании высота
   // «резинит» на 120мс за курсором. Гасим переход на время активного drag.
   row.style.transition = 'none';
   const startY = e.clientY;
   const startH = row.offsetHeight;
+  _resizeMoved = false;
   function onMove(ev){
     // v0.1.187: фиксированная высота (height+min-height), чтобы строку можно
     // было и уменьшать — не только растягивать (см. renderRow heightStyle).
     const newH = Math.max(80, Math.min(900, startH + (ev.clientY - startY)));
+    if(Math.abs(ev.clientY - startY) > 1) _resizeMoved = true;
     row.style.height = newH + 'px';
     row.style.minHeight = newH + 'px';
   }
@@ -7137,7 +7144,21 @@ function onResizeStart(e, taskId){
     document.removeEventListener('mouseup', onUp);
     row.style.transition = '';   // v0.1.187: вернуть плавность после drag
     const t = TASKS.find(x => x.id === taskId);
-    if(t) t.h = parseInt(row.style.height);
+    // v0.1.187 (fix): простой КЛИК по ручке (без движения) раньше писал
+    // parseInt('') === NaN в t.h и оставлял класс .row-resized без высоты —
+    // строка превращалась в пустую растянутую сетку. Теперь: нет движения —
+    // ничего не сохраняем и возвращаем элемент в исходное состояние.
+    if(!_resizeMoved){
+      if(!hadHeight){
+        row.classList.remove('row-resized');
+        row.style.height = ''; row.style.minHeight = '';
+      }
+      _suppressNextRowClick = true;
+      setTimeout(() => { _suppressNextRowClick = false; }, 300);
+      return;
+    }
+    const h = parseInt(row.style.height);
+    if(t && !isNaN(h)) t.h = h;
     // v0.1.173 (DB): после ресайза гасим следующий click по строке, иначе
     // mouseup рядом со строкой случайно открывал режим презентации (мисклик).
     _suppressNextRowClick = true;
@@ -7153,6 +7174,10 @@ function onResizeStart(e, taskId){
 function onResizeReset(e, taskId){
   e.preventDefault();
   e.stopPropagation();
+  // v0.1.187 (fix): не сбрасывать высоту, если пользователь только что ТЯНУЛ
+  // ручку — два быстрых драга подряд ОС отдаёт как dblclick, и сброс стирал
+  // только что заданный размер («растягивание перестало работать»).
+  if(_resizeMoved){ _resizeMoved = false; return; }
   const t = TASKS.find(x => x.id === taskId);
   if(t){ delete t.h; render(); toast('↕ Высота строки сброшена', 1200); }
   _suppressNextRowClick = true;

@@ -630,6 +630,48 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.label).toContain('language'); // clearer label
   });
 
+  test('R32 resize handle: bare click is a no-op, and a drag survives dblclick', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      document.querySelector('.list')?.classList.add('cv-list');
+      const t = TASKS.find(x => x.proj === currentProject);
+      if (!t) return { skip: true };
+      delete t.h; render();
+      const grab = () => document.querySelector(`.row[data-task-id="${t.id}"]`);
+      const drag = (dy) => {
+        const g = grab().querySelector('.resize-h');
+        const y = g.getBoundingClientRect().top;
+        g.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientY: y, view: window }));
+        if (dy !== 0) document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY: y + dy, view: window }));
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, view: window }));
+      };
+      // bare click on the handle must not store a height (was NaN) nor leave
+      // the row stuck in .row-resized with no height (blank stretched grid)
+      drag(0);
+      const bare = { h: t.h, cls: grab().className.includes('row-resized') };
+      // a real drag stores the height...
+      delete t.h; render(); drag(200);
+      await new Promise(s => setTimeout(s, 150)); render();
+      const stretched = t.h;
+      // ...and a dblclick right after a drag must NOT wipe it (two fast drags
+      // are delivered as a dblclick by the OS)
+      drag(80);
+      grab().querySelector('.resize-h').dispatchEvent(new MouseEvent('dblclick', { bubbles: true, view: window }));
+      await new Promise(s => setTimeout(s, 150));
+      const keptAfterDrag = t.h;
+      // a genuine dblclick with no drag still resets
+      _resizeMoved = false;
+      grab().querySelector('.resize-h').dispatchEvent(new MouseEvent('dblclick', { bubbles: true, view: window }));
+      return { skip: false, bare, stretched, keptAfterDrag, resetWorks: t.h === undefined };
+    });
+    test.skip(r.skip === true, 'no task in demo data');
+    expect(r.bare.h).toBeUndefined();          // bare click stores nothing (was NaN)
+    expect(r.bare.cls).toBe(false);            // and doesn't leave a broken resized row
+    expect(r.stretched).toBeGreaterThan(200);  // dragging still resizes
+    expect(r.keptAfterDrag).toBeGreaterThan(200); // dblclick after a drag keeps the height
+    expect(r.resetWorks).toBe(true);           // deliberate dblclick still resets
+  });
+
   test('R14 editor: pin-comment bubble is not swallowed by the paper handler', async ({ page }) => {
     const src = await (await page.request.get('/editor.html')).text();
     // v0.1.186: paper mousedown guard must let clicks on a pin/bubble through
