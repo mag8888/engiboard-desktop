@@ -163,6 +163,12 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .notif.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
 input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;background:var(--surf2);border-radius:2px}
+/* v0.1.189 (DB): Paint/Procreate-style vertical sliders on the left edge */
+.left-tools{position:fixed;left:10px;top:50%;transform:translateY(-50%);z-index:40;display:flex;flex-direction:column;gap:16px;background:rgba(28,28,32,.95);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px 10px;backdrop-filter:blur(12px)}
+.left-tools .lt-group{display:flex;flex-direction:column;align-items:center;gap:7px}
+.left-tools .lt-range{-webkit-appearance:slider-vertical;appearance:slider-vertical;writing-mode:vertical-lr;direction:rtl;width:22px;height:104px;background:transparent;accent-color:#3B82F6;cursor:pointer}
+.left-tools .lt-cap{color:#fff;font-size:10px;font-family:var(--mono);min-height:12px}
+.left-tools .lt-lbl{color:#A0A0A8;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
 
 .tbar{-webkit-app-region:drag;app-region:drag}
 .tbar button,.tbar .tact,.tbar .tbtn-sm{-webkit-app-region:no-drag;app-region:no-drag}
@@ -279,6 +285,19 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
       </div>
     </div>
   </div>
+  <!-- v0.1.189 (DB): left-edge vertical sliders for pen size + opacity -->
+  <div class="left-tools" id="leftTools">
+    <div class="lt-group">
+      <span class="lt-cap" id="ltSizeVal">2</span>
+      <input type="range" class="lt-range" min="1" max="30" value="2" oninput="setSwVal(this.value)" title="Pen / line size">
+      <span class="lt-lbl">Size</span>
+    </div>
+    <div class="lt-group">
+      <span class="lt-cap" id="ltOpVal">100%</span>
+      <input type="range" class="lt-range" min="10" max="100" value="100" oninput="setOpVal(this.value)" title="Opacity">
+      <span class="lt-lbl">Opacity</span>
+    </div>
+  </div>
   <!-- v0.1.125: zoom controls inside the editor -->
   <div class="ed-zoom-ctl">
     <button onclick="edZoomBy(-0.25)" title="Zoom out (− / scroll)">−</button>
@@ -334,6 +353,7 @@ function safeColor(c){
   return /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,\s%]+\)|[a-zA-Z]{1,20})$/.test(v) ? v : '#FF453A';
 }
 let tool='select', color='#FF453A', sw=2, opVal=1;
+let editingTextId=null; // v0.1.189 (DB): id of the text label being re-edited
 // v0.1.156 (#29/#31/#32 MR): per-tool drawing options.
 let shapeFill = false;        // #29 toggle: rect/circle filled vs. stroked
 let arrowDir  = 'end';        // #31: 'end' | 'start' | 'both'
@@ -487,6 +507,10 @@ function setSW(el){
 }
 // v0.1.29: opacity slider removed — opVal stays at 1.0 always
 function setOp(v){ /* no-op */ }
+// v0.1.189 (DB): left vertical sliders control pen size (sw) and opacity (opVal)
+// for newly-drawn annotations, Paint/Procreate-style.
+function setSwVal(v){ sw = +v; const el = document.getElementById('ltSizeVal'); if(el) el.textContent = v; document.querySelectorAll('button.sw[data-w]').forEach(b => b.classList.toggle('on', +b.dataset.w === sw)); }
+function setOpVal(v){ opVal = (+v) / 100; const el = document.getElementById('ltOpVal'); if(el) el.textContent = v + '%'; }
 
 paper.addEventListener('mousedown',e=>{
   if(e.target.closest('#cmtPop,#textInp')) return;
@@ -704,7 +728,7 @@ function makeAnnotEl(a,prev=false){
     return{el:g,layer:'svg'};
   }
   if(a.type==='blur'){const d=document.createElement('div');d.className='blur-box';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
-  if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
+  if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.title='Double-click to edit';d.onclick=()=>{selId=a.id;renderAll();updateList();};d.ondblclick=(ev)=>{ev.stopPropagation();ev.preventDefault();editExistingText(a.id);};return{el:d,layer:'div'};}
   if(a.type==='emoji'){const d=document.createElement('div');d.style.cssText=`position:absolute;left:${a.x}%;top:${a.y}%;transform:translate(-50%,-50%);font-size:${a.size||EMOJI_SIZE}px;line-height:1;opacity:${op};user-select:none${sel?';outline:2px solid #0EA5E9;outline-offset:2px;border-radius:4px':''}`;d.textContent=a.emoji||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
   if(a.type==='dimension'){
     // v0.1.156 (#30 MR): the auto-computed mm value (width × 4.2) is just
@@ -786,9 +810,11 @@ function renderPrev(){
 }
 function clearPrev(){prevDiv.innerHTML='';prevSvg.innerHTML='';}
 
-function showTextInp(pos){const inp=document.getElementById('textInp');inp.style.cssText=`display:block;left:${pos.x}%;top:${pos.y}%;width:120px`;inp.value='';setTimeout(()=>inp.focus(),10);}
-function onTextKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commitText();}if(e.key==='Escape'){textPos=null;document.getElementById('textInp').style.display='none';}e.stopPropagation();}
-function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){pushHistory();annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});renderAll();updateList();updateCount();}textPos=null;inp.style.display='none';inp.value='';}
+function showTextInp(pos,prefill){const inp=document.getElementById('textInp');inp.style.cssText=`display:block;left:${pos.x}%;top:${pos.y}%;width:120px`;inp.value=prefill||'';inp.style.width=Math.max(120,inp.scrollWidth+4)+'px';setTimeout(()=>{inp.focus();inp.select();},10);}
+function onTextKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commitText();}if(e.key==='Escape'){textPos=null;editingTextId=null;document.getElementById('textInp').style.display='none';}e.stopPropagation();}
+// v0.1.189 (DB): double-click a text label to edit it in place (was create-only).
+function editExistingText(id){const a=annotations.find(x=>x.id===id);if(!a)return;editingTextId=id;textPos={x:a.x,y:a.y};showTextInp(textPos,a.text||'');}
+function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){pushHistory();if(editingTextId){const a=annotations.find(x=>x.id===editingTextId);if(a)a.text=inp.value.trim();}else{annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});}renderAll();updateList();updateCount();}editingTextId=null;textPos=null;inp.style.display='none';inp.value='';}
 
 function showCmtPopUI(e){
   const pop=document.getElementById('cmtPop'),inp=document.getElementById('cmtInp');

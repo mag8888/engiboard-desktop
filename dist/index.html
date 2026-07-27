@@ -455,6 +455,11 @@ body.dark-mode .pp-client-hdr .pp-client-ct{background:rgba(255,255,255,.06)}
 .proj-picker-item .ppi-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .proj-picker-item .ppi-code{font-size:10px;color:var(--t4);font-family:var(--mono);font-weight:500}
 .proj-picker-item .ppi-meta{font-size:10px;color:var(--t4);font-family:var(--mono)}
+/* v0.1.189 (DB): drag-to-reorder grip + drop indicator */
+.proj-picker-item .ppi-grip{cursor:grab;color:var(--t4);opacity:.45;font-size:13px;flex-shrink:0;line-height:1}
+.proj-picker-item:hover .ppi-grip{opacity:.8}
+.proj-picker-item.drag-over{box-shadow:inset 0 2px 0 0 var(--acc)}
+.proj-picker-item.on .ppi-grip{color:rgba(255,255,255,.85)}
 body.dark-mode .proj-picker-item:hover{background:var(--bg)}
 body.dark-mode .proj-picker-menu{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 
@@ -670,12 +675,16 @@ body.select-mode .row{cursor:pointer;transform:translateX(30px);transition:trans
 body.dark-mode .eb-drop-slot.is-hot{
   background:linear-gradient(rgba(14,165,233,.22),rgba(14,165,233,.12))}
 
+/* v0.1.189: longer dotted grip — fills the space between the up/down arrows
+   so it's far easier to grab with the mouse (was a tiny 6-dot ⋮⋮ glyph). */
 .drag-handle{
-  cursor:grab;color:var(--t3);display:flex;align-items:center;justify-content:center;
-  font-size:14px;opacity:.35;transition:opacity .12s,color .12s;
+  cursor:grab;color:var(--t3);
+  flex:0 1 auto;min-height:26px;max-height:56px;height:56px;width:14px;align-self:center;margin:3px 0;
+  background-image:radial-gradient(currentColor 1.3px,transparent 1.7px);
+  background-size:7px 7px;background-position:center;background-repeat:round;
+  opacity:.35;transition:opacity .12s,color .12s;border-radius:7px;
   -webkit-user-select:none;user-select:none;
-  -webkit-user-drag:none;
-  letter-spacing:-1px;touch-action:none;min-width:20px;padding:0 4px
+  -webkit-user-drag:none;touch-action:none
 }
 .row:hover .drag-handle{opacity:1;color:var(--acc)}
 .drag-handle:hover{opacity:1!important;color:var(--acc)}
@@ -811,6 +820,16 @@ body.dark-mode .chat-col .chat-list{background:rgba(255,255,255,.02);border-colo
   content:'';width:6px;height:6px;background:#EF4444;border-radius:50%;
   animation:tk-pulse 1.4s ease-in-out infinite;display:inline-block
 }
+
+/* v0.1.189 (DB): card-header toolbar — Presentation / Compare / Link moved up
+   here so every card button lives in a single row after "mark as bug". */
+.card-hdr-tools{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.card-hdr-tools .ic-btn{
+  display:inline-flex;align-items:center;gap:3px;cursor:pointer;
+  padding:3px 7px;border-radius:5px;font-size:11px;color:var(--t3);font-family:var(--mono);
+  transition:.12s;border:1px solid transparent;background:transparent;line-height:1.4;white-space:nowrap
+}
+.card-hdr-tools .ic-btn:hover{color:var(--acc);background:rgba(14,165,233,.08)}
 
 /* v0.1.30 (legacy) — Inline chat panel in task row .nt area */
 .row .nt-chat{
@@ -1595,6 +1614,17 @@ body.dark-mode .pres-pic{ background:#1e2531; }
 .pres-nav .pres-nav-arrow:hover:not(:disabled){background:var(--acc-2);transform:scale(1.08);box-shadow:0 4px 14px rgba(14,165,233,.45)}
 .pres-nav .pres-nav-arrow:disabled{background:var(--line-2);color:var(--t4);box-shadow:none;opacity:.6;cursor:not-allowed}
 .pres-nav .pres-nav-arrow svg{width:22px;height:22px}
+/* v0.1.189 (DB): presentation nav back on the side edges (vertically centered);
+   "+ Add screenshot" moved up into the header. */
+.pres-side-arrow{position:fixed;top:50%;transform:translateY(-50%);z-index:9260;width:48px;height:48px;border-radius:50%;border:none;background:var(--acc);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(14,165,233,.4);transition:transform .12s,background .12s}
+.pres-side-arrow:hover:not(:disabled){transform:translateY(-50%) scale(1.08)}
+.pres-side-arrow:disabled{background:var(--line-2);color:var(--t4);box-shadow:none;opacity:.5;cursor:not-allowed}
+.pres-side-arrow svg{width:24px;height:24px}
+.pres-side-prev{left:24px}
+.pres-side-next{right:24px}
+.pres-add-top{border:1px solid var(--line-2);background:var(--surf);color:var(--acc);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+.pres-add-top:hover{border-color:var(--acc);background:var(--acc);color:#fff}
+.pres-head .pres-counter{font-family:var(--mono);font-size:12px;color:var(--t3)}
 /* v0.1.121: presentation chat uses the SAME mini-chat style as task cards
    (small avatar + bold name + inline text, no bubble, no dates, one side) */
 .pres-chat-msgs .nt-chat-msg{display:flex;align-items:flex-start;gap:6px;font-size:12px;line-height:1.35;border-radius:4px;padding:2px 3px}
@@ -1830,11 +1860,12 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   display:block;font-size:11px;font-weight:600;color:var(--t4);
   text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px
 }
-.npm-field input{
+.npm-field input,.npm-field textarea{
   width:100%;border:1px solid var(--line-2);padding:9px 12px;border-radius:7px;
   font-size:13px;outline:none;font-family:inherit;color:var(--t1)
 }
-.npm-field input:focus{border-color:var(--acc)}
+.npm-field textarea{resize:vertical;min-height:60px;line-height:1.45}
+.npm-field input:focus,.npm-field textarea:focus{border-color:var(--acc)}
 .npm-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 .npm-foot button{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .npm-cancel{border:1px solid var(--line-2);background:var(--surf);color:var(--t2)}
@@ -1853,6 +1884,26 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .confirm-foot button{padding:8px 16px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .confirm-cancel{border:1px solid var(--line-2);background:var(--surf);color:var(--t2)}
 .confirm-ok{border:none;background:#EF4444;color:#fff}
+
+/* v0.1.189 (DB): chat message edit/delete actions, @mentions, prompt modal */
+.nt-chat-msg{position:relative}
+.nt-chat-msg .msg-actions,.cp-msg .msg-actions{display:none;gap:2px;flex-shrink:0;margin-left:auto;align-items:center}
+.nt-chat-msg:hover .msg-actions,.cp-msg:hover .msg-actions{display:inline-flex}
+.msg-act{border:none;background:transparent;color:var(--t4);cursor:pointer;font-size:11px;line-height:1;padding:2px 4px;border-radius:4px}
+.msg-act:hover{background:rgba(14,165,233,.12);color:var(--acc)}
+.msg-act.msg-del:hover{background:rgba(239,68,68,.12);color:#EF4444}
+.msg-edited{font-size:9px;color:var(--t4);font-style:italic;opacity:.7}
+.mention{color:var(--acc);font-weight:600;background:rgba(14,165,233,.1);border-radius:3px;padding:0 2px}
+.cp-msg{position:relative}
+.eb-prompt-modal{position:fixed;inset:0;z-index:9500;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:48px}
+.eb-prompt-modal.on{display:flex}
+.eb-prompt-ta{width:100%;border:1px solid var(--line-2);border-radius:7px;padding:9px 12px;font-size:13px;font-family:inherit;color:var(--t1);outline:none;resize:vertical;min-height:64px;line-height:1.45;margin-bottom:4px}
+.eb-prompt-ta:focus{border-color:var(--acc)}
+.eb-prompt-modal .confirm-ok{background:var(--acc)}
+.chat-mention-pop{position:fixed;z-index:9600;background:var(--surf);border:1px solid var(--line-2);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.22);padding:4px;max-height:180px;overflow-y:auto}
+.chat-mention-pop .cm-item{padding:6px 10px;border-radius:5px;font-size:12px;color:var(--t1);cursor:pointer;white-space:nowrap}
+.chat-mention-pop .cm-item:hover{background:rgba(14,165,233,.1);color:var(--acc)}
+body.dark-mode .chat-mention-pop{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -2259,7 +2310,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
   <div class="tbar" data-tauri-drag-region>
     <div class="tl-spacer"></div>
     <div class="tbar-burger-cell">
-      <button class="burger" onclick="toggleSidebar()" title="Toggle sidebar (⌘B / Ctrl+B)">
+      <button class="burger" onclick="toggleSidebar()" title="Toggle sidebar (Ctrl+B)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="3" y1="6" x2="21" y2="6"/>
           <line x1="3" y1="12" x2="21" y2="12"/>
@@ -2346,7 +2397,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       </div>
       <div class="sb-bottom">
         <!-- v0.1.46: language toggle removed — EN-only build -->
-        <div class="sb-i" data-label="Theme" onclick="toggleDarkMode()" id="themeToggle" title="Toggle dark mode (⌘⇧T)">
+        <div class="sb-i" data-label="Theme" onclick="toggleDarkMode()" id="themeToggle" title="Toggle dark mode (Ctrl+Shift+T)">
           <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
           <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <span data-t="sb.darkmode">Dark mode</span>
@@ -2374,6 +2425,10 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
       </button>
       <span id="filterChips" style="display:contents"></span>
       <span style="flex:1"></span>
+      <!-- v0.1.189 (DB): visible Undo/Redo buttons (the multi-step stack + Ctrl+Z
+           already existed, but had no discoverable UI). -->
+      <button class="chip" id="undoChip" onclick="doUndo()" title="Undo (Ctrl+Z)" aria-label="Undo" style="display:inline-flex;align-items:center;padding:6px 8px;color:var(--t3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
+      <button class="chip" id="redoChip" onclick="doRedo()" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" style="display:inline-flex;align-items:center;padding:6px 8px;color:var(--t3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
       <!-- v0.1.156 (#1 DB / #27 MR): sort dropdown — Manual / Status / Deadline / Created. Persisted per project. -->
       <button class="chip" id="sortChip" onclick="openSortMenu(event)" title="Sort tasks"
         style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:4px">
@@ -2532,7 +2587,8 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <div class="npm-field"><label>Project number</label><input id="npmCode" placeholder="PL-5 / 2024-017 — your own numbering"></div>
     <div class="npm-field"><label>Project name</label><input id="npmName" placeholder="Production Line #5"></div>
     <div class="npm-field"><label>Client</label><input id="npmClient" placeholder="Acme Manufacturing"></div>
-    <div class="npm-field"><label>Language</label><input id="npmLang" placeholder="EN / RU / DE…"></div>
+    <!-- v0.1.189 (DB): Language field replaced with free-text Notes. -->
+    <div class="npm-field"><label>Notes</label><textarea id="npmNotes" rows="3" placeholder="Free-text notes / description for this project…"></textarea></div>
     <div class="npm-foot">
       <button class="npm-cancel" onclick="closeNewProjModal()">Cancel</button>
       <button class="npm-create" onclick="createNewProject()">Create</button>
@@ -2693,7 +2749,8 @@ for(let i = 0; i < STATUSES.length; i++){
     if(Array.isArray(saved)){
       // Full replacement — supports added/removed (hidden) statuses.
       STATUSES.length = 0;
-      saved.forEach(s => STATUSES.push({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden }));
+      // v0.1.189 (DB): statuses now carry an editable priority (display order).
+      saved.forEach(s => STATUSES.push({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden, priority:(typeof s.priority === 'number' ? s.priority : s.id) }));
     } else {
       for(const [idStr, data] of Object.entries(saved)){
         const s = STATUSES.find(x => x.id === +idStr);
@@ -2702,8 +2759,10 @@ for(let i = 0; i < STATUSES.length; i++){
     }
   } catch(e){}
 })();
-// Helper: only visible (non-deleted) statuses, in order.
-function visibleStatuses(){ return STATUSES.filter(s => !s.hidden); }
+// Helper: only visible (non-deleted) statuses, ordered by editable priority
+// (v0.1.189, DB). Falls back to id so untouched statuses keep their order.
+function statusPriority(s){ return (typeof s.priority === 'number') ? s.priority : s.id; }
+function visibleStatuses(){ return STATUSES.filter(s => !s.hidden).slice().sort((a, b) => statusPriority(a) - statusPriority(b) || a.id - b.id); }
 
 // ━━━ SUPABASE CLIENT (S2 P0-3, deferred — see supabase/ARCHITECTURE_DECISION.md) ━━━
 // Client initialized for future sync; runtime falls back to localStorage if any call fails.
@@ -2750,6 +2809,7 @@ const db = {
   taskComments: {
     listForTask: (taskId) => sb.from('task_comments').select('*, author:profiles(email, full_name, avatar_url)').eq('task_id', taskId).order('created_at'),
     create:      (data)   => sb.from('task_comments').insert(data).select('*, author:profiles(email, full_name, avatar_url)').single(),
+    update:      (id, patch) => sb.from('task_comments').update(patch).eq('id', id),
     delete:      (id)     => sb.from('task_comments').delete().eq('id', id),
   },
   imageComments: {
@@ -3027,14 +3087,16 @@ function _captureStatusEdits(){
   visibleStatuses().forEach(s => {
     const lEl = document.getElementById('slabel_'+s.id);
     const cEl = document.getElementById('scolor_'+s.id);
+    const pEl = document.getElementById('sprio_'+s.id);
     if(lEl) s.l = (lEl.value.trim() || s.l);
     if(cEl) s.c = cEl.value;
+    if(pEl && pEl.value !== '') s.priority = +pEl.value;
   });
 }
 // Persist the FULL status set (including hidden/removed) so add/remove survive.
 function _persistStatuses(){
   localStorage.setItem('eb_custom_statuses', JSON.stringify(
-    STATUSES.map(s => ({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden }))
+    STATUSES.map(s => ({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden, priority:statusPriority(s) }))
   ));
 }
 function saveCustomStatuses(){
@@ -3058,7 +3120,7 @@ function resetCustomStatuses(){
 // Append-only (id === array index) keeps STATUSES[t.s] index access valid.
 function addStatus(){
   _captureStatusEdits();
-  STATUSES.push({ id: STATUSES.length, l:'New status', c:'#0EA5E9', cls:'', hidden:false });
+  STATUSES.push({ id: STATUSES.length, l:'New status', c:'#0EA5E9', cls:'', hidden:false, priority: STATUSES.length });
   _persistStatuses();
   renderProfileSection(); renderFilters();
   toast('Status added — rename it and Save');
@@ -5493,13 +5555,19 @@ function renderRow(t){
   // v0.1.33: inline chat preview — last 8 msgs in DOM, ~3 visible at once via max-height,
   // scroll for the rest. Empty state removed (user feedback: 'не нужно empty state')
   const chatMsgs = (t.chat || []).slice(-8);
+  const _chatBase = Math.max(0, (t.chat || []).length - chatMsgs.length);
   const chatHTML = chatMsgs.length === 0
     ? ''
-    : chatMsgs.map(m => {
+    : chatMsgs.map((m, i) => {
+        const idx = _chatBase + i; // real index into t.chat for edit/delete
         const initials = (m.a || '?').slice(0, 2).toUpperCase();
         return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
           <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
+          <span class="txt"><b>${m.a||'?'}</b>${renderMsgText(m.text||'')}${m.edited?' <span class="msg-edited">(edited)</span>':''}</span>
+          <span class="msg-actions">
+            <button class="msg-act" title="Edit message" onclick="event.stopPropagation();editChatMsg('${t.id}',${idx})">✎</button>
+            <button class="msg-act msg-del" title="Delete message" onclick="event.stopPropagation();deleteChatMsg('${t.id}',${idx})">✕</button>
+          </span>
         </div>`;
       }).join('');
   // P2-6 timer state
@@ -5514,7 +5582,7 @@ function renderRow(t){
   // не задеть клик по строке.
   const firstCell = `<div class="row-handle-stack">
       <button class="rh-arrow rh-up" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskUp('${t.id}')" title="Move up" aria-label="Move task up"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></button>
-      <div class="drag-handle" draggable="false" onmousedown="event.stopPropagation();event.preventDefault();dragHandleDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⋮⋮</div>
+      <div class="drag-handle" draggable="false" onmousedown="event.stopPropagation();event.preventDefault();dragHandleDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Drag to reorder" aria-label="Drag to reorder"></div>
       <button class="rh-arrow rh-down" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();moveTaskDown('${t.id}')" title="Move down" aria-label="Move task down"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
     </div>`;
   // v0.1.169 (DB): select-mode по механике Telegram/WhatsApp — кружок слева,
@@ -5542,7 +5610,28 @@ function renderRow(t){
         <span class="st ${st.cls} tc-status"${st.cls?'':` style="background:${st.c}22;color:${st.c}"`} onclick="event.stopPropagation();toggleStMenu(event,'${t.id}')" title="Change task status">
           <span class="pip" style="background:${st.c}"></span>${st.l}
         </span>
-        ${renderAssignee(t)}${renderBugToggle(t)}${renderDeadline(t)}
+        ${renderAssignee(t)}${renderBugToggle(t)}
+        <!-- v0.1.189 (DB): Presentation + Compare + Link moved up into the card
+             header so all card buttons sit in ONE row right after "mark as bug". -->
+        <span class="card-hdr-tools">
+          <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
+          ${(function(){
+            const linkIcon  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+            const drive = lnks.find(l => (l.type === 'gdrive') || /drive\.google\./.test(l.url||''));
+            if(!drive){
+              return `<span class="ic-btn drive-add" onclick="event.stopPropagation();promptAddDriveLink('${t.id}')" title="Attach a Google Drive link">${linkIcon}Link</span>`;
+            }
+            const safeUrl   = String(drive.url||'').replace(/'/g,"\\'");
+            const safeTitle = (drive.title||drive.url||'').replace(/"/g,'&quot;');
+            const kebabIcon = `<svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>`;
+            return `<span class="ic-btn drive-split" title="${safeTitle}">
+              <span class="ds-open" onclick="event.stopPropagation();openLink('${safeUrl}')">${linkIcon}Drive</span>
+              <span class="ds-kebab" onclick="event.stopPropagation();openDriveLinkMenu(event,'${t.id}','${drive.id||""}')" title="More">${kebabIcon}</span>
+            </span>`;
+          })()}
+          <span class="row-presence" data-task-id="${t.id}" style="display:none"></span>
+        </span>
+        ${renderDeadline(t)}
         <!-- v0.1.157 (N1 from 2026-06-05 follow-up): Archive moved out of
              the kebab onto the visible card header per DB's request — it's
              a frequently used action and was getting lost in a 11-item
@@ -5563,41 +5652,11 @@ function renderRow(t){
       </div>
       <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
-        <input type="text" placeholder="Type a message and press Enter…" data-task-id="${t.id}" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
+        <input type="text" placeholder="Type a message and press Enter…" data-task-id="${t.id}" oninput="chatMentionInput(this)" onblur="setTimeout(closeMentionPop,150)" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
         <button class="emoji-btn" onclick="event.stopPropagation();toggleEmojiPicker(event,this)" title="Emoji">${ICON_SMILEY}</button>
       </div>
-      <div class="chat-row-actions">
-        <div class="chat-row-actions-r1">
-          <span class="ic-btn play-ic" onclick="event.stopPropagation();openPresent('${t.id}')" title="${presLabel}">${slideshowLabel}</span>
-          ${hasBoth ? `<span class="ic-btn compare-ic" onclick="event.stopPropagation();openCompare('${t.id}')" title="${compareLabel}">${ICON('swap')} ${compareLabel}</span>` : ''}
-          <span class="row-presence" data-task-id="${t.id}" style="display:none"></span>
-        </div>
-        <div class="chat-row-actions-r2">
-          <!-- v0.1.163: чеклист убран из UI по запросу. Кнопка, панель и
-               секция в презентации скрыты; данные t.checklist не трогаем. -->
-${(function(){
-            // v0.1.149: when the task has no Drive link yet, show a muted
-            // "+ Link" affordance so the user has an entry point to add one.
-            // Once a Drive link exists, it morphs into the split-button
-            // (open | kebab with edit / remove).
-            const linkIcon  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-            const drive = lnks.find(l => (l.type === 'gdrive') || /drive\.google\./.test(l.url||''));
-            if(!drive){
-              return `<span class="ic-btn drive-add" onclick="event.stopPropagation();promptAddDriveLink('${t.id}')" title="Attach a Google Drive link">${linkIcon}Link</span>`;
-            }
-            const safeUrl   = String(drive.url||'').replace(/'/g,"\\'");
-            const safeTitle = (drive.title||drive.url||'').replace(/"/g,'&quot;');
-            const kebabIcon = `<svg width="3" height="13" viewBox="0 0 3 13" fill="currentColor" aria-hidden="true"><circle cx="1.5" cy="1.5" r="1.5"/><circle cx="1.5" cy="6.5" r="1.5"/><circle cx="1.5" cy="11.5" r="1.5"/></svg>`;
-            return `<span class="ic-btn drive-split" title="${safeTitle}">
-              <span class="ds-open" onclick="event.stopPropagation();openLink('${safeUrl}')">${linkIcon}Drive</span>
-              <span class="ds-kebab" onclick="event.stopPropagation();openDriveLinkMenu(event,'${t.id}','${drive.id||""}')" title="More">${kebabIcon}</span>
-            </span>`;
-          })()}
-<!-- v0.1.150 (fix #5 reported by DB): Tmpl chip was rarely used and crowded
-       the row toolbar — moved to the task's kebab menu ("Insert template"). -->
-          <span class="ic-btn" id="tmplBtn_${t.id}" style="display:none"></span>
-        </div>
-      </div>
+      <!-- v0.1.189 (DB): chat-row-actions removed — Presentation / Compare /
+           Link now live in the card header (single button row). -->
     </div>
     <div class="pc">${piBefore}</div>
     <div class="pc">${piAfter}</div>
@@ -6749,8 +6808,16 @@ function onResizeStart(e, taskId){
   const row = e.target.closest('.row');
   const startY = e.clientY;
   const startH = row.offsetHeight;
+  // v0.1.189: floor = the row's natural content height, so shrinking can never
+  // push the chat / inputs / images outside the card bounds ("за поля"). We
+  // measure it by momentarily collapsing min-height and reading scrollHeight.
+  const prevMin = row.style.minHeight;
+  row.style.minHeight = '0px';
+  const naturalMin = row.scrollHeight;
+  row.style.minHeight = prevMin;
+  const FLOOR = Math.max(80, naturalMin || 0);
   function onMove(ev){
-    const newH = Math.max(80, Math.min(900, startH + (ev.clientY - startY)));
+    const newH = Math.max(FLOOR, Math.min(900, startH + (ev.clientY - startY)));
     row.style.minHeight = newH + 'px';
   }
   function onUp(){
@@ -7239,7 +7306,11 @@ function renderPresent(){
       <!-- v0.1.154 (#20 MR): live presence stack — populated by
            updatePresenceUi() after the realtime channel sync. -->
       <span id="presPresence" class="pres-presence" style="display:none"></span>
-      <button class="pres-close" onclick="closePresent()" style="margin-left:auto">×</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <span class="pres-counter">${taskNum} / ${taskTotal}</span>
+        <button class="pres-add-top" onclick="captureScreenshot({fromPresent:true})" title="Capture &amp; add to this task">+ Add screenshot</button>
+        <button class="pres-close" onclick="closePresent()">×</button>
+      </div>
     </div>
     <div class="pres-body-grid" id="presBodyGrid">
       <div class="pres-pics-pair">
@@ -7265,15 +7336,10 @@ function renderPresent(){
         </div>
       </aside>
     </div>
-    <!-- v0.1.163 (DB): боковые стрелки убраны — навигация только снизу
-         (она сделана крупнее/заметнее). -->
-    <!-- Bottom nav with clear back/forward arrows -->
-    <div class="pres-nav">
-      <button class="pres-nav-arrow" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
-      <div class="pres-counter">${taskNum} / ${taskTotal}</div>
-      <button class="pres-nav-arrow" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
-      <button onclick="captureScreenshot({fromPresent:true})" title="Capture & add to this task" style="margin-left:14px">+ Add screenshot</button>
-    </div>`;
+    <!-- v0.1.189 (DB): prev/next navigation moved back to the side edges,
+         vertically centered (carousel-style). Add-screenshot is now in the header. -->
+    <button class="pres-side-arrow pres-side-prev" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
+    <button class="pres-side-arrow pres-side-next" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
   // v0.1.150: restore previous scroll positions (Lead UX review). If the
   // chat panel was scrolled to the bottom already we keep auto-scrolling
   // to the bottom on new messages; otherwise we honour the user's position.
@@ -7615,6 +7681,16 @@ function safeColor(c){
 // URLs as plain text, so users had to copy-paste them into the browser.
 // linkifyText escapes the whole string then turns URLs into <a target=_blank>
 // — clickable, but visually still inline (no chip styling per user feedback).
+// v0.1.189 (DB): collapse a long URL to a tidy Google-Docs-style label —
+// strip scheme + "www.", and if it's still long show just "host/…". The full
+// URL stays in href + title (hover), only the visible text shrinks.
+function shortLinkLabel(u){
+  const bare = String(u).replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+  if(bare.length <= 30) return bare;
+  const slash = bare.indexOf('/');
+  const host = slash === -1 ? bare : bare.slice(0, slash);
+  return host + '/…';
+}
 function linkifyText(s){
   const src = String(s == null ? '' : s);
   // v0.1.150 fix (Lead UX review): the earlier regex stopped at ')' which
@@ -7649,10 +7725,10 @@ function linkifyText(s){
       }
       break;
     }
-    const display = escapeHtml(url);
+    const display = escapeHtml(shortLinkLabel(url));
     const href = /^https?:\/\//i.test(url) ? url : ('https://' + url);
     const safeHref = escapeHtml(href);
-    out += `<a href="${safeHref}" rel="noopener" class="chat-link" onclick="event.stopPropagation();event.preventDefault();openLink('${safeHref}')">${display}</a>`;
+    out += `<a href="${safeHref}" rel="noopener" class="chat-link" title="${safeHref}" onclick="event.stopPropagation();event.preventDefault();openLink('${safeHref}')">${display}</a>`;
     if(trailing) out += escapeHtml(trailing);
     last = m.index + m[0].length;
   }
@@ -7758,14 +7834,17 @@ function renderChatMsgs(t){
     msgs.innerHTML = '<div class="cp-empty"><div class="ico">💬</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>';
     return;
   }
-  msgs.innerHTML = t.chat.map(m => {
+  msgs.innerHTML = t.chat.map((m, idx) => {
     const isMine = m.a === 'AS';
     return `<div class="cp-msg ${isMine?'mine':''}">
       <div class="cp-msg-av ${escapeHtml(m.a||'?')}" title="${escapeHtml(m.a||'?')}">${escapeHtml(m.a||'?')}</div>
       <div class="cp-msg-bd">
-
-        <div class="cp-msg-bub">${linkifyText(m.text||'')}</div>
+        <div class="cp-msg-bub">${renderMsgText(m.text||'')}${m.edited?' <span class="msg-edited">(edited)</span>':''}</div>
       </div>
+      <span class="msg-actions cp-msg-actions">
+        <button class="msg-act" title="Edit message" onclick="event.stopPropagation();editChatMsg('${t.id}',${idx})">✎</button>
+        <button class="msg-act msg-del" title="Delete message" onclick="event.stopPropagation();deleteChatMsg('${t.id}',${idx})">✕</button>
+      </span>
     </div>`;
   }).join('');
   msgs.scrollTop = msgs.scrollHeight;
@@ -7804,7 +7883,9 @@ function openNewProjModal(){
   // on subsequent opens.
   if(!openNewProjModal._wired){
     openNewProjModal._wired = true;
-    ['npmName','npmCode','npmClient','npmLang'].forEach(id => {
+    // v0.1.189: Notes is a textarea (Enter = newline), so it's NOT wired to
+    // submit-on-Enter — only the single-line fields are.
+    ['npmName','npmCode','npmClient'].forEach(id => {
       const el = document.getElementById(id);
       if(!el) return;
       el.addEventListener('keydown', e => {
@@ -7819,13 +7900,21 @@ function closeNewProjModal(){
   document.getElementById('npmName').value = '';
   document.getElementById('npmCode').value = '';
   document.getElementById('npmClient').value = '';
-  const lang = document.getElementById('npmLang'); if(lang) lang.value = '';
+  const notes = document.getElementById('npmNotes'); if(notes) notes.value = '';
+}
+// v0.1.189 (DB): refresh the projects UI in place after a create (no redirect).
+function refreshProjectsUI(){
+  try { updateSidebarCounts(); } catch(_){}
+  try { if(typeof updateProjPickerLabel === 'function') updateProjPickerLabel(); } catch(_){}
+  const picker = document.getElementById('projPicker');
+  if(picker && picker.classList.contains('open')) renderProjPicker();
+  if(currentSection === 'dashboard') renderDashboardSection();
 }
 async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
   const client = document.getElementById('npmClient').value.trim();
-  const lang = (document.getElementById('npmLang')?.value || '').trim();
+  const notes = (document.getElementById('npmNotes')?.value || '').trim();
   if(!name){toast('Name required');return;}
 
   // v0.1.61: try cloud-first if signed in
@@ -7844,14 +7933,14 @@ async function createNewProject(){
         if(!error && data){
           PROJECTS.push({
             id: data.id, name: data.title, code: data.project_code,
-            client: data.client || 'Internal', status: data.status, lang, _cloud: true
+            client: data.client || 'Internal', status: data.status, notes, _cloud: true
           });
           auditLog('create', 'project', data.id, null, { title: data.title }, data.id);
           closeNewProjModal();
-          switchProject(data.id);
-          // v0.1.180 (DB): новый проект иногда не перерисовывался сразу
-          // (WKWebView: фокус был на инпуте закрытой модалки, focus-probe в
-          // render не срабатывал). Принудительная перерисовка на след. кадре.
+          // v0.1.189 (DB): do NOT switchProject() — creating a project no longer
+          // yanks the user into its (empty) task list. Just refresh the projects
+          // UI so the new project shows up immediately where the user is.
+          refreshProjectsUI();
           requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
           toast('✓ Project created (cloud)');
           return;
@@ -7862,10 +7951,11 @@ async function createNewProject(){
   }
 
   // Fallback: local-only
-  const p = {id:'p'+Date.now(),name,code:code||name.substring(0,4).toUpperCase(),client:client||'Internal',lang,status:'active'};
+  const p = {id:'p'+Date.now(),name,code:code||name.substring(0,4).toUpperCase(),client:client||'Internal',notes,status:'active'};
   PROJECTS.push(p);
   closeNewProjModal();
-  switchProject(p.id);
+  // v0.1.189 (DB): appear-in-place, no redirect into the new project.
+  refreshProjectsUI();
   requestAnimationFrame(() => { try { forceCompositorRepaint(); } catch(_){} });
   toast('✓ Project created (local)');
 }
@@ -8168,6 +8258,11 @@ document.addEventListener('keydown', e => {
 
 function setSection(sec){
   currentSection = sec;
+  // v0.1.189 (DB): the header project picker is a single-project switcher, so
+  // hide it on the Dashboard (which is a cross-project overview) — showing it
+  // there was confusing. Close it too so it doesn't linger when we come back.
+  const _pp = document.getElementById('projPicker');
+  if(_pp){ _pp.style.display = (sec === 'dashboard') ? 'none' : ''; _pp.classList.remove('open'); }
   // Update sidebar active state
   document.querySelectorAll('.sb-i').forEach(el => el.classList.toggle('on', el.dataset.sec === sec));
   // Hide all section views
@@ -8283,8 +8378,8 @@ function renderDashboardSection(){
       : `<button class="dproj-arch-btn" onclick="event.stopPropagation();archiveProject('${p.id}')" title="Move to archive">Archive</button>`;
     return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="${p.archived ? '' : `switchProject('${p.id}');setSection('projects')`}">
       <div class="dproj-head">
-        <div style="min-width:0"><div class="dproj-name">${escapeHtml(p.name||'')}</div>
-          <div class="dproj-meta">${escapeHtml(p.code || '')}${p.client?' · '+escapeHtml(p.client):''}${p.lang?' · '+escapeHtml(p.lang):''}</div></div>
+        <div style="min-width:0"><div class="dproj-name">${escapeHtml(p.code || p.name || '')}</div>
+          <div class="dproj-meta">${escapeHtml(p.notes || [p.name, p.client].filter(Boolean).join(' · '))}</div></div>
         ${archiveBtn}
       </div>
       <div class="dproj-progress-row">
@@ -8309,8 +8404,8 @@ function renderDashboardSection(){
       return cnt > 0 ? `<div style="background:${s.c};width:${cnt/total*100}%"></div>` : '';
     }).join('');
     return `<div class="dash-list-item" onclick="switchProject('${p.id}');setSection('projects')">
-      <span class="dli-name">${escapeHtml(p.name||'')}</span>
-      ${p.code ? `<span class="dli-code">${escapeHtml(p.code)}</span>` : ''}
+      <span class="dli-name">${escapeHtml(p.code || p.name || '')}</span>
+      ${(p.notes || p.name) ? `<span class="dli-code">${escapeHtml(p.notes || p.name)}</span>` : ''}
       <div class="dli-bar">${segs}</div>
       <span class="dli-pct">${pct}%</span>
       <span class="dli-meta">${done}/${total}${probs>0?' · '+probs+' ⚠':''}</span>
@@ -8426,15 +8521,15 @@ function renderShortcutsSection(){
     <div class="sc-section">
       <div class="sc-section-h">Screenshots & images</div>
       <div class="sc-row">
-        <div><div class="sc-label">Capture screenshot</div><div class="sc-label-desc">Native macOS area selector</div></div>
-        <div class="sc-keys"><kbd>⌘</kbd><span class="plus">+</span><kbd>⇧</kbd><span class="plus">+</span><kbd>G</kbd></div>
+        <div><div class="sc-label">Capture screenshot</div><div class="sc-label-desc">Native area selector</div></div>
+        <div class="sc-keys"><kbd>Ctrl</kbd><span class="plus">+</span><kbd>Shift</kbd><span class="plus">+</span><kbd>G</kbd></div>
       </div>
       <div class="sc-row">
         <div><div class="sc-label">Paste image</div><div class="sc-label-desc">From clipboard, then click target slot</div></div>
-        <div class="sc-keys"><kbd>⌘</kbd><span class="plus">+</span><kbd>V</kbd></div>
+        <div class="sc-keys"><kbd>Ctrl</kbd><span class="plus">+</span><kbd>V</kbd></div>
       </div>
       <div class="sc-row">
-        <div><div class="sc-label">Drop image file</div><div class="sc-label-desc">Drag from Finder onto a Pic slot</div></div>
+        <div><div class="sc-label">Drop image file</div><div class="sc-label-desc">Drag from Explorer onto a Pic slot</div></div>
         <div class="sc-mouse">drag & drop</div>
       </div>
       <div class="sc-row">
@@ -8557,6 +8652,8 @@ function renderProfileSection(){
               style="width:28px;height:28px;border:none;border-radius:6px;cursor:pointer;background:none;padding:0">
             <input type="text" value="${s.l}" id="slabel_${s.id}"
               style="flex:1;border:1px solid var(--line-2);border-radius:6px;padding:5px 10px;font-size:13px;background:var(--surf);color:var(--t1);outline:none">
+            <input type="number" value="${statusPriority(s)}" id="sprio_${s.id}" title="Priority (display order — lower = first)" min="0" step="1"
+              style="width:52px;border:1px solid var(--line-2);border-radius:6px;padding:5px 6px;font-size:13px;background:var(--surf);color:var(--t1);outline:none;text-align:center">
             <button onclick="deleteStatus(${s.id})" title="Remove status"
               style="width:28px;height:28px;border:1px solid var(--line-2);border-radius:6px;background:none;color:var(--t3);cursor:pointer;flex-shrink:0"
               ${visibleStatuses().length <= 1 ? 'disabled' : ''}>×</button>
@@ -8714,12 +8811,41 @@ function _projItemHtml(it){
     <button title="Archive" onclick="document.getElementById('projPicker').classList.remove('open');archiveProject('${it.id}')" style="background:none;border:none;color:var(--t3);cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="14" height="11" rx="1.5"/><path d="M1 4l1.5-2.5h11L15 4"/><line x1="6" y1="9" x2="10" y2="9"/></svg></button>
     <button title="Delete" onclick="document.getElementById('projPicker').classList.remove('open');deleteProject('${it.id}')" style="background:none;border:none;color:#EF4444;cursor:pointer;padding:3px 5px;border-radius:4px;line-height:0"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg></button>
   </div>` : '';
-  return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" onclick="selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
+  // v0.1.189 (DB): drag-to-reorder. The whole row is draggable by its grip;
+  // a plain click still selects (HTML5 drag only fires on an actual drag).
+  return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" data-pid="${it.id}" draggable="true"
+      ondragstart="projDragStart(event,'${it.id}')" ondragover="projDragOver(event,this)" ondragleave="projDragLeave(event,this)" ondrop="projDrop(event,'${it.id}')" ondragend="projDragEnd(event)"
+      onclick="selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
+    <span class="ppi-grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>
     <span class="ppi-name">${it.name}</span>
     ${it.code ? `<span class="ppi-code">${it.code}</span>` : ''}
     <span class="ppi-meta">${it.count}</span>
     ${actions}
   </div>`;
+}
+// ─── Project drag-reorder (v0.1.189, DB) ───────────────────────────────
+// Order is kept as an id list in localStorage and applied only at render
+// time (renderProjPicker sorts by it), so we never touch the load pipeline.
+let _projDragId = null;
+function getProjOrder(){ try { return JSON.parse(localStorage.getItem('eb_proj_order') || '[]'); } catch(_){ return []; } }
+function projOrderIndex(id){ const i = getProjOrder().indexOf(id); return i === -1 ? 1e9 : i; }
+function projDragStart(e, id){ _projDragId = id; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch(_){} }
+function projDragOver(e, el){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if(el) el.classList.add('drag-over'); }
+function projDragLeave(e, el){ if(el) el.classList.remove('drag-over'); }
+function projDragEnd(){ _projDragId = null; document.querySelectorAll('.proj-picker-item.drag-over').forEach(x => x.classList.remove('drag-over')); }
+function projDrop(e, targetId){
+  e.preventDefault(); e.stopPropagation();
+  const src = _projDragId; _projDragId = null;
+  document.querySelectorAll('.proj-picker-item.drag-over').forEach(x => x.classList.remove('drag-over'));
+  if(!src || src === targetId) return;
+  // Seed the order with every current project (in display order), then move src just before target.
+  let order = getProjOrder();
+  PROJECTS.forEach(p => { if(!order.includes(p.id)) order.push(p.id); });
+  order = order.filter(id => id !== src);
+  const ti = order.indexOf(targetId);
+  order.splice(ti === -1 ? order.length : ti, 0, src);
+  localStorage.setItem('eb_proj_order', JSON.stringify(order));
+  renderProjPicker();
 }
 function renderProjPicker(){
   const list = document.getElementById('ppList');
@@ -8739,6 +8865,8 @@ function renderProjPicker(){
       matches.push({ p, client, item: { id: p.id, name: p.name, code: p.code || '', count: TASKS.filter(t => t.proj === p.id).length } });
     }
   }
+  // v0.1.189 (DB): honour the manual drag-reorder order saved in localStorage.
+  matches.sort((a, b) => projOrderIndex(a.p.id) - projOrderIndex(b.p.id));
   if(search){
     bodyHtml += matches.map(m => _projItemHtml(m.item)).join('');
   } else {
@@ -8979,10 +9107,22 @@ function filterProjPicker(){
   renderProjPicker();
 }
 
-// Close picker on outside click
+// Close picker on outside click.
+// v0.1.189 (DB): decide inside/outside by GEOMETRY, not e.target.closest().
+// Collapsing a client group (toggleClientGroup) re-renders #ppList and detaches
+// the clicked node before this bubble-phase handler runs; closest('#projPicker')
+// then returns null and the picker was wrongly closing on an inside click.
+// Hit-testing the click coordinates against the button + menu rects is immune
+// to that re-render, so clicking anywhere inside the dropdown keeps it open.
 document.addEventListener('click', (e) => {
   const picker = document.getElementById('projPicker');
-  if(picker && picker.classList.contains('open') && !e.target.closest('#projPicker')){
+  if(!picker || !picker.classList.contains('open')) return;
+  const hit = (el) => {
+    if(!el) return false;
+    const r = el.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  };
+  if(!hit(picker.querySelector('.proj-picker-btn')) && !hit(document.getElementById('projPickerMenu'))){
     picker.classList.remove('open');
   }
 });
@@ -9101,8 +9241,105 @@ function insertEmoji(em){
   if(picker) picker.remove();
 }
 
+// ─── Chat: @mentions + edit / delete (v0.1.189, DB) ─────────────────────
+function highlightMentions(html){
+  // Wrap @name tokens (after start / whitespace / '>' ) in a mention chip.
+  return String(html).replace(/(^|[\s(>])@([A-Za-z0-9_.\-]{1,40})/g,
+    (m, pre, name) => `${pre}<span class="mention">@${name}</span>`);
+}
+function renderMsgText(text){ return highlightMentions(linkifyText(text || '')); }
+
+// Minimal reusable multi-line text-prompt modal (Cmd/Ctrl+Enter = save, Esc = cancel).
+function ebTextPrompt(title, value, onOk){
+  const wrap = document.createElement('div');
+  wrap.className = 'eb-prompt-modal on';
+  wrap.innerHTML = `<div class="confirm-card"><h3></h3>
+    <textarea class="eb-prompt-ta" rows="3"></textarea>
+    <div class="confirm-foot"><button class="confirm-cancel">Cancel</button><button class="confirm-ok">Save</button></div></div>`;
+  wrap.querySelector('h3').textContent = title;
+  document.body.appendChild(wrap);
+  const ta = wrap.querySelector('.eb-prompt-ta');
+  ta.value = value || '';
+  const close = () => wrap.remove();
+  const ok = () => { const v = ta.value.trim(); close(); if(v) onOk(v); };
+  wrap.querySelector('.confirm-cancel').onclick = close;
+  wrap.querySelector('.confirm-ok').onclick = ok;
+  wrap.addEventListener('click', e => { if(e.target === wrap) close(); });
+  ta.addEventListener('keydown', e => {
+    if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); ok(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); close(); }
+  });
+  setTimeout(() => { ta.focus(); ta.select(); }, 40);
+}
+function _rerenderChatSurfaces(t){
+  render();
+  const pop = document.getElementById('chatPop');
+  if(pop && pop.classList.contains('open') && activeChatTaskId === t.id) renderChatMsgs(t);
+}
+function editChatMsg(taskId, idx){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.chat) || !t.chat[idx]) return;
+  const m = t.chat[idx];
+  ebTextPrompt('Edit message', m.text || '', (newText) => {
+    m.text = newText; m.edited = true;
+    if(t._cloud && m.id && db && db.ready){ try { db.taskComments.update(m.id, { body: newText }); } catch(_){} }
+    _rerenderChatSurfaces(t);
+  });
+}
+function deleteChatMsg(taskId, idx){
+  const t = TASKS.find(x => x.id === taskId);
+  if(!t || !Array.isArray(t.chat) || !t.chat[idx]) return;
+  const m = t.chat[idx];
+  openConfirmModal('Delete message', 'Delete this message? This cannot be undone.', 'Delete', () => {
+    const i = t.chat.indexOf(m);
+    if(i >= 0) t.chat.splice(i, 1);
+    if(t._cloud && m.id && db && db.ready){ try { db.taskComments.delete(m.id); } catch(_){} }
+    _rerenderChatSurfaces(t);
+  });
+}
+
+// @mention autocomplete for the inline chat input.
+let _mentionInp = null;
+function closeMentionPop(){ const p = document.getElementById('chatMentionPop'); if(p) p.remove(); _mentionInp = null; }
+function getMentionCandidates(taskId){
+  const t = TASKS.find(x => x.id === taskId);
+  const set = new Set();
+  const proj = t && PROJECTS.find(p => p.id === t.proj);
+  if(proj && Array.isArray(proj.members)) proj.members.forEach(mm => { const n = mm.name || mm.initials || mm.email; if(n) set.add(n); });
+  const projId = t ? t.proj : currentProject;
+  TASKS.filter(x => x.proj === projId).forEach(x => (x.chat || []).forEach(c => { if(c.a) set.add(c.a); }));
+  return [...set];
+}
+function chatMentionInput(inp){
+  const upto = (inp.value || '').slice(0, inp.selectionStart);
+  const mtch = upto.match(/@([A-Za-z0-9_.\-]*)$/);
+  if(!mtch){ closeMentionPop(); return; }
+  const q = mtch[1].toLowerCase();
+  const cands = getMentionCandidates(inp.dataset.taskId).filter(n => String(n).toLowerCase().includes(q)).slice(0, 6);
+  if(!cands.length){ closeMentionPop(); return; }
+  let pop = document.getElementById('chatMentionPop');
+  if(!pop){ pop = document.createElement('div'); pop.id = 'chatMentionPop'; pop.className = 'chat-mention-pop'; document.body.appendChild(pop); }
+  _mentionInp = inp;
+  pop.innerHTML = cands.map(n => `<div class="cm-item" onmousedown="event.preventDefault();insertMention('${String(n).replace(/'/g,"\\'")}')">@${escapeHtml(String(n))}</div>`).join('');
+  const r = inp.getBoundingClientRect();
+  pop.style.left = r.left + 'px';
+  pop.style.minWidth = Math.min(220, Math.max(140, r.width)) + 'px';
+  requestAnimationFrame(() => { pop.style.top = (r.top - pop.offsetHeight - 4) + 'px'; });
+}
+function insertMention(name){
+  const inp = _mentionInp; if(!inp) return;
+  const caret = inp.selectionStart;
+  const before = inp.value.slice(0, caret).replace(/@([A-Za-z0-9_.\-]*)$/, '@' + name + ' ');
+  const after = inp.value.slice(caret);
+  inp.value = before + after;
+  const pos = before.length;
+  inp.focus(); inp.setSelectionRange(pos, pos);
+  closeMentionPop();
+}
+
 async function sendInlineChat(inp){
   // v0.1.43: chat возвращён — это спринт 1.4 ТЗ (мини-чат внутри карточки задачи).
+  closeMentionPop();
   if(!inp) return;
   const taskId = inp.dataset.taskId;
   const text = (inp.value || '').trim();
@@ -9661,14 +9898,16 @@ function resetShortcuts(){
   toast('✓ Shortcuts reset to defaults');
 }
 function comboToHTML(combo){
-  // 'mod+shift+t' → '<kbd>⌘</kbd>+<kbd>⇧</kbd>+<kbd>T</kbd>'
+  // 'mod+shift+t' → '<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>'
+  // v0.1.189 (DB): the app ships to Windows testers, so ALWAYS render
+  // Windows-style key names (Ctrl / Shift / Alt), never the macOS glyphs,
+  // regardless of the OS the build is viewed on.
   if(!combo) return '<kbd>—</kbd>';
   const parts = combo.toLowerCase().split('+');
-  const isMac = navigator.platform.toLowerCase().includes('mac');
   return parts.map(p => {
-    if(p === 'mod')   return `<kbd>${isMac ? '⌘' : 'Ctrl'}</kbd>`;
-    if(p === 'shift') return '<kbd>⇧</kbd>';
-    if(p === 'alt')   return `<kbd>${isMac ? '⌥' : 'Alt'}</kbd>`;
+    if(p === 'mod')   return '<kbd>Ctrl</kbd>';
+    if(p === 'shift') return '<kbd>Shift</kbd>';
+    if(p === 'alt')   return '<kbd>Alt</kbd>';
     return `<kbd>${p.toUpperCase()}</kbd>`;
   }).join('<span class="plus">+</span>');
 }
@@ -9714,7 +9953,7 @@ function captureShortcutHandler(e){
   if(['Meta','Control','Shift','Alt','Tab'].includes(key)) return;
   e.preventDefault(); e.stopPropagation();
   if(!isMod){
-    toast('Combo must include ⌘/Ctrl', 1800);
+    toast('Combo must include Ctrl', 1800);
     return;
   }
   const parts = ['mod'];

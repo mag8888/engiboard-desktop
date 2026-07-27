@@ -73,20 +73,20 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .emoji-picker button:hover{background:rgba(255,255,255,.16)}
 
 /* Tooltip */
+/* v0.1.163 (DB): подсказки рисовались СВЕРХУ кнопок (bottom:100%), а тулбар
+   у самого верха окна — поэтому обрезались. Переносим ПОД кнопки (top:100%),
+   снизу место всегда есть. */
+/* v0.1.163 (DB): подсказка и клавиша были двумя отдельными бейджами и
+   накладывались друг на друга. Теперь одна строка: "Comment  Q" —
+   data-tip + клавиша из data-key через ::after content. ::before убран. */
 .fb::after{
-  content:attr(data-tip);position:absolute;bottom:calc(100% + 10px);left:50%;
+  content:attr(data-tip) "   " attr(data-key);position:absolute;top:calc(100% + 10px);left:50%;
   transform:translateX(-50%);background:#000;color:#fff;
   font-size:10px;font-weight:500;padding:4px 9px;border-radius:5px;
   white-space:nowrap;pointer-events:none;opacity:0;transition:.12s;z-index:100;
   border:1px solid var(--line2)
 }
-.fb::before{
-  content:attr(data-key);position:absolute;bottom:calc(100% + 10px);right:6px;
-  background:rgba(255,255,255,.15);color:#fff;font-family:var(--mono);
-  font-size:9px;padding:1px 5px;border-radius:3px;
-  pointer-events:none;opacity:0;transition:.12s;z-index:101;transform:translateX(0)
-}
-.fb:hover::after,.fb:hover::before{opacity:1}
+.fb:hover::after{opacity:1}
 
 /* Colors */
 .cdot{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.15s;flex-shrink:0;position:relative}
@@ -120,9 +120,11 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .tlbl{position:absolute;background:rgba(0,0,0,.8);color:#fff;font-size:12px;font-weight:500;padding:4px 9px;font-family:var(--font);white-space:nowrap;cursor:pointer;pointer-events:auto;border-radius:4px}
 .blur-box{position:absolute;backdrop-filter:blur(10px);background:rgba(120,120,120,.15);pointer-events:auto;border-radius:4px}
 .text-inp{position:absolute;z-index:25;border:2px solid #3B82F6;background:rgba(255,255,255,.95);outline:none;font-size:13px;font-family:var(--font);color:#000;padding:4px 7px;min-width:100px;pointer-events:auto;border-radius:4px}
-.cpin{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border:2px solid #fff;cursor:pointer;pointer-events:auto;transition:transform .12s;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-.cpin:hover{transform:translate(-50%,-50%) scale(1.15)}
-.cbbl{position:absolute;z-index:21;background:#fff;border:1px solid #ddd;min-width:200px;max-width:260px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+/* v0.1.172 (DB): пины и пузыри комментов НЕ масштабируются с рисунком.
+   #paper зумится scale(_edScale); --inv = 1/_edScale контр-масштабирует их
+   обратно до постоянного экранного размера (позиция следует за картинкой). */
+.cpin{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border:2px solid #fff;cursor:pointer;pointer-events:auto;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.cbbl{position:absolute;z-index:21;background:#fff;border:1px solid #ddd;min-width:200px;max-width:260px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:scale(var(--inv,1));transform-origin:left top}
 .cmt-pop{position:absolute;z-index:30;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
 
 /* Right panel — 2 stacked sections (Layers + Comments), each scrolling internally */
@@ -161,6 +163,12 @@ html,body{height:100%;font-family:var(--font);overflow:hidden;background:var(--b
 .notif.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
 
 input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;background:var(--surf2);border-radius:2px}
+/* v0.1.189 (DB): Paint/Procreate-style vertical sliders on the left edge */
+.left-tools{position:fixed;left:10px;top:50%;transform:translateY(-50%);z-index:40;display:flex;flex-direction:column;gap:16px;background:rgba(28,28,32,.95);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px 10px;backdrop-filter:blur(12px)}
+.left-tools .lt-group{display:flex;flex-direction:column;align-items:center;gap:7px}
+.left-tools .lt-range{-webkit-appearance:slider-vertical;appearance:slider-vertical;writing-mode:vertical-lr;direction:rtl;width:22px;height:104px;background:transparent;accent-color:#3B82F6;cursor:pointer}
+.left-tools .lt-cap{color:#fff;font-size:10px;font-family:var(--mono);min-height:12px}
+.left-tools .lt-lbl{color:#A0A0A8;font-size:9px;text-transform:uppercase;letter-spacing:.05em}
 
 .tbar{-webkit-app-region:drag;app-region:drag}
 .tbar button,.tbar .tact,.tbar .tbtn-sm{-webkit-app-region:no-drag;app-region:no-drag}
@@ -209,13 +217,20 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="fb" data-id="arrow" data-tip="Arrow" data-key="A" onclick="setTool('arrow')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7"/></svg></button>
     <button class="fb" data-id="line" data-tip="Line" data-key="L" onclick="setTool('line')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" stroke-linecap="round"/></svg></button>
     <button class="fb" data-id="freehand" data-tip="Freehand" data-key="P" onclick="setTool('freehand')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></button>
-    <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 9l4 4-4 4-4-4 4-4zM7 17l-2 2M9 11L21 3M14 6l5 5"/></svg></button>
+    <button class="fb" data-id="marker" data-tip="Marker" data-key="M" onclick="setTool('marker')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></button>
     <div class="fb-sep"></div>
     <button class="fb" data-id="text" data-tip="Text" data-key="T" onclick="setTool('text')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2M9 20h6M12 4v16"/></svg></button>
-    <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button>
-    <button class="fb" data-id="blur" data-tip="Blur" data-key="B" onclick="setTool('blur')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg></button>
+    <!-- v0.1.157 (N7 from 2026-06-05 follow-up): DB asked to remove the
+         dimension/ruler tool entirely. The "153 mm" auto-readout was
+         meaningless on a non-CAD screenshot and confused users. Existing
+         annotations of type 'dimension' still render, but the tool is no
+         longer creatable from the toolbar. -->
+    <!-- <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button> -->
+    <!-- v0.1.164 (DB): инструмент Blur убран полностью — не нужен. -->
     <button class="fb" data-id="comment" data-tip="Comment" data-key="Q" onclick="setTool('comment')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
     <button class="fb" data-id="emoji" data-tip="Emoji" data-key="E" onclick="toggleEmojiPicker(event)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9.5" x2="9.01" y2="9.5"/><line x1="15" y1="9.5" x2="15.01" y2="9.5"/></svg></button>
+    <!-- v0.1.164 (DB): кнопка «скрыть/показать все метки» (глаз-перечёркнутый). -->
+    <button class="fb" id="hideMarksBtn" data-tip="Hide marks" data-key="" onclick="toggleMarksHidden()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg></button>
     <div class="fb-sep"></div>
     <div class="cdot on" style="background:#FF453A" data-c="#FF453A" onclick="setCol(this)"></div>
     <div class="cdot" style="background:#FF9F0A" data-c="#FF9F0A" onclick="setCol(this)"></div>
@@ -228,6 +243,30 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <button class="sw on" data-w="2" onclick="setSW(this)"><svg width="16" height="3"><line x1="0" y1="1.5" x2="16" y2="1.5" stroke-width="2"/></svg></button>
     <button class="sw" data-w="3" onclick="setSW(this)"><svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke-width="3"/></svg></button>
     <button class="sw" data-w="5" onclick="setSW(this)"><svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke-width="5"/></svg></button>
+
+    <!-- v0.1.156 (#29 MR): fill toggle for rect/circle. Shows only when one
+         of those tools is active. -->
+    <div class="fb-sep" id="shapeFillSep" style="display:none"></div>
+    <!-- v0.1.163 (DB): иконка заливки серая (была currentColor — терялась на
+         активном фоне). Это выбор-тоггл: пусто = только контур, залито = с
+         заливкой. -->
+    <button class="sw" id="shapeFillBtn" data-tip="Fill (toggle)" style="display:none" onclick="toggleShapeFill()" title="Fill shape (toggle outline / filled)">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2" fill="#9ca3af" id="shapeFillIcoFill" style="opacity:0"/><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="#9ca3af" stroke-width="2"/></svg>
+    </button>
+
+    <!-- v0.1.156 (#31/#32 MR): arrow direction picker (end / start / both)
+         and head-size slider. Shown only when the arrow tool is active. -->
+    <div class="fb-sep" id="arrowOptsSep" style="display:none"></div>
+    <button class="sw arrow-dir-btn on" id="arrowDirEnd" data-dir="end" style="display:none" onclick="setArrowDir('end')" title="Arrow at end">
+      <svg width="20" height="10" viewBox="0 0 20 10"><line x1="0" y1="5" x2="14" y2="5" stroke="currentColor" stroke-width="2"/><path d="M14 1 L19 5 L14 9 Z" fill="currentColor"/></svg>
+    </button>
+    <button class="sw arrow-dir-btn" id="arrowDirStart" data-dir="start" style="display:none" onclick="setArrowDir('start')" title="Arrow at start">
+      <svg width="20" height="10" viewBox="0 0 20 10"><line x1="6" y1="5" x2="20" y2="5" stroke="currentColor" stroke-width="2"/><path d="M6 1 L1 5 L6 9 Z" fill="currentColor"/></svg>
+    </button>
+    <button class="sw arrow-dir-btn" id="arrowDirBoth" data-dir="both" style="display:none" onclick="setArrowDir('both')" title="Arrows at both ends">
+      <svg width="20" height="10" viewBox="0 0 20 10"><line x1="5" y1="5" x2="15" y2="5" stroke="currentColor" stroke-width="2"/><path d="M5 1 L0 5 L5 9 Z" fill="currentColor"/><path d="M15 1 L20 5 L15 9 Z" fill="currentColor"/></svg>
+    </button>
+    <input type="range" id="arrowSizeRange" min="0.6" max="2" step="0.1" value="1" style="display:none;width:60px;margin:0 4px" oninput="setArrowSize(parseFloat(this.value))" title="Arrow size">
   </div>
 
   <div class="paper" id="paper" style="width:860px;height:560px">
@@ -244,6 +283,19 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
         <button onclick="closeCmtPop()" style="padding:5px 12px;font-size:11px;border:none;background:none;cursor:pointer;color:#888;font-family:var(--font);border-radius:4px">Cancel</button>
         <button onclick="submitCmt()" style="padding:5px 12px;font-size:11px;border:none;background:#3B82F6;color:#fff;cursor:pointer;font-family:var(--font);border-radius:4px;font-weight:600">Post</button>
       </div>
+    </div>
+  </div>
+  <!-- v0.1.189 (DB): left-edge vertical sliders for pen size + opacity -->
+  <div class="left-tools" id="leftTools">
+    <div class="lt-group">
+      <span class="lt-cap" id="ltSizeVal">2</span>
+      <input type="range" class="lt-range" min="1" max="30" value="2" oninput="setSwVal(this.value)" title="Pen / line size">
+      <span class="lt-lbl">Size</span>
+    </div>
+    <div class="lt-group">
+      <span class="lt-cap" id="ltOpVal">100%</span>
+      <input type="range" class="lt-range" min="10" max="100" value="100" oninput="setOpVal(this.value)" title="Opacity">
+      <span class="lt-lbl">Opacity</span>
     </div>
   </div>
   <!-- v0.1.125: zoom controls inside the editor -->
@@ -287,7 +339,25 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
 <!-- v0.1.74: html2canvas CDN removed — native compositeToDataUrl() replaces it
      (no network dependency, captures the background reliably). -->
 <script>
+// v0.1.181 (security): comment / label text comes from collaborators via the
+// shared tasks.annotations JSONB (postMessage / applyPayload) and was rendered
+// raw into innerHTML — a stored-XSS sink inside this editor iframe. Escape it.
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// Allow only a safe CSS color token (hex / rgb[a] / named word); else fall back.
+function safeColor(c){
+  const v = String(c == null ? '' : c).trim();
+  return /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,\s%]+\)|[a-zA-Z]{1,20})$/.test(v) ? v : '#FF453A';
+}
 let tool='select', color='#FF453A', sw=2, opVal=1;
+let editingTextId=null; // v0.1.189 (DB): id of the text label being re-edited
+// v0.1.156 (#29/#31/#32 MR): per-tool drawing options.
+let shapeFill = false;        // #29 toggle: rect/circle filled vs. stroked
+let arrowDir  = 'end';        // #31: 'end' | 'start' | 'both'
+let arrowSize = 1;             // #32: arrowhead size multiplier (0.6 .. 2.0)
 let pendingEmoji=null;
 const EMOJIS=['👍','👎','✅','❌','🔥','⭐','💯','⚠️','❗','❓','👀','🎉'];
 const EMOJI_SIZE=40;  // glyph size in paper CSS px (scaled up on save to match)
@@ -335,9 +405,20 @@ let isPanning=false, panStart={x:0,y:0,ox:0,oy:0}, panOff={x:0,y:0};
 // v0.1.125: zoom inside the editor. CSS transform scale is safe because
 // relPos() uses getBoundingClientRect (percentages stay correct).
 let _edScale = 1;
+// v0.1.172 (DB): пины/пузыри комментов держим постоянного экранного размера —
+// контр-масштаб 1/_edScale задаём ИНЛАЙНОМ (var() в transform движок игнорит).
+function _applyCmtInvScale(){
+  const inv = 1 / _edScale;
+  document.querySelectorAll('.cpin-r').forEach(p => { p.style.transform = `translate(-50%,-50%) scale(${inv})`; });
+  document.querySelectorAll('.cbbl-r').forEach(b => { b.style.transform = `scale(${inv})`; b.style.transformOrigin = 'left top'; });
+}
 function applyPaperTransform(){
   const p = document.getElementById('paper');
-  if(p) p.style.transform = `translate(${panOff.x}px,${panOff.y}px) scale(${_edScale})`;
+  if(p){
+    p.style.transform = `translate(${panOff.x}px,${panOff.y}px) scale(${_edScale})`;
+    p.style.setProperty('--inv', String(1/_edScale));
+  }
+  _applyCmtInvScale();
   const lvl = document.getElementById('edZoomLevel');
   if(lvl) lvl.textContent = Math.round(_edScale*100) + '%';
 }
@@ -376,11 +457,60 @@ function setTool(t){
   document.getElementById('sbTool').textContent=`Tool: ${t[0].toUpperCase()+t.slice(1)} (${btn?btn.dataset.key:''})`;
   closeCmtPop();commitText();
   if(t!=='emoji'){const pk=document.getElementById('emojiPicker');if(pk)pk.classList.remove('on');}
+  // v0.1.156: toggle contextual option controls based on the active tool.
+  syncToolOptionsUi();
+}
+function syncToolOptionsUi(){
+  const isShape = tool === 'rect' || tool === 'circle';
+  const isArrow = tool === 'arrow';
+  document.getElementById('shapeFillSep').style.display = isShape ? '' : 'none';
+  document.getElementById('shapeFillBtn').style.display = isShape ? '' : 'none';
+  document.getElementById('shapeFillBtn').classList.toggle('on', shapeFill);
+  document.getElementById('shapeFillIcoFill').style.opacity = shapeFill ? '1' : '0';
+  document.getElementById('arrowOptsSep').style.display = isArrow ? '' : 'none';
+  ['arrowDirEnd','arrowDirStart','arrowDirBoth'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.display = isArrow ? '' : 'none';
+    el.classList.toggle('on', isArrow && arrowDir === el.dataset.dir);
+  });
+  const slider = document.getElementById('arrowSizeRange');
+  slider.style.display = isArrow ? '' : 'none';
+  slider.value = String(arrowSize);
+}
+function toggleShapeFill(){
+  shapeFill = !shapeFill;
+  syncToolOptionsUi();
+}
+function setArrowDir(d){
+  arrowDir = d;
+  syncToolOptionsUi();
+}
+function setArrowSize(v){
+  arrowSize = isFinite(v) ? v : 1;
 }
 function setCol(el){color=el.dataset.c;document.querySelectorAll('.cdot').forEach(d=>d.classList.remove('on'));el.classList.add('on');}
-function setSW(el){sw=+el.dataset.w;document.querySelectorAll('.sw').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+// v0.1.156 (#30 MR): commit a manual dimension label into the annotation
+// model. Empty string clears the override and falls back to the auto-mm.
+function updateDimLabel(id, value){
+  const a = annotations.find(x => x.id === id);
+  if(!a) return;
+  if(value && value.trim()) a.label = value.trim(); else delete a.label;
+  // Don't full re-render — that would lose the input focus. Just remember.
+}
+function setSW(el){
+  sw=+el.dataset.w;
+  // Only toggle .on among the stroke-width siblings, not every .sw element
+  // (the new contextual controls are also .sw and should stay highlighted
+  // based on their own state).
+  document.querySelectorAll('button.sw[data-w]').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
 // v0.1.29: opacity slider removed — opVal stays at 1.0 always
 function setOp(v){ /* no-op */ }
+// v0.1.189 (DB): left vertical sliders control pen size (sw) and opacity (opVal)
+// for newly-drawn annotations, Paint/Procreate-style.
+function setSwVal(v){ sw = +v; const el = document.getElementById('ltSizeVal'); if(el) el.textContent = v; document.querySelectorAll('button.sw[data-w]').forEach(b => b.classList.toggle('on', +b.dataset.w === sw)); }
+function setOpVal(v){ opVal = (+v) / 100; const el = document.getElementById('ltOpVal'); if(el) el.textContent = v + '%'; }
 
 paper.addEventListener('mousedown',e=>{
   if(e.target.closest('#cmtPop,#textInp')) return;
@@ -409,7 +539,10 @@ paper.addEventListener('mousedown',e=>{
   const op=tool==='marker'?0.35:opVal;
   cur=tool==='freehand'||tool==='pen'||tool==='marker'
     ?{id:'a'+Date.now(),type:'freehand',x:p.x,y:p.y,w:0,h:0,color,sw:s,op,pts:[{x:p.x,y:p.y}]}
-    :{id:'a'+Date.now(),type:tool,x:p.x,y:p.y,w:0,h:0,color,sw:s,op};
+    :{id:'a'+Date.now(),type:tool,x:p.x,y:p.y,w:0,h:0,color,sw:s,op,
+       // v0.1.156 (#29/#31/#32 MR): pick up the current toolbar settings.
+       ...(tool==='rect'||tool==='circle' ? { fill: !!shapeFill } : {}),
+       ...(tool==='arrow' ? { headDir: arrowDir || 'end', headSize: arrowSize || 1 } : {})};
 });
 
 paper.addEventListener('mousemove',e=>{
@@ -428,7 +561,41 @@ paper.addEventListener('mousemove',e=>{
   }
   if(!drawing||!cur) return;
   if(cur.type==='freehand') cur={...cur,pts:[...(cur.pts||[]),{x:p.x,y:p.y}]};
-  else cur={...cur,w:p.x-startPos.x,h:p.y-startPos.y};
+  else {
+    let w = p.x - startPos.x;
+    let h = p.y - startPos.y;
+    // v0.1.156 (#34 MR): hold Shift to constrain drawing.
+    // - Lines/arrows: snap angle to nearest 0° / 45° / 90°.
+    // - Rectangles/circles: equal sides (square / round circle), pivoting on
+    //   the longer axis so the cursor still drives the size.
+    if(e.shiftKey){
+      if(cur.type === 'line' || cur.type === 'arrow'){
+        const ang = Math.atan2(h, w);
+        const snapped = Math.round(ang / (Math.PI / 4)) * (Math.PI / 4);
+        const len = Math.sqrt(w*w + h*h);
+        w = Math.cos(snapped) * len;
+        h = Math.sin(snapped) * len;
+      } else if(cur.type === 'rect' || cur.type === 'circle' || cur.type === 'blur'){
+        // v0.1.173 (DB): идеально РОВНЫЙ квадрат/круг. Координаты в % холста,
+        // поэтому равные w/h в % на неквадратном чертеже дают прямоугольник.
+        // Уравниваем по ПИКСЕЛЯМ через аспект холста (соотношение не зависит
+        // от зума, т.к. ширина/высота paper масштабируются одинаково).
+        const pr = paper.getBoundingClientRect();
+        const prw = pr.width || 1, prh = pr.height || 1;
+        const sidePx = Math.max(Math.abs(w) * prw, Math.abs(h) * prh);
+        w = (w < 0 ? -1 : 1) * (sidePx / prw);
+        h = (h < 0 ? -1 : 1) * (sidePx / prh);
+      }
+    }
+    // v0.1.163 (DB): зажать Alt/Option — рисовать ИЗ ЦЕНТРА (точка нажатия =
+    // центр фигуры, растёт симметрично во все стороны), как в Figma.
+    // Shift = равносторонняя; Shift+Alt = равносторонняя из центра.
+    if(e.altKey){
+      cur = { ...cur, x: startPos.x - w, y: startPos.y - h, w: 2*w, h: 2*h };
+    } else {
+      cur = { ...cur, x: startPos.x, y: startPos.y, w, h };
+    }
+  }
   renderPrev();
 });
 
@@ -464,29 +631,126 @@ function makeAnnotEl(a,prev=false){
   const w=Math.abs(a.w),h=Math.abs(a.h);
   const op=prev?0.6:(a.op??1);
   const sel=!prev&&a.id===selId;
-  if(a.type==='rect'){const d=document.createElement('div');d.className='ashape';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
-  if(a.type==='circle'){const d=document.createElement('div');d.className='ashape';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};border-radius:50%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
+  if(a.type==='rect'){
+    // v0.1.156 (#29 MR): rectangle can be filled. The fill colour is the
+    // shape colour at 25% alpha so the stroke is still visible on top.
+    const d=document.createElement('div');d.className='ashape';
+    const fillCss = a.fill ? `background:${a.color}40;` : '';
+    d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};${fillCss}opacity:${op}`;
+    if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
+  if(a.type==='circle'){
+    const d=document.createElement('div');d.className='ashape';
+    const fillCss = a.fill ? `background:${a.color}40;` : '';
+    d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;border:${a.sw}px solid ${a.color};border-radius:50%;${fillCss}opacity:${op}`;
+    if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
   if(a.type==='arrow'||a.type==='line'){
-    const ang=Math.atan2(a.h,a.w)*180/Math.PI;
-    const len=Math.sqrt(a.w*a.w+a.h*a.h);
-    const wrap=document.createElement('div');
-    wrap.className='arrow-wrap';
-    wrap.style.cssText=`left:${a.x}%;top:${a.y}%;width:${len}%;height:0;transform:rotate(${ang}deg);opacity:${op}`;
-    const line=document.createElement('div');
-    line.style.cssText=`height:${a.sw}px;background:${a.color};width:100%`;
-    wrap.appendChild(line);
+    // v0.1.151 (fix #7 #8 reported by DB): previous implementation used a
+    // rotated <div> with width sized in % of paper width — that's wrong
+    // because the line vector's length mixes x% (paper width) and y% (paper
+    // height), so on a non-square canvas the line drifted away from the
+    // cursor (#8) and the arrow head was a hand-painted CSS triangle that
+    // looked chunky (#7). Switch to SVG: the fhSvg layer has viewBox 0 0
+    // 100 100 with preserveAspectRatio="none", so the % coords map exactly
+    // 1:1 to the same percentage system used by relPos(). Both the line
+    // body and arrow head are drawn as a single SVG path so they share
+    // stroke / aa behaviour and never separate.
+    const ns='http://www.w3.org/2000/svg';
+    const g=document.createElementNS(ns,'g');
+    g.style.opacity=op;
+    const x1=a.x, y1=a.y, x2=a.x+a.w, y2=a.y+a.h;
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('stroke',a.color);
+    line.setAttribute('stroke-width',a.sw);
+    line.setAttribute('stroke-linecap','round');
+    // vector-effect keeps stroke width constant regardless of viewBox scale —
+    // otherwise the line would thin out on wide paper.
+    line.setAttribute('vector-effect','non-scaling-stroke');
+    g.appendChild(line);
     if(a.type==='arrow'){
-      const tip=document.createElement('div');
-      const hs=4+a.sw;
-      tip.style.cssText=`position:absolute;right:0;top:50%;transform:translateY(-50%);width:0;height:0;border-left:${8+a.sw*2}px solid ${a.color};border-top:${hs}px solid transparent;border-bottom:${hs}px solid transparent`;
-      wrap.appendChild(tip);
+      // v0.1.156 (#31/#32 MR): arrow now supports configurable direction
+      // (end / start / both) and an arrowSize multiplier. Defaults match
+      // the previous behaviour ('end' direction, size 1.0).
+      const dir = a.headDir || 'end';
+      const sizeMul = (typeof a.headSize === 'number' ? a.headSize : 1) || 1;
+      const rect=fhSvg.getBoundingClientRect();
+      const px=(rect.width||1)/100, py=(rect.height||1)/100;
+      const dxPx=(x2-x1)*px, dyPx=(y2-y1)*py;
+      const lenPx=Math.sqrt(dxPx*dxPx+dyPx*dyPx) || 1;
+      const headLenPx=(10 + a.sw*2) * sizeMul;
+      const headHalfPx=(5 + a.sw*1.2) * sizeMul;
+      const ux=dxPx/lenPx, uy=dyPx/lenPx;
+      const perpX=-uy, perpY=ux;
+      // Helper — append one arrowhead at (tipX,tipY) pointing AWAY from the
+      // opposite end (uxDir signed). Returns the base point so we can clip
+      // the line cleanly at each tip.
+      function drawHead(tipX, tipY, signX, signY){
+        const tipPxX = tipX*px, tipPxY = tipY*py;
+        const baseXPx = tipPxX - signX*ux*headLenPx;
+        const baseYPx = tipPxY - signY*uy*headLenPx;
+        const leftX  = (baseXPx + perpX*headHalfPx)/px;
+        const leftY  = (baseYPx + perpY*headHalfPx)/py;
+        const rightX = (baseXPx - perpX*headHalfPx)/px;
+        const rightY = (baseYPx - perpY*headHalfPx)/py;
+        const head = document.createElementNS(ns,'path');
+        head.setAttribute('d', `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${rightX} ${rightY} Z`);
+        head.setAttribute('fill', a.color);
+        head.setAttribute('stroke','none');
+        g.appendChild(head);
+        return { baseFracX: baseXPx/px, baseFracY: baseYPx/py };
+      }
+      let endX2 = x2, endY2 = y2, endX1 = x1, endY1 = y1;
+      if(dir === 'end' || dir === 'both'){
+        const b = drawHead(x2, y2, 1, 1);
+        endX2 = b.baseFracX; endY2 = b.baseFracY;
+      }
+      if(dir === 'start' || dir === 'both'){
+        const b = drawHead(x1, y1, -1, -1);
+        endX1 = b.baseFracX; endY1 = b.baseFracY;
+      }
+      line.setAttribute('x1', endX1); line.setAttribute('y1', endY1);
+      line.setAttribute('x2', endX2); line.setAttribute('y2', endY2);
     }
-    return{el:wrap,layer:'div'};
+    if(sel){
+      // Selection highlight: render a fat translucent stroke under the line
+      // so the user knows what they're about to drag/delete.
+      const halo=document.createElementNS(ns,'line');
+      halo.setAttribute('x1',x1); halo.setAttribute('y1',y1);
+      halo.setAttribute('x2',x2); halo.setAttribute('y2',y2);
+      halo.setAttribute('stroke',a.color);
+      halo.setAttribute('stroke-width',a.sw+6);
+      halo.setAttribute('stroke-opacity','0.25');
+      halo.setAttribute('stroke-linecap','round');
+      halo.setAttribute('vector-effect','non-scaling-stroke');
+      g.insertBefore(halo, g.firstChild);
+    }
+    return{el:g,layer:'svg'};
   }
   if(a.type==='blur'){const d=document.createElement('div');d.className='blur-box';d.style.cssText=`left:${x}%;top:${y}%;width:${w}%;height:${h}%;opacity:${op}`;if(sel)d.style.outline=`2px solid ${a.color}`;return{el:d,layer:'div'};}
-  if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
+  if(a.type==='text'){const d=document.createElement('div');d.className='tlbl';d.style.cssText=`left:${a.x}%;top:${a.y}%;background:${a.color};opacity:${op}`;d.textContent=a.text||'';d.title='Double-click to edit';d.onclick=()=>{selId=a.id;renderAll();updateList();};d.ondblclick=(ev)=>{ev.stopPropagation();ev.preventDefault();editExistingText(a.id);};return{el:d,layer:'div'};}
   if(a.type==='emoji'){const d=document.createElement('div');d.style.cssText=`position:absolute;left:${a.x}%;top:${a.y}%;transform:translate(-50%,-50%);font-size:${a.size||EMOJI_SIZE}px;line-height:1;opacity:${op};user-select:none${sel?';outline:2px solid #0EA5E9;outline-offset:2px;border-radius:4px':''}`;d.textContent=a.emoji||'';d.onclick=()=>{selId=a.id;renderAll();updateList();};return{el:d,layer:'div'};}
-  if(a.type==='dimension'){const wrap=document.createElement('div');wrap.className='dim-wrap';wrap.style.cssText=`left:${x}%;top:${y}%;width:${w}%;opacity:${op}`;const mm=Math.round(w*4.2);wrap.innerHTML=`<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${a.color}"></div><div style="flex:1;height:${a.sw}px;background:${a.color}"></div><div style="width:1px;height:10px;background:${a.color}"></div></div><div style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px">${mm}mm</div>`;return{el:wrap,layer:'div'};}
+  if(a.type==='dimension'){
+    // v0.1.156 (#30 MR): the auto-computed mm value (width × 4.2) is just
+    // a guess — drawings aren't to scale. Allow the user to override with
+    // an explicit value via a.label. Stored alongside the geometry; the
+    // input below is shown when the annotation is selected.
+    const wrap=document.createElement('div');
+    wrap.className='dim-wrap';
+    wrap.style.cssText=`left:${x}%;top:${y}%;width:${w}%;opacity:${op}`;
+    const fallback = Math.round(w*4.2) + 'mm';
+    const labelText = a.label || fallback;
+    const escaped = String(labelText).replace(/"/g,'&quot;');
+    const editable = sel
+      ? `<input class="dim-label-inp" value="${escaped}" placeholder="${fallback}"
+          oninput="updateDimLabel('${a.id}', this.value)"
+          onclick="event.stopPropagation()"
+          onmousedown="event.stopPropagation()"
+          style="text-align:center;font-size:9px;font-weight:700;color:${a.color};font-family:monospace;margin-top:2px;width:100%;background:rgba(255,255,255,.85);border:1px dashed ${a.color};border-radius:3px;outline:none;padding:1px 2px">`
+      : `<div style="text-align:center;font-size:9px;font-weight:700;color:${safeColor(a.color)};font-family:monospace;margin-top:2px">${escapeHtml(labelText)}</div>`;
+    wrap.innerHTML = `<div style="display:flex;align-items:center"><div style="width:1px;height:10px;background:${safeColor(a.color)}"></div><div style="flex:1;height:${a.sw}px;background:${safeColor(a.color)}"></div><div style="width:1px;height:10px;background:${safeColor(a.color)}"></div></div>${editable}`;
+    return{el:wrap,layer:'div'};
+  }
   if(a.type==='freehand'){
     if(!a.pts||a.pts.length<2) return null;
     const ns='http://www.w3.org/2000/svg';
@@ -526,6 +790,7 @@ function renderAll(){
     pin.onclick=ev=>{ev.stopPropagation();toggleBubble(c);};
     annRoot.appendChild(pin);
   }
+  _applyCmtInvScale();
 }
 function renderPrev(){
   prevDiv.innerHTML='';prevSvg.innerHTML='';
@@ -545,31 +810,57 @@ function renderPrev(){
 }
 function clearPrev(){prevDiv.innerHTML='';prevSvg.innerHTML='';}
 
-function showTextInp(pos){const inp=document.getElementById('textInp');inp.style.cssText=`display:block;left:${pos.x}%;top:${pos.y}%;width:120px`;inp.value='';setTimeout(()=>inp.focus(),10);}
-function onTextKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commitText();}if(e.key==='Escape'){textPos=null;document.getElementById('textInp').style.display='none';}e.stopPropagation();}
-function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){pushHistory();annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});renderAll();updateList();updateCount();}textPos=null;inp.style.display='none';inp.value='';}
+function showTextInp(pos,prefill){const inp=document.getElementById('textInp');inp.style.cssText=`display:block;left:${pos.x}%;top:${pos.y}%;width:120px`;inp.value=prefill||'';inp.style.width=Math.max(120,inp.scrollWidth+4)+'px';setTimeout(()=>{inp.focus();inp.select();},10);}
+function onTextKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commitText();}if(e.key==='Escape'){textPos=null;editingTextId=null;document.getElementById('textInp').style.display='none';}e.stopPropagation();}
+// v0.1.189 (DB): double-click a text label to edit it in place (was create-only).
+function editExistingText(id){const a=annotations.find(x=>x.id===id);if(!a)return;editingTextId=id;textPos={x:a.x,y:a.y};showTextInp(textPos,a.text||'');}
+function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){pushHistory();if(editingTextId){const a=annotations.find(x=>x.id===editingTextId);if(a)a.text=inp.value.trim();}else{annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});}renderAll();updateList();updateCount();}editingTextId=null;textPos=null;inp.style.display='none';inp.value='';}
 
 function showCmtPopUI(e){
   const pop=document.getElementById('cmtPop'),inp=document.getElementById('cmtInp');
-  const r=paper.getBoundingClientRect();
-  const px=Math.min(e.clientX-r.left+14,r.width-260);
-  const py=Math.max(e.clientY-r.top-52,4);
-  pop.style.cssText=`display:block;left:${px}px;top:${py}px;z-index:16;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
+  // v0.1.164 (DB): поле комментария масштабировалось вместе с картинкой —
+  // оно жило внутри #paper (его трансформит зум). Counter-scale работал
+  // неточно. Теперь выносим поп в <body> и позиционируем в ЭКРАННЫХ
+  // координатах (position:fixed) — постоянный размер при любом зуме.
+  if(pop.parentElement !== document.body) document.body.appendChild(pop);
+  const px=Math.min(e.clientX+14, window.innerWidth-270);
+  const py=Math.max(e.clientY-52, 8);
+  pop.style.cssText=`display:block;position:fixed;left:${px}px;top:${py}px;z-index:100020;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
   inp.value='';setTimeout(()=>inp.focus(),10);
 }
 function closeCmtPop(){document.getElementById('cmtPop').style.display='none';cmtPos=null;}
 function onCmtKey(e){if(e.key==='Enter') submitCmt();if(e.key==='Escape') closeCmtPop();e.stopPropagation();}
 function submitCmt(){const inp=document.getElementById('cmtInp');if(!cmtPos||!inp.value.trim()){closeCmtPop();return;}comments.push({id:++commentCount,num:commentCount,px:cmtPos.x,py:cmtPos.y,color,text:inp.value.trim(),av:'AS'});closeCmtPop();renderAll();updateList();updateCount();}
 function toggleBubble(c){
+  // v0.1.163 (DB): настоящий toggle — повторный клик по пину закрывает пузырь
+  // (как в Figma: ткнул — открылось/почиталось, ткнул ещё — закрылось).
+  const alreadyOpen = document.querySelector(`.cbbl-r[data-cmt-id="${c.id}"]`);
   document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
+  if(alreadyOpen) return;
   const bub=document.createElement('div');
+  bub.dataset.cmtId = c.id;
   bub.className='cbbl cbbl-r';
   bub.style.cssText=`left:${Math.min(c.px+3,62)}%;top:${c.py-4}%`;
-  bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${c.text}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
+  bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${escapeHtml(c.text)}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
   bub.onmousedown=ev=>ev.stopPropagation();
   annRoot.appendChild(bub);
+  _applyCmtInvScale();
 }
 function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());renderAll();updateList();updateCount();}
+
+// v0.1.164 (DB): скрыть/показать ВСЕ метки на скриншоте одной кнопкой.
+// Прячем слой аннотаций (annRoot — фигуры/текст/пины/эмодзи) и SVG-слой
+// (fhSvg — линии/стрелки/freehand). На сам скриншот не влияет; при сохранении
+// метки восстанавливаются (это только просмотр).
+let _marksHidden = false;
+function toggleMarksHidden(){
+  _marksHidden = !_marksHidden;
+  ['annRoot','fhSvg'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = _marksHidden ? 'none' : ''; });
+  const btn = document.getElementById('hideMarksBtn');
+  if(btn) btn.classList.toggle('on', _marksHidden);
+  // если прятали — заодно закрываем открытый пузырь коммента
+  if(_marksHidden) document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
+}
 
 const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
 const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
@@ -587,8 +878,8 @@ function updateList(){
   } else {
     annEl.innerHTML = annotations.map(a => `
       <div class="ali ${a.id===selId?'on':''}" onclick="selAnn('${a.id}')">
-        <span style="width:10px;height:10px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block"></span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.type==='emoji'?(a.emoji||'☺'):(ICONS[a.type]||'·')} ${a.type==='text'?(a.text||'').slice(0,16):a.type==='emoji'?'Emoji':(NAMES[a.type]||a.type)}</span>
+        <span style="width:10px;height:10px;border-radius:50%;background:${safeColor(a.color)};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${a.type==='emoji'?escapeHtml(a.emoji||'☺'):(ICONS[a.type]||'·')} ${a.type==='text'?escapeHtml((a.text||'').slice(0,16)):a.type==='emoji'?'Emoji':(NAMES[a.type]||a.type)}</span>
         <button class="adel" onclick="event.stopPropagation();delAnn('${a.id}')">×</button>
       </div>
     `).join('');
@@ -601,8 +892,8 @@ function updateList(){
   } else {
     cmtEl.innerHTML = comments.map(c => `
       <div class="ali" onclick="selComment(${c.id})">
-        <span style="width:18px;height:18px;border-radius:50%;background:${c.color};flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${c.num}</span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--t1)">${(c.text||'').slice(0,28)}</span>
+        <span style="width:18px;height:18px;border-radius:50%;background:${safeColor(c.color)};flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${c.num}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--t1)">${escapeHtml((c.text||'').slice(0,28))}</span>
         <button class="adel" onclick="event.stopPropagation();delCmt(${c.id})">×</button>
       </div>
     `).join('');
@@ -613,9 +904,9 @@ function selComment(id){
   // Highlight pin briefly + scroll into view
   const pin = document.querySelector(`.cpin[data-cmt-id="${id}"]`);
   if(pin){
-    pin.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    pin.style.transform = 'translate(-50%,-50%) scale(' + (1.4 / _edScale) + ')';
     pin.style.zIndex = 25;
-    setTimeout(() => { pin.style.transform = ''; pin.style.zIndex = ''; }, 600);
+    setTimeout(() => { pin.style.transform = 'translate(-50%,-50%) scale(' + (1/_edScale) + ')'; pin.style.zIndex = ''; }, 600);
   }
 }
 function selAnn(id){selId=id;renderAll();updateList();}
@@ -784,7 +1075,11 @@ async function discard(){
   await forceCloseEditor();
 }
 
-const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',d:'dimension',b:'blur',q:'comment',m:'marker'};
+// v0.1.158 (P0 from review): 'd' shortcut for the removed Dimension tool
+// is dropped — pressing D used to activate the tool even after the button
+// was hidden in v0.1.157.
+// v0.1.164 (DB): 'b'/blur убран — инструмент Blur удалён из тулбара.
+const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();
@@ -905,6 +1200,17 @@ function loadScreenshotAsBg(dataUrl){
       _loaded = true;
       try { document.getElementById('_eb_initial')?.remove(); } catch(_){}
       try { loadScreenshotAsBg(d.dataUrl); } catch(e){ console.error(e); }
+      // v0.1.172 (DB): восстановить сохранённые аннотации И комменты в web-режиме
+      try {
+        if(Array.isArray(d.annotations) && d.annotations.length){ annotations = d.annotations; }
+        if(Array.isArray(d.comments) && d.comments.length){
+          comments = d.comments;
+          commentCount = d.comments.reduce((m,c)=>Math.max(m, c.num||c.id||0), 0);
+        }
+        if(typeof renderAll==='function') renderAll();
+        if(typeof updateList==='function') updateList();
+        if(typeof updateCount==='function') updateCount();
+      } catch(e){ console.warn('restore web payload failed', e); }
     }
   });
 })();

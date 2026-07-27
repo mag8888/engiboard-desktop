@@ -1,3 +1,47 @@
+## [v0.1.189] — 2026-07-27 — DB batch: UX polish, chat, editor, statuses
+
+Batch of fixes/features from Alexey's 2026-07-27 review. Interim release —
+18 items done; 4 heavier ones (image carousel, XLSX/PDF export rework,
+list-view presence) deferred to a follow-up.
+
+### Task cards & list
+- Row resize now clamps to the row's natural content height, so shrinking
+  can no longer push chat/inputs/images outside the card bounds.
+- Drag grip is a longer dotted strip (was a tiny 6-dot glyph) — easier to grab.
+- All card buttons live in ONE header row (Presentation + Link after "mark as
+  bug"). The separate second toolbar row is gone.
+- Removed the Compare button.
+- Visible Undo / Redo buttons in the toolbar (the multi-step stack + Ctrl+Z
+  already existed but had no discoverable UI).
+
+### Chat
+- Long links render as a short "host/…" label (full URL in href + title),
+  Google-Docs style.
+- @mention autocomplete (members + chat authors) with highlighted mentions.
+- Edit and Delete on chat messages (hover actions; edit via inline prompt).
+
+### Projects
+- Projects dropdown no longer closes when you click inside it (e.g. collapsing
+  a client group); close is decided by geometry, not a detached-node check.
+- The header project picker is hidden on the Dashboard (cross-project view).
+- Creating a project no longer redirects into its empty task list — it appears
+  in place. Projects are drag-reorderable (order persisted).
+- Create-project dialog: "Language" replaced with a free-text "Notes" field.
+- Dashboard project rows show Project Number first, Description second.
+
+### Statuses & shortcuts
+- Statuses now have an editable Priority (display order) alongside Name/Colour.
+- All keyboard-shortcut hints render Windows-style (Ctrl/Shift), never ⌘/⇧.
+
+### Presentation view
+- Prev/Next navigation moved to large side-edge arrows (carousel style).
+- "+ Add screenshot" moved up into the header.
+- Chat + Notes shown as a side-by-side bento under the images.
+
+### Screenshot editor
+- Double-click a text label to edit it in place (was create-only).
+- Paint/Procreate-style vertical Size + Opacity sliders on the left edge.
+
 ## [v0.1.62] — 2026-05-13 — Phase E/G minimal: annotations persist, invites, audit
 
 Builds on v0.1.61's cloud wiring. Three more capabilities, each tied to a
