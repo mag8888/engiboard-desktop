@@ -6808,14 +6808,13 @@ function onResizeStart(e, taskId){
   const row = e.target.closest('.row');
   const startY = e.clientY;
   const startH = row.offsetHeight;
-  // v0.1.189: floor = the row's natural content height, so shrinking can never
-  // push the chat / inputs / images outside the card bounds ("за поля"). We
-  // measure it by momentarily collapsing min-height and reading scrollHeight.
-  const prevMin = row.style.minHeight;
-  row.style.minHeight = '0px';
-  const naturalMin = row.scrollHeight;
-  row.style.minHeight = prevMin;
-  const FLOOR = Math.max(80, naturalMin || 0);
+  // v0.1.190 (DB): fixed lower bound. min-height is a FLOOR — the row still
+  // auto-grows to fit its content — so a low constant lets the user shrink a
+  // card they'd made tall all the way back down, and still stops the drag at a
+  // sensible minimum. (v0.1.189 measured scrollHeight here, but in the expanded
+  // view the chat flex-grows to fill the height, so the measured "minimum"
+  // equalled the current height and a tall card could never be shrunk again.)
+  const FLOOR = 80;
   function onMove(ev){
     const newH = Math.max(FLOOR, Math.min(900, startH + (ev.clientY - startY)));
     row.style.minHeight = newH + 'px';

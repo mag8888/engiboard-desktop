@@ -1,3 +1,12 @@
+## [v0.1.190] — 2026-07-27 — Fix: can't shrink a resized-tall task card
+
+- Row resize: reverted the v0.1.189 "measure content height" floor. In the
+  expanded view the chat panel flex-grows to fill the row, so the measured
+  minimum equalled the current height — once a card was dragged tall it could
+  never be shrunk back. Back to a fixed 80px floor: min-height is only a lower
+  bound (the row still auto-grows to its content), so the card shrinks back down
+  and the drag still stops at a sensible minimum.
+
 ## [v0.1.189] — 2026-07-27 — DB batch: UX polish, chat, editor, statuses
 
 Batch of fixes/features from Alexey's 2026-07-27 review. Interim release —
