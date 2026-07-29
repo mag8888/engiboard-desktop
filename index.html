@@ -761,6 +761,12 @@ body.dark-mode .tit-col .tc-title:hover{background:rgba(255,255,255,.04)}
 }
 .row .pi.has .pi-lbl{background:rgba(15,23,42,.55)}
 body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
+/* v0.1.190 (DB): per-image delete (✕) + AFTER count badge */
+.row .pi{position:relative}
+.row .pi .pi-del{position:absolute;top:6px;right:6px;z-index:5;width:22px;height:22px;border:none;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;font-size:15px;line-height:1;cursor:pointer;align-items:center;justify-content:center;display:none;padding:0}
+.row .pi.has-img:hover .pi-del{display:flex}
+.row .pi .pi-del:hover{background:#EF4444}
+.row .pi .pi-count{position:absolute;bottom:6px;right:6px;z-index:4;background:rgba(15,23,42,.7);color:#fff;font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:10px;pointer-events:none}
 
 .row .nt{padding:0 12px;display:flex;flex-direction:column;gap:2px;min-width:0;height:100%}
 .row .nt-t{
@@ -5688,8 +5694,15 @@ function renderPic(t, slot){
     // tools loaded (Roman: "сразу пусть будут инструменты, не надо в отдельный
     // режим переходить"). img draggable=false so the browser doesn't hijack
     // the drag-reorder with native image drag.
+    // v0.1.190 (DB): delete (✕) on every image; AFTER also shows an N-count
+    // badge when the task has more than one after-image (full carousel is in
+    // the presentation view). BEFORE stays a single, replaceable image.
+    const afterN = slot === 'after' ? afterCount(t) : 0;
+    const countBadge = afterN > 1 ? `<span class="pi-count" title="${afterN} after images — open presentation to browse">1/${afterN}</span>` : '';
     return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();piClick('${t.id}',${slotIdx})" title="Click to open in editor · paste-mode: click to insert here">
       <span class="pi-lbl">${lblText}</span>
+      ${countBadge}
+      <button class="pi-del" onclick="event.stopPropagation();deleteShot('${t.id}',${slotIdx})" title="Delete image" aria-label="Delete image">×</button>
       <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
   }
@@ -8104,6 +8117,35 @@ document.addEventListener('click', e => {
   }
 });
 
+// ─── Image model helpers (v0.1.190, DB): BEFORE = 1 (shot1), AFTER = up to 3
+// (shot2 = primary + t.shots[] extras). ─────────────────────────────────
+const AFTER_MAX = 3;
+function afterImages(t){ return [t && t.shot2, ...((t && Array.isArray(t.shots)) ? t.shots : [])].filter(s => typeof s === 'string' && s.length > 32); }
+function afterCount(t){ return afterImages(t).length; }
+function afterHasRoom(t){ return afterCount(t) < AFTER_MAX; }
+function _snapShots(t){ return { shot1:t.shot1, shot2:t.shot2, shots:Array.isArray(t.shots)?t.shots.slice():[] }; }
+function _applyShots(t, s){ t.shot1=s.shot1; t.shot2=s.shot2; t.shots=s.shots.slice(); render(); if(presentTask && presentTask.id===t.id && typeof renderPresent==='function') renderPresent(); }
+// Delete an image. slot 0 = before; slot 1 = after primary; 2+ = after extras.
+// After images re-pack so shot2 stays the first one (no holes).
+function deleteShot(taskId, slotIdx){
+  const t = TASKS.find(x => x.id === taskId); if(!t) return;
+  const before = _snapShots(t);
+  if(slotIdx === 0){ t.shot1 = null; }
+  else {
+    const after = afterImages(t);
+    const targetSrc = slotIdx === 1 ? t.shot2 : (Array.isArray(t.shots) ? t.shots : [])[slotIdx - 2];
+    const next = after.filter(s => s !== targetSrc);
+    t.shot2 = next[0] || null;
+    t.shots = next.slice(1);
+  }
+  const after = _snapShots(t);
+  if(typeof pushUndo === 'function') pushUndo('Delete image', () => _applyShots(t, before), () => _applyShots(t, after));
+  if(t._cloud && db && db.ready){ try { db.tasks.update(t.id, { shot1_url: t.shot1, shot2_url: t.shot2 }); } catch(_){} }
+  render();
+  if(presentTask && presentTask.id === taskId && typeof renderPresent === 'function') renderPresent();
+  toast('Image deleted');
+}
+
 // v0.1.61: assign a screenshot to a task slot — local immediate, cloud upload
 // in the background. Slot: 0 = before, 1 = after.
 async function assignShotToSlot(t, slot, dataUrl){
@@ -8157,11 +8199,15 @@ function addShotToPresentTask(dataUrl){
     if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot2_url: dataUrl }).catch(()=>{});
     return;
   }
-  // No specific slot requested — append to extras (legacy behaviour).
+  // No specific slot requested — this is an ADDITIONAL "after" image.
+  // v0.1.190 (DB): AFTER is capped at AFTER_MAX (3). Fill shot2 first, then
+  // spill into t.shots[] extras, and refuse once the cap is reached.
   if(!Array.isArray(presentTask.shots)) presentTask.shots = [];
-  presentTask.shots.push(dataUrl);
+  if(afterCount(presentTask) >= AFTER_MAX){ toast(`Max ${AFTER_MAX} after images`, 2200); return; }
+  if(!presentTask.shot2 || presentTask.shot2.length < 32){ presentTask.shot2 = dataUrl; }
+  else { presentTask.shots.push(dataUrl); }
   renderPresent();
-  toast('Screenshot added to task');
+  toast('After image added');
 }
 
 document.addEventListener('dragover', e => {
@@ -10425,14 +10471,20 @@ async function exportCSV(){
     const name = `image${mediaId}.png`;
     media.push({ name, data: imgInfo.data, w: imgInfo.w, h: imgInfo.h });
     drawings.push({ name, rowIdx0, colIdx0, w: imgInfo.w, h: imgInfo.h });
-    // Track row height
-    const needed = imgInfo.h + 6;
+    // v0.1.190 (DB): the image is now confined to its Before/After cell
+    // (twoCellAnchor). Size the row so the cell keeps the image's aspect at the
+    // ~238px cell width, capped so rows never get absurdly tall.
+    const XLS_IMG_CELL_PX = 238;
+    const fittedH = imgInfo.w ? (XLS_IMG_CELL_PX / imgInfo.w) * imgInfo.h : imgInfo.h;
+    const needed = Math.min(fittedH, 240) + 6;
     rowHeights[rowIdx0] = Math.max(rowHeights[rowIdx0] || 0, needed);
   };
 
-  const headers = ['#','Project','Code','Week','Task','Status','Assignee','Deadline','Checklist','Comments','Before','After','Extra','Links'];
-  const COL_BEFORE = 10; // 0-based: column K
-  const COL_AFTER  = 11; // column L
+  // v0.1.190 (DB): Checklist column removed (feature retired); Comments now
+  // holds the actual chat text (was a message count).
+  const headers = ['#','Project','Code','Week','Task','Status','Assignee','Deadline','Comments','Before','After','Extra','Links'];
+  const COL_BEFORE = 9;  // 0-based: column J (after dropping Checklist)
+  const COL_AFTER  = 10; // column K
   // Build a sharedStrings table for everything text-y.
   const sst = [];
   const sstIdx = new Map();
@@ -10448,13 +10500,12 @@ async function exportCSV(){
   tasks.forEach((t, i) => {
     const proj = PROJECTS.find(p => p.id === t.proj);
     const st = STATUSES[t.s] || STATUSES[0];
-    const cl = Array.isArray(t.checklist) ? t.checklist : [];
-    const clStr = cl.length ? `${cl.filter(x=>x.done).length}/${cl.length}` : '';
     const shotsExtra = Array.isArray(t.shots) ? t.shots.length : 0;
-    const lnks = Array.isArray(t.links) ? t.links.length : 0;
     const linkStr = (t.links || []).map(l => l.title || l.url).filter(Boolean).join('; ');
     const deadlineStr = t.deadline ? t.deadline : '';
     const deadlineStyle = (t.deadline && _isOverdue(t.deadline)) ? 2 : (t.deadline ? 3 : 0);
+    // Comments = the task's chat, one message per line ("Author: text").
+    const chatText = (t.chat || []).map(m => `${m.a || '?'}: ${m.text || ''}`).join('\n');
     dataRows.push([
       { t: 'n', v: i + 1 },
       { t: 's', v: interned(proj?.name || '') },
@@ -10464,8 +10515,7 @@ async function exportCSV(){
       { t: 's', v: interned(st.l) },
       { t: 's', v: interned(t.assignee || '') },
       { t: 's', v: interned(deadlineStr), c: deadlineStyle },
-      { t: 's', v: interned(clStr) },
-      { t: 'n', v: (t.chat || []).length || 0 },
+      { t: 's', v: interned(chatText) },
       { t: 's', v: interned(t.shot1 ? 'BEFORE' : '') },
       { t: 's', v: interned(t.shot2 ? 'AFTER' : '') },
       { t: 'n', v: shotsExtra },
@@ -10535,7 +10585,8 @@ ${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')
     }).join('')}</row>`;
   });
   // Column widths (in Excel units; ~7px per unit)
-  const colWidths = [4, 22, 8, 8, 40, 14, 14, 12, 10, 10, 46, 46, 6, 30];
+  // #,Project,Code,Week,Task,Status,Assignee,Deadline,Comments,Before,After,Extra,Links
+  const colWidths = [4, 22, 9, 8, 40, 14, 14, 12, 42, 34, 34, 6, 30];
   const colsXml = `<cols>${colWidths.map((w, i) =>
     `<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
 
@@ -10554,23 +10605,23 @@ ${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')
     ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 ${drawings.map((d, i) => {
-  // Anchor: top-left corner = (col, row), bottom-right = (col+1, row+1) but
-  // we use absolute extents to keep the image at its natural pixel size.
-  const cx = d.w * _PX_TO_EMU;
-  const cy = d.h * _PX_TO_EMU;
-  return `<xdr:oneCellAnchor>
+  // v0.1.190 (DB): confine each image to its single Before/After cell so it no
+  // longer floats at natural size across neighbouring rows/columns. A
+  // twoCellAnchor with editAs="oneCell" ties both corners to the cell (with a
+  // small inset), and the row height was pre-sized to the image's aspect.
+  return `<xdr:twoCellAnchor editAs="oneCell">
   <xdr:from><xdr:col>${d.colIdx0}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${d.rowIdx0}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>
-  <xdr:ext cx="${cx}" cy="${cy}"/>
+  <xdr:to><xdr:col>${d.colIdx0 + 1}</xdr:col><xdr:colOff>-19050</xdr:colOff><xdr:row>${d.rowIdx0 + 1}</xdr:row><xdr:rowOff>-19050</xdr:rowOff></xdr:to>
   <xdr:pic>
     <xdr:nvPicPr>
       <xdr:cNvPr id="${i+1}" name="${d.name}"/>
       <xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr>
     </xdr:nvPicPr>
     <xdr:blipFill><a:blip r:embed="rId${i+1}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>
-    <xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
+    <xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>
   </xdr:pic>
   <xdr:clientData/>
-</xdr:oneCellAnchor>`;
+</xdr:twoCellAnchor>`;
 }).join('\n')}
 </xdr:wsDr>`
     : '';
@@ -10758,7 +10809,8 @@ function exportPDF(){
       </div>
       <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Task types (statuses)</div>
       <div id="_pdfStatuses" style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-bottom:16px">${statusOpts}</div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:18px;cursor:pointer"><input type="checkbox" id="_pdfDetailed"> Detailed (one task per page)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:4px;cursor:pointer"><input type="checkbox" id="_pdfDetailed"> One task per page (detailed)</label>
+      <div style="font-size:11px;color:var(--t3);margin:0 0 18px 26px;line-height:1.4">Leave off for a <b>compact</b> report — many tasks per page.</div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="chip" id="_pdfCancel" style="font-size:12px;padding:7px 16px">Cancel</button>
         <button class="chip" id="_pdfGo" style="font-size:12px;padding:7px 16px;background:var(--acc);color:#fff;border-color:var(--acc)">Export</button>

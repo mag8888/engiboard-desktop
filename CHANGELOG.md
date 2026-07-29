@@ -1,3 +1,32 @@
+## [v0.1.191] — 2026-07-27 — The heavy 4: images, exports, presence
+
+Closes the four features deferred from the v0.1.189 batch.
+
+### Multiple images (before = 1, after = up to 3)
+- BEFORE stays a single, replaceable image; AFTER now accepts up to 3
+  (shot2 primary + up to two extras in t.shots[]), capped everywhere new
+  images are added.
+- Every image gets a hover ✕ to delete; after-images re-pack (shot2 stays
+  first) and a "1/N" badge on the card shows how many after-images exist
+  (browse them in the presentation carousel, which already existed).
+
+### XLSX export
+- Images are now confined to their Before/After cell (twoCellAnchor /
+  editAs="oneCell") instead of floating at natural size across rows/columns.
+- Dropped the retired Checklist column; the Comments column now carries the
+  actual chat text (was a message count). Row heights track image aspect.
+
+### PDF export
+- Clarified the dialog: the date-range (by deadline), task-type (status)
+  filters and the compact multi-task layout already shipped; the "one task
+  per page" toggle now reads clearly as the detailed opt-in, with a note that
+  leaving it off produces the compact report.
+
+### Live presence (list view)
+- Confirmed the board-presence layer (v0.1.178) still works after the card
+  header refactor: the header shows everyone online in the project and each
+  task row shows who is currently viewing that task. Cloud/multi-user only.
+
 ## [v0.1.190] — 2026-07-27 — Fix: can't shrink a resized-tall task card
 
 - Row resize: reverted the v0.1.189 "measure content height" floor. In the
