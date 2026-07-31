@@ -207,8 +207,8 @@ test.describe('EngiBoard UI smoke (clicks & toggles)', () => {
     await page.evaluate(() => openPresent(TASKS.find(t => t.proj === currentProject).id));
     await expect(page.locator('#present.on')).toBeVisible();
     await shot(page, '12a-present-open');
-    // bottom nav next (if enabled)
-    const next = page.locator('.pres-nav-arrow').nth(1);
+    // v0.1.189: nav moved to the side edges (.pres-side-prev / .pres-side-next)
+    const next = page.locator('.pres-side-next');
     if (await next.isEnabled()) await next.click();
     await page.waitForTimeout(150);
     await shot(page, '12b-present-next');
