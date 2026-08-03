@@ -1,3 +1,14 @@
+## [v0.1.194] — 2026-08-03 — My Company workspace + reliable project drag
+
+- **My Company:** the workspace is now a single "My Company" you set up once on
+  first run (empty board prompts "Create your company"); its name shows in the
+  header (click to rename), and you must have it before adding projects. This
+  replaces the earlier misread where "company" meant a client — clients (Acme,
+  TechCorp) are back to a per-project **Client** field, grouped as before.
+- **Project drag-reorder** now uses the same pointer (mousedown) mechanic as the
+  task cards instead of HTML5 native drag, which was unreliable in the webview
+  and often wouldn't start. Works in the picker AND on the dashboard.
+
 ## [v0.1.193] — 2026-08-03 — Bug-fix round + company hierarchy + weeks polish
 
 Interactive bug-fix session (all verified in the browser, unit 67/67 + UI 23/23).

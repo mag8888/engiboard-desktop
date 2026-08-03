@@ -1815,10 +1815,11 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 }
 .dproj:hover{border-color:var(--acc);box-shadow:0 8px 24px rgba(14,165,233,.12);transform:translateY(-2px)}
 .dproj.cur{border-color:var(--acc)}
-/* v0.1.193 (DB): drag-to-reorder project cards on the dashboard */
-.dproj[draggable="true"]{cursor:grab}
-.dproj[draggable="true"]:active{cursor:grabbing}
+/* v0.1.193 (DB): pointer drag-to-reorder project cards on the dashboard */
+.dproj[data-pid]{cursor:grab}
 .dproj.drag-over{border-color:var(--acc);box-shadow:inset 0 0 0 2px var(--acc)}
+body.proj-dragging{cursor:grabbing;user-select:none}
+body.proj-dragging *{cursor:grabbing!important}
 .dproj.cur::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--acc-2),var(--acc))}
 
 .dproj-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
@@ -2340,7 +2341,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div><span style="margin-left:8px">EngiBoard</span></div>
+    <div class="brand"><div class="mark">E</div><span style="margin-left:8px">EngiBoard</span><span id="myCompanyLabel" onclick="openMyCompanySetup()" title="Your company — click to rename" style="display:none;margin-left:10px;padding:3px 11px;border-radius:20px;background:rgba(14,165,233,.12);color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--mono)"></span></div>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2608,11 +2609,11 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <h3>Create new project</h3>
     <div class="npm-field"><label>Project number</label><input id="npmCode" placeholder="PL-5 / 2024-017 — your own numbering"></div>
     <div class="npm-field"><label>Project name</label><input id="npmName" placeholder="Production Line #5"></div>
-    <!-- v0.1.193 (DB): project belongs to a Company — pick an existing one or
-         create a new one inline (company can also be created first on its own). -->
-    <div class="npm-field"><label>Company</label>
+    <!-- v0.1.193b (DB): Client of this project — pick an existing client or add a
+         new one inline. (The workspace itself is "My Company", set once.) -->
+    <div class="npm-field"><label>Client</label>
       <select id="npmCompanySel" onchange="_onNpmCompanyChange()"></select>
-      <input id="npmCompanyNew" placeholder="New company name…" style="display:none;margin-top:6px">
+      <input id="npmCompanyNew" placeholder="New client name…" style="display:none;margin-top:6px">
     </div>
     <!-- v0.1.189 (DB): Language field replaced with free-text Notes. -->
     <div class="npm-field"><label>Notes</label><textarea id="npmNotes" rows="3" placeholder="Free-text notes / description for this project…"></textarea></div>
@@ -2897,60 +2898,43 @@ let PROJECTS = [
   {id:'p3', name:'QC Inspection Bay', code:'QC-A', client:'TechCorp Industries', status:'planning'}
 ];
 
-// ━━━ COMPANIES (v0.1.193, DB): first-class company entity. A project belongs to
-// a company by NAME (project.client) — backward-compatible with the existing
-// client grouping — but a company is now a real object that can be created
-// FIRST and survives with zero projects. Persisted in localStorage.
-function _newCompanyId(){ return 'co' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-let COMPANIES = (() => { try { const s = JSON.parse(localStorage.getItem('eb_companies') || '[]'); return Array.isArray(s) ? s : []; } catch(_){ return []; } })();
-function saveCompanies(){ try { localStorage.setItem('eb_companies', JSON.stringify(COMPANIES)); } catch(_){} }
-// Fold any client names that exist on projects but not yet as company objects.
-function syncCompaniesFromProjects(){
-  const have = new Set(COMPANIES.map(c => (c.name || '').trim()));
-  let changed = false;
-  PROJECTS.forEach(p => {
-    const n = (p.client || '').trim();
-    if(n && !have.has(n)){ COMPANIES.push({ id: _newCompanyId(), name: n }); have.add(n); changed = true; }
-  });
-  if(changed) saveCompanies();
+// ━━━ MY COMPANY (v0.1.193b, DB): the SINGLE top-level workspace ("your company").
+// Created ONCE at first run — you can't add projects until it exists. This is YOUR
+// org, not a client. Clients (Acme, TechCorp) stay a per-project field, grouped
+// in the picker/dashboard as before.
+let MY_COMPANY = (() => { try { return JSON.parse(localStorage.getItem('eb_my_company') || 'null'); } catch(_){ return null; } })();
+function saveMyCompany(){ try { localStorage.setItem('eb_my_company', JSON.stringify(MY_COMPANY)); } catch(_){} }
+function hasMyCompany(){ return !!(MY_COMPANY && MY_COMPANY.name); }
+function setMyCompany(name){ const n = (name || '').trim(); if(!n) return false; MY_COMPANY = { name: n, createdAt: Date.now() }; saveMyCompany(); return true; }
+// Distinct client names across projects — powers the create-project Client picker.
+function getClients(){ return [...new Set(PROJECTS.map(p => (p.client || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
+function updateMyCompanyLabel(){
+  const el = document.getElementById('myCompanyLabel');
+  if(!el) return;
+  el.textContent = hasMyCompany() ? MY_COMPANY.name : '';
+  el.style.display = hasMyCompany() ? '' : 'none';
 }
-function getCompanies(){ syncCompaniesFromProjects(); return COMPANIES.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')); }
-function companyByName(name){ return COMPANIES.find(c => (c.name || '').trim() === (name || '').trim()); }
-function addCompany(name){
-  const n = (name || '').trim(); if(!n) return null;
-  const existing = companyByName(n); if(existing) return existing;
-  const co = { id: _newCompanyId(), name: n }; COMPANIES.push(co); saveCompanies(); return co;
+// First-run: create your company (the workspace). Required before adding projects.
+function openMyCompanySetup(onDone){
+  if(document.getElementById('_myCoModal')) return;
+  const wrap = document.createElement('div');
+  wrap.id = '_myCoModal'; wrap.className = 'eb-prompt-modal on'; wrap.style.zIndex = 9800;
+  wrap.innerHTML = `<div class="confirm-card" style="width:400px;max-width:92vw;text-align:center">
+    <div style="font-size:34px;line-height:1;margin-bottom:8px">🏢</div>
+    <h3 style="font-size:17px;margin-bottom:6px">${hasMyCompany() ? 'Rename your company' : 'Create your company'}</h3>
+    <p style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:16px">This is your workspace. Set it up once — then add projects, clients and tasks inside it.</p>
+    <input id="_myCoInput" placeholder="Your company name…" style="width:100%;border:1px solid var(--line-2);border-radius:8px;padding:11px 12px;font-size:14px;text-align:center;outline:none;font-family:inherit;color:var(--t1);background:var(--bg)">
+    <div class="confirm-foot" style="justify-content:center;margin-top:16px"><button class="confirm-ok" id="_myCoGo" style="border:none;background:var(--acc);color:#fff;padding:9px 22px;border-radius:8px;font-weight:600;cursor:pointer">${hasMyCompany() ? 'Save' : 'Create'}</button></div>
+  </div>`;
+  document.body.appendChild(wrap);
+  const inp = wrap.querySelector('#_myCoInput');
+  if(hasMyCompany()) inp.value = MY_COMPANY.name;
+  const go = () => { const n = inp.value.trim(); if(!n){ inp.focus(); return; } setMyCompany(n); wrap.remove(); updateMyCompanyLabel(); toast(`✓ ${n}`); if(typeof onDone === 'function') onDone(); };
+  wrap.querySelector('#_myCoGo').onclick = go;
+  inp.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); go(); } });
+  setTimeout(() => { inp.focus(); inp.select(); }, 60);
 }
-function projectsOfCompany(name){ const n = (name || '').trim(); return PROJECTS.filter(p => (p.client || '').trim() === n); }
-async function renameCompany(id, newName){
-  const co = COMPANIES.find(c => c.id === id); const nn = (newName || '').trim();
-  if(!co || !nn || nn === co.name) return;
-  const old = co.name; co.name = nn; saveCompanies();
-  // Re-point every project that referenced the old company name.
-  PROJECTS.forEach(p => { if((p.client || '').trim() === old){ p.client = nn; if(p._cloud && db && db.ready){ try { db.projects.update(p.id, { client: nn }); } catch(_){} } } });
-  render(); if(typeof renderProjPicker === 'function') renderProjPicker(); if(currentSection === 'dashboard') renderDashboardSection();
-  toast('✓ Company renamed');
-}
-function deleteCompany(id){
-  const co = COMPANIES.find(c => c.id === id); if(!co) return;
-  const projs = projectsOfCompany(co.name);
-  if(projs.length){ toast(`Move or delete its ${projs.length} project${projs.length===1?'':'s'} first`, 3000); return; }
-  openConfirmModal('Delete company', `Delete company "${co.name}"? It has no projects.`, 'Delete', () => {
-    COMPANIES = COMPANIES.filter(c => c.id !== id); saveCompanies();
-    if(typeof renderProjPicker === 'function') renderProjPicker(); if(currentSection === 'dashboard') renderDashboardSection();
-    toast('Company deleted');
-  });
-}
-function renameCompanyPrompt(id){ const co = COMPANIES.find(c => c.id === id); if(!co) return; ebTextPrompt('Rename company', co.name, (n) => renameCompany(id, n)); }
-function promptNewCompany(then){
-  ebTextPrompt('New company', '', (name) => {
-    const co = addCompany(name);
-    if(typeof renderProjPicker === 'function') renderProjPicker();
-    if(currentSection === 'dashboard') renderDashboardSection();
-    toast(`✓ Company "${co.name}" created`);
-    if(typeof then === 'function') then(co);
-  });
-}
+function ensureMyCompany(cb){ if(hasMyCompany()){ if(cb) cb(); return true; } openMyCompanySetup(cb); return false; }
 
 let TASKS = [
   {id:'t1', proj:'p1', w:'26W14', s:1, n:'Initial site survey completed', shot1:DEMO_PICS.conveyor, chat:[{a:'AS',ts:'09:14',text:'Survey done. All dims match drawings.'},{a:'MK',ts:'10:02',text:'Great. Push tolerance check next week.'}]},
@@ -3973,6 +3957,13 @@ async function showApp(){
   if(!(await ensureLicenseGate())) return;
   document.getElementById('LP').classList.add('hide');
   document.getElementById('APP').classList.add('on');
+  // v0.1.193b (DB): first-run — set up "My Company" (the workspace). Auto-prompt
+  // only on a truly empty board (no projects yet); otherwise it's non-blocking and
+  // the header chip / the "add project" gate cover it. Show the name in the header.
+  try {
+    updateMyCompanyLabel();
+    setTimeout(() => { if(!hasMyCompany() && (!Array.isArray(PROJECTS) || PROJECTS.length === 0)) openMyCompanySetup(); }, 450);
+  } catch(_){}
   // Pull the user's role from the cloud profile so UI gates stay correct
   // across page reloads (don't await — render proceeds with cached role).
   try { refreshCloudRole().then(() => { try { applyRoleGates(); } catch(_){} }); } catch(_){}
@@ -7977,14 +7968,16 @@ function _onNpmCompanyChange(){
   if(isNew) setTimeout(() => nw.focus(), 30);
 }
 function openNewProjModal(){
+  // v0.1.193b (DB): you must have a company (workspace) before adding projects.
+  if(!hasMyCompany()){ openMyCompanySetup(() => openNewProjModal()); return; }
   document.getElementById('newProjModal').classList.add('on');
-  // v0.1.193 (DB): fill the Company dropdown — existing companies + "＋ New company".
+  // v0.1.193b (DB): fill the Client dropdown — existing clients + "＋ New client".
   const sel = document.getElementById('npmCompanySel');
   if(sel){
-    const cos = getCompanies();
-    sel.innerHTML = cos.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('')
-      + `<option value="__new__">＋ New company…</option>`;
-    sel.value = cos.length ? cos[0].name : '__new__';
+    const cls = getClients();
+    sel.innerHTML = cls.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')
+      + `<option value="__new__">＋ New client…</option>`;
+    sel.value = cls.length ? cls[0] : '__new__';
     _onNpmCompanyChange();
   }
   setTimeout(() => document.getElementById('npmName').focus(), 100);
@@ -8024,11 +8017,11 @@ function refreshProjectsUI(){
 async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
-  // v0.1.193 (DB): resolve the Company from the dropdown (or the inline new one).
+  // v0.1.193b (DB): resolve the Client from the dropdown (or the inline new one).
   let client = '';
   const _cSel = document.getElementById('npmCompanySel');
   if(_cSel){
-    if(_cSel.value === '__new__'){ const nn = (document.getElementById('npmCompanyNew')?.value || '').trim(); if(nn){ addCompany(nn); client = nn; } }
+    if(_cSel.value === '__new__'){ const nn = (document.getElementById('npmCompanyNew')?.value || '').trim(); if(nn) client = nn; }
     else client = (_cSel.value || '').trim();
   }
   const notes = (document.getElementById('npmNotes')?.value || '').trim();
@@ -8530,9 +8523,9 @@ function renderDashboardSection(){
     const archiveBtn = p.archived
       ? `<button class="dproj-arch-btn" onclick="event.stopPropagation();unarchiveProject('${p.id}');renderDashboardSection()" title="Restore to active">Restore</button>`
       : `<button class="dproj-arch-btn" onclick="event.stopPropagation();archiveProject('${p.id}')" title="Move to archive">Archive</button>`;
-    return `<div class="dproj ${currentProject===p.id?'cur':''}" data-pid="${p.id}" draggable="true"
-      ondragstart="projDragStart(event,'${p.id}')" ondragover="projDragOver(event,this)" ondragleave="projDragLeave(event,this)" ondrop="projDrop(event,'${p.id}')" ondragend="projDragEnd(event)"
-      onclick="${p.archived ? '' : `switchProject('${p.id}');setSection('projects')`}">
+    return `<div class="dproj ${currentProject===p.id?'cur':''}" data-pid="${p.id}"
+      onmousedown="projPtrDown(event,'${p.id}')"
+      onclick="${p.archived ? '' : `if(_suppressProjClick)return;switchProject('${p.id}');setSection('projects')`}">
       <div class="dproj-head">
         <div style="min-width:0"><div class="dproj-name">${escapeHtml(p.code || p.name || '')}</div>
           <div class="dproj-meta">${escapeHtml(p.notes || [p.name, p.client].filter(Boolean).join(' · '))}</div></div>
@@ -8969,9 +8962,9 @@ function _projItemHtml(it){
   </div>` : '';
   // v0.1.189 (DB): drag-to-reorder. The whole row is draggable by its grip;
   // a plain click still selects (HTML5 drag only fires on an actual drag).
-  return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" data-pid="${it.id}" draggable="true"
-      ondragstart="projDragStart(event,'${it.id}')" ondragover="projDragOver(event,this)" ondragleave="projDragLeave(event,this)" ondrop="projDrop(event,'${it.id}')" ondragend="projDragEnd(event)"
-      onclick="selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
+  return `<div class="proj-picker-item ${currentProject === it.id ? 'on' : ''}" data-pid="${it.id}"
+      onmousedown="projPtrDown(event,'${it.id}')"
+      onclick="if(_suppressProjClick)return;selectProject('${it.id}')" style="display:flex;align-items:center;gap:6px">
     <span class="ppi-grip" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>
     <span class="ppi-name">${it.name}</span>
     ${it.code ? `<span class="ppi-code">${it.code}</span>` : ''}
@@ -8982,30 +8975,56 @@ function _projItemHtml(it){
 // ─── Project drag-reorder (v0.1.189, DB) ───────────────────────────────
 // Order is kept as an id list in localStorage and applied only at render
 // time (renderProjPicker sorts by it), so we never touch the load pipeline.
-let _projDragId = null;
 function getProjOrder(){ try { return JSON.parse(localStorage.getItem('eb_proj_order') || '[]'); } catch(_){ return []; } }
 function projOrderIndex(id){ const i = getProjOrder().indexOf(id); return i === -1 ? 1e9 : i; }
-function projDragStart(e, id){ _projDragId = id; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch(_){} }
-function projDragOver(e, el){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if(el) el.classList.add('drag-over'); }
-function projDragLeave(e, el){ if(el) el.classList.remove('drag-over'); }
-function projDragEnd(){ _projDragId = null; document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over')); }
-function projDrop(e, targetId){
-  e.preventDefault(); e.stopPropagation();
-  const src = _projDragId; _projDragId = null;
-  document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+function _reorderProjects(src, targetId){
   if(!src || src === targetId) return;
-  // Seed the order with every current project (in display order), then move src just before target.
   let order = getProjOrder();
   PROJECTS.forEach(p => { if(!order.includes(p.id)) order.push(p.id); });
   order = order.filter(id => id !== src);
   const ti = order.indexOf(targetId);
   order.splice(ti === -1 ? order.length : ti, 0, src);
   localStorage.setItem('eb_proj_order', JSON.stringify(order));
-  // v0.1.193 (DB): refresh wherever the projects are shown — picker and/or dashboard.
   const picker = document.getElementById('projPicker');
   if(picker && picker.classList.contains('open')) renderProjPicker();
   if(currentSection === 'dashboard') renderDashboardSection();
 }
+// v0.1.193 (DB): pointer-based drag-reorder for projects. HTML5 native DnD was
+// unreliable in the webview (often didn't start), so we use the same mousedown
+// mechanic as the task cards. Works in the picker AND on the dashboard.
+let _projPtr = null, _suppressProjClick = false;
+function _projElAt(x, y){ const el = document.elementFromPoint(x, y); return el ? el.closest('[data-pid]') : null; }
+function projPtrDown(e, id){
+  if(e.button !== 0) return;
+  _projPtr = { id, sx: e.clientX, sy: e.clientY, dragging: false };
+  document.addEventListener('mousemove', _projPtrMove);
+  document.addEventListener('mouseup', _projPtrUp);
+}
+function _projPtrMove(e){
+  if(!_projPtr) return;
+  if(!_projPtr.dragging){
+    if(Math.abs(e.clientX - _projPtr.sx) + Math.abs(e.clientY - _projPtr.sy) < 6) return;
+    _projPtr.dragging = true; _suppressProjClick = true;
+    document.body.classList.add('proj-dragging');
+  }
+  e.preventDefault();
+  document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+  const over = _projElAt(e.clientX, e.clientY);
+  if(over && over.dataset.pid && over.dataset.pid !== _projPtr.id) over.classList.add('drag-over');
+}
+function _projPtrUp(e){
+  document.removeEventListener('mousemove', _projPtrMove);
+  document.removeEventListener('mouseup', _projPtrUp);
+  const ptr = _projPtr; _projPtr = null;
+  document.body.classList.remove('proj-dragging');
+  document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+  if(!ptr || !ptr.dragging) return;
+  const over = _projElAt(e.clientX, e.clientY);
+  if(over && over.dataset.pid) _reorderProjects(ptr.id, over.dataset.pid);
+  setTimeout(() => { _suppressProjClick = false; }, 60);
+}
+// Legacy HTML5 handlers → harmless no-ops in case any attribute lingers.
+function projDragStart(){} function projDragOver(e){ if(e && e.preventDefault) e.preventDefault(); } function projDragLeave(){} function projDragEnd(){} function projDrop(){}
 function renderProjPicker(){
   const list = document.getElementById('ppList');
   if(!list) return;
@@ -9035,9 +9054,6 @@ function renderProjPicker(){
       if(!byClient.has(m.client)) byClient.set(m.client, []);
       byClient.get(m.client).push(m.item);
     });
-    // v0.1.193 (DB): also list companies with zero projects, so a freshly-created
-    // (empty) company still shows up as a group ready to receive projects.
-    getCompanies().forEach(c => { if(!byClient.has(c.name)) byClient.set(c.name, []); });
     const clients = [...byClient.keys()].sort((a, b) => {
       if(a === 'Internal' && b !== 'Internal') return 1;
       if(b === 'Internal' && a !== 'Internal') return -1;
@@ -9046,28 +9062,18 @@ function renderProjPicker(){
     clients.forEach(name => {
       const items = byClient.get(name);
       const collapsed = isClientCollapsed(name);
-      const co = companyByName(name);
-      const actions = co ? `<span class="pp-co-actions" onclick="event.stopPropagation()">
-          <button title="Rename company" onclick="renameCompanyPrompt('${co.id}')">✎</button>
-          ${items.length === 0 ? `<button title="Delete empty company" onclick="deleteCompany('${co.id}')">✕</button>` : ''}
-        </span>` : '';
       bodyHtml += `<div class="pp-client-hdr${collapsed?' collapsed':''}" onclick="toggleClientGroup('${name.replace(/'/g,"\\'")}')">
         <span class="pp-client-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
         <span class="pp-client-name">${escapeHtml(name)}</span>
         <span class="pp-client-ct">${items.length}</span>
-        ${actions}
       </div>`;
-      if(!collapsed){
-        bodyHtml += items.length ? items.map(_projItemHtml).join('')
-          : `<div class="pp-co-empty">No projects yet — add one below.</div>`;
-      }
+      if(!collapsed) bodyHtml += items.map(_projItemHtml).join('');
     });
   }
   if(!bodyHtml){
     bodyHtml = '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
   }
   list.innerHTML = bodyHtml
-    + `<div class="pm-add" onclick="event.stopPropagation();promptNewCompany()">＋ New company</div>`
     + `<div class="pm-add" onclick="document.getElementById('projPicker').classList.remove('open');openNewProjModal()">+ New project</div>`;
 }
 
