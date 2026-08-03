@@ -1,3 +1,29 @@
+## [v0.1.193] — 2026-08-03 — Bug-fix round + company hierarchy + weeks polish
+
+Interactive bug-fix session (all verified in the browser, unit 67/67 + UI 23/23).
+
+### Bug fixes
+- Chat list now grows when a card is resized taller (was capped, left a gap).
+- Projects dropdown stays open on click (select no longer closes it); it closes
+  only via the header toggle or an outside click — which also lets its
+  drag-reorder work without the picker vanishing mid-drag.
+- Drag-reorder project **cards on the Dashboard** (shared order with the picker).
+- Filter chips show per-status counts again (All / Done / Problem …).
+- Screenshot editor: the Opacity (and Size) slider now applies to the selected
+  annotation live, and the sliders reflect the selected shape's values.
+
+### Company hierarchy
+- Companies are now first-class: create a company first, then add projects into
+  it. The create-project dialog picks a company (or makes a new one inline);
+  empty companies still show as groups; rename / delete companies from the
+  picker. (Company list is local for now; project.client still syncs to cloud.)
+
+### Weeks
+- Week headers are more prominent (stronger band, slightly out-dented so task
+  cards read as nested under the week). The ✓ complete / roll / ⋮ menu controls
+  were always there — they're just clearer now.
+- Direct "+ Add week" affordance (was buried in the week ⋮ menu).
+
 ## [v0.1.192] — 2026-07-27 — Slim Windows installer (~8 MB)
 
 - Windows `webviewInstallMode` changed from `offlineInstaller` (bundled the full

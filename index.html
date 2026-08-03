@@ -441,6 +441,12 @@ body.dark-mode .proj-floating-action{background:rgba(255,255,255,.04)}
 .pp-client-hdr .pp-client-caret svg{width:11px;height:11px;transition:transform .15s}
 .pp-client-hdr:not(.collapsed) .pp-client-caret svg{transform:rotate(90deg)}
 .pp-client-hdr .pp-client-name{flex:1}
+/* v0.1.193 (DB): company row actions (rename / delete) + empty-company hint */
+.pp-client-hdr .pp-co-actions{display:none;gap:2px;align-items:center;margin-left:4px}
+.pp-client-hdr:hover .pp-co-actions{display:inline-flex}
+.pp-client-hdr .pp-co-actions button{border:none;background:none;color:var(--t3);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px;line-height:1}
+.pp-client-hdr .pp-co-actions button:hover{background:rgba(14,165,233,.12);color:var(--acc)}
+.pp-co-empty{padding:6px 12px 8px 30px;font-size:11px;color:var(--t4);font-style:italic}
 .pp-client-hdr .pp-client-ct{font-size:9px;color:var(--t4);font-weight:600;
   background:rgba(15,23,42,.05);padding:1px 6px;border-radius:8px}
 body.dark-mode .pp-client-hdr:hover{background:rgba(255,255,255,.04)}
@@ -531,6 +537,8 @@ body.dark-mode .proj-member .role{background:rgba(255,255,255,.06)}
 }
 .chip:hover{border-color:var(--acc);color:var(--acc)}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+/* v0.1.193 (DB): per-status count badge on filter chips */
+.chip .chip-ct{opacity:.6;font-weight:700;margin-left:1px}
 
 /* v0.1.46: status-colored filter chips */
 .chip.fc-info { color:#475569; border-color:#94A3B8; background:rgba(148,163,184,.06) }
@@ -592,7 +600,9 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   min-height:165px;padding:6px 10px;margin:4px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~2 сообщения в свёрнутом виде, скролл дальше. */
-.list.cv-list .chat-col .chat-list{min-height:0;max-height:56px;overflow-y:auto}
+/* v0.1.193 (DB): no fixed cap — the chat fills the card height (base flex:1),
+   so resizing a card taller grows the chat instead of leaving an empty gap. */
+.list.cv-list .chat-col .chat-list{min-height:0;overflow-y:auto}
 /* v0.1.169 (DB): чат-инпут показываем и в свёрнутом виде (компактно). */
 .list.cv-list .nt-chat-input{display:flex;padding:2px;margin-top:1px}
 .list.cv-list .nt-chat-input input{font-size:11px;padding:4px 6px}
@@ -606,7 +616,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
   min-height:380px;padding:16px;margin:14px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~5 сообщений в развёрнутом виде. */
-.list.cv-expanded .chat-col .chat-list{min-height:0;max-height:128px;overflow-y:auto}
+.list.cv-expanded .chat-col .chat-list{min-height:0;overflow-y:auto}
 
 /* View-mode toggle buttons in toolbar */
 .cv-toggle{display:inline-flex;gap:2px;background:var(--bg);border:1px solid var(--line-2);border-radius:7px;padding:2px;margin-left:8px}
@@ -1805,6 +1815,10 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 }
 .dproj:hover{border-color:var(--acc);box-shadow:0 8px 24px rgba(14,165,233,.12);transform:translateY(-2px)}
 .dproj.cur{border-color:var(--acc)}
+/* v0.1.193 (DB): drag-to-reorder project cards on the dashboard */
+.dproj[draggable="true"]{cursor:grab}
+.dproj[draggable="true"]:active{cursor:grabbing}
+.dproj.drag-over{border-color:var(--acc);box-shadow:inset 0 0 0 2px var(--acc)}
 .dproj.cur::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(to right,var(--acc-2),var(--acc))}
 
 .dproj-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
@@ -1866,7 +1880,7 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
   display:block;font-size:11px;font-weight:600;color:var(--t4);
   text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px
 }
-.npm-field input,.npm-field textarea{
+.npm-field input,.npm-field textarea,.npm-field select{
   width:100%;border:1px solid var(--line-2);padding:9px 12px;border-radius:7px;
   font-size:13px;outline:none;font-family:inherit;color:var(--t1)
 }
@@ -1957,13 +1971,12 @@ body.dark-mode .chat-mention-pop{box-shadow:0 10px 28px rgba(0,0,0,.5)}
 .week-hdr{display:flex;align-items:center;gap:8px;
   /* Left margin matches .row's 28px so week labels line up with the task
      cards underneath instead of hugging the container edge. */
-  margin:5px 28px 0;cursor:pointer;font-family:var(--mono);font-size:12px;
+  /* v0.1.193 (DB): weeks made more prominent + slightly out-dented (14px) so the
+     task cards below (28px) read as clearly nested under the week. */
+  margin:9px 14px 2px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
   font-weight:700;letter-spacing:.04em;color:var(--t1);user-select:none;
-  /* v0.1.163: weeks were nearly invisible as plain text — now each header is
-     a distinct banded "chip" with a border + subtle shadow so sections read
-     as clearly separated. v0.1.163b (DB): сильно уплотнили — отступ между
-     неделями 5px и тоньше паддинг, чтобы влезало больше недель на экран. */
-  padding:6px 12px;background:rgba(14,165,233,.07);border:1.5px solid var(--line);
+  padding:8px 14px;background:rgba(14,165,233,.14);border:1.5px solid rgba(14,165,233,.35);
+  box-shadow:0 1px 3px rgba(14,165,233,.08);
   border-radius:7px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
 body.dark-mode .week-hdr{box-shadow:0 1px 1px rgba(0,0,0,.2)}
 .week-hdr:first-child{margin-top:2px}
@@ -2009,6 +2022,9 @@ body.dark-mode .week-hdr.pinned-hdr{color:#FCD34D;background:rgba(245,158,11,.10
   pointer-events:none}
 body.dark-mode .row.pinned::after{background:#FCD34D}
 .week-hdr:hover{color:var(--t1)}
+/* v0.1.193 (DB): "+ Add week" affordance — same width band as week headers */
+.add-week-row{margin:6px 14px 2px;padding:7px 14px;border:1.5px dashed rgba(14,165,233,.4);border-radius:8px;color:var(--acc);font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:.12s;background:transparent;display:flex;align-items:center;justify-content:center}
+.add-week-row:hover{background:rgba(14,165,233,.08);border-color:var(--acc)}
 .week-hdr.collapsed{opacity:.88}
 /* v0.1.164 (DB): микро-стрелки ▸/▾ заменены на chevron-иконку. Поворот по
    состоянию: вправо = свёрнуто, вниз = развёрнуто. */
@@ -2592,7 +2608,12 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
     <h3>Create new project</h3>
     <div class="npm-field"><label>Project number</label><input id="npmCode" placeholder="PL-5 / 2024-017 — your own numbering"></div>
     <div class="npm-field"><label>Project name</label><input id="npmName" placeholder="Production Line #5"></div>
-    <div class="npm-field"><label>Client</label><input id="npmClient" placeholder="Acme Manufacturing"></div>
+    <!-- v0.1.193 (DB): project belongs to a Company — pick an existing one or
+         create a new one inline (company can also be created first on its own). -->
+    <div class="npm-field"><label>Company</label>
+      <select id="npmCompanySel" onchange="_onNpmCompanyChange()"></select>
+      <input id="npmCompanyNew" placeholder="New company name…" style="display:none;margin-top:6px">
+    </div>
     <!-- v0.1.189 (DB): Language field replaced with free-text Notes. -->
     <div class="npm-field"><label>Notes</label><textarea id="npmNotes" rows="3" placeholder="Free-text notes / description for this project…"></textarea></div>
     <div class="npm-foot">
@@ -2875,6 +2896,61 @@ let PROJECTS = [
   {id:'p2', name:'Welding Station #3', code:'WS-3', client:'Acme Manufacturing', status:'active'},
   {id:'p3', name:'QC Inspection Bay', code:'QC-A', client:'TechCorp Industries', status:'planning'}
 ];
+
+// ━━━ COMPANIES (v0.1.193, DB): first-class company entity. A project belongs to
+// a company by NAME (project.client) — backward-compatible with the existing
+// client grouping — but a company is now a real object that can be created
+// FIRST and survives with zero projects. Persisted in localStorage.
+function _newCompanyId(){ return 'co' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+let COMPANIES = (() => { try { const s = JSON.parse(localStorage.getItem('eb_companies') || '[]'); return Array.isArray(s) ? s : []; } catch(_){ return []; } })();
+function saveCompanies(){ try { localStorage.setItem('eb_companies', JSON.stringify(COMPANIES)); } catch(_){} }
+// Fold any client names that exist on projects but not yet as company objects.
+function syncCompaniesFromProjects(){
+  const have = new Set(COMPANIES.map(c => (c.name || '').trim()));
+  let changed = false;
+  PROJECTS.forEach(p => {
+    const n = (p.client || '').trim();
+    if(n && !have.has(n)){ COMPANIES.push({ id: _newCompanyId(), name: n }); have.add(n); changed = true; }
+  });
+  if(changed) saveCompanies();
+}
+function getCompanies(){ syncCompaniesFromProjects(); return COMPANIES.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '')); }
+function companyByName(name){ return COMPANIES.find(c => (c.name || '').trim() === (name || '').trim()); }
+function addCompany(name){
+  const n = (name || '').trim(); if(!n) return null;
+  const existing = companyByName(n); if(existing) return existing;
+  const co = { id: _newCompanyId(), name: n }; COMPANIES.push(co); saveCompanies(); return co;
+}
+function projectsOfCompany(name){ const n = (name || '').trim(); return PROJECTS.filter(p => (p.client || '').trim() === n); }
+async function renameCompany(id, newName){
+  const co = COMPANIES.find(c => c.id === id); const nn = (newName || '').trim();
+  if(!co || !nn || nn === co.name) return;
+  const old = co.name; co.name = nn; saveCompanies();
+  // Re-point every project that referenced the old company name.
+  PROJECTS.forEach(p => { if((p.client || '').trim() === old){ p.client = nn; if(p._cloud && db && db.ready){ try { db.projects.update(p.id, { client: nn }); } catch(_){} } } });
+  render(); if(typeof renderProjPicker === 'function') renderProjPicker(); if(currentSection === 'dashboard') renderDashboardSection();
+  toast('✓ Company renamed');
+}
+function deleteCompany(id){
+  const co = COMPANIES.find(c => c.id === id); if(!co) return;
+  const projs = projectsOfCompany(co.name);
+  if(projs.length){ toast(`Move or delete its ${projs.length} project${projs.length===1?'':'s'} first`, 3000); return; }
+  openConfirmModal('Delete company', `Delete company "${co.name}"? It has no projects.`, 'Delete', () => {
+    COMPANIES = COMPANIES.filter(c => c.id !== id); saveCompanies();
+    if(typeof renderProjPicker === 'function') renderProjPicker(); if(currentSection === 'dashboard') renderDashboardSection();
+    toast('Company deleted');
+  });
+}
+function renameCompanyPrompt(id){ const co = COMPANIES.find(c => c.id === id); if(!co) return; ebTextPrompt('Rename company', co.name, (n) => renameCompany(id, n)); }
+function promptNewCompany(then){
+  ebTextPrompt('New company', '', (name) => {
+    const co = addCompany(name);
+    if(typeof renderProjPicker === 'function') renderProjPicker();
+    if(currentSection === 'dashboard') renderDashboardSection();
+    toast(`✓ Company "${co.name}" created`);
+    if(typeof then === 'function') then(co);
+  });
+}
 
 let TASKS = [
   {id:'t1', proj:'p1', w:'26W14', s:1, n:'Initial site survey completed', shot1:DEMO_PICS.conveyor, chat:[{a:'AS',ts:'09:14',text:'Survey done. All dims match drawings.'},{a:'MK',ts:'10:02',text:'Great. Push tolerance check next week.'}]},
@@ -4696,13 +4772,16 @@ function getFilteredTasks(){
 function renderFilters(){
   const box = document.getElementById('filterChips');
   if(!box) return;
-  const chips = [`<button class="chip${curFilter.size===0?' on':''}" data-f="all" style="margin-left:8px">All</button>`];
+  // v0.1.193 (DB): per-status counts back on the filter chips.
+  const _fpool = (currentProject === 'all' ? TASKS : TASKS.filter(t => t.proj === currentProject)).filter(t => !t.hidden);
+  const chips = [`<button class="chip${curFilter.size===0?' on':''}" data-f="all" style="margin-left:8px">All <span class="chip-ct">${_fpool.length}</span></button>`];
   visibleStatuses().forEach(s => {
     const on = curFilter.has(s.id);
+    const cnt = _fpool.filter(t => t.s === s.id).length;
     const style = on
       ? `background:${s.c};color:#fff;border-color:${s.c}`
       : `color:${s.c};border-color:${s.c};background:transparent`;
-    chips.push(`<button class="chip" data-f="${s.id}" style="${style}">${s.l}</button>`);
+    chips.push(`<button class="chip" data-f="${s.id}" style="${style}">${s.l} <span class="chip-ct">${cnt}</span></button>`);
   });
   // v0.1.151 (fix #11 reported by DB): "Hidden" was unclear. Rename to
   // "Archived" (universal pattern), surface the count so the user knows
@@ -5026,6 +5105,9 @@ function render(){
         }
       }
     }
+    // v0.1.193 (DB): direct "+ Add week" affordance (was buried in the week ⋮
+    // menu) so adding a week is as easy as adding a task.
+    html += `<div class="add-week-row" onclick="createWeekForProject('${proj.id}')" title="Add a new week"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="vertical-align:-2px;margin-right:5px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add week</div>`;
     // v0.1.164 (DB): пустая «таска-призрак» снизу списка — как было, для
     // быстрого создания новых задач.
     html += renderEmptyRowForProject(proj.id);
@@ -7886,8 +7968,25 @@ function renderDashboard(){
 }
 
 // ━━━ NEW PROJECT MODAL ━━━
+function _onNpmCompanyChange(){
+  const sel = document.getElementById('npmCompanySel');
+  const nw = document.getElementById('npmCompanyNew');
+  if(!sel || !nw) return;
+  const isNew = sel.value === '__new__';
+  nw.style.display = isNew ? 'block' : 'none';
+  if(isNew) setTimeout(() => nw.focus(), 30);
+}
 function openNewProjModal(){
   document.getElementById('newProjModal').classList.add('on');
+  // v0.1.193 (DB): fill the Company dropdown — existing companies + "＋ New company".
+  const sel = document.getElementById('npmCompanySel');
+  if(sel){
+    const cos = getCompanies();
+    sel.innerHTML = cos.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('')
+      + `<option value="__new__">＋ New company…</option>`;
+    sel.value = cos.length ? cos[0].name : '__new__';
+    _onNpmCompanyChange();
+  }
   setTimeout(() => document.getElementById('npmName').focus(), 100);
   // v0.1.157 (N6 from 2026-06-05): the new-project modal had no Enter
   // handler, so the user had to mouse the Create button. Wire Enter on
@@ -7897,7 +7996,7 @@ function openNewProjModal(){
     openNewProjModal._wired = true;
     // v0.1.189: Notes is a textarea (Enter = newline), so it's NOT wired to
     // submit-on-Enter — only the single-line fields are.
-    ['npmName','npmCode','npmClient'].forEach(id => {
+    ['npmName','npmCode'].forEach(id => {
       const el = document.getElementById(id);
       if(!el) return;
       el.addEventListener('keydown', e => {
@@ -7911,7 +8010,7 @@ function closeNewProjModal(){
   document.getElementById('newProjModal').classList.remove('on');
   document.getElementById('npmName').value = '';
   document.getElementById('npmCode').value = '';
-  document.getElementById('npmClient').value = '';
+  const cNew = document.getElementById('npmCompanyNew'); if(cNew){ cNew.value = ''; cNew.style.display = 'none'; }
   const notes = document.getElementById('npmNotes'); if(notes) notes.value = '';
 }
 // v0.1.189 (DB): refresh the projects UI in place after a create (no redirect).
@@ -7925,7 +8024,13 @@ function refreshProjectsUI(){
 async function createNewProject(){
   const name = document.getElementById('npmName').value.trim();
   const code = document.getElementById('npmCode').value.trim();
-  const client = document.getElementById('npmClient').value.trim();
+  // v0.1.193 (DB): resolve the Company from the dropdown (or the inline new one).
+  let client = '';
+  const _cSel = document.getElementById('npmCompanySel');
+  if(_cSel){
+    if(_cSel.value === '__new__'){ const nn = (document.getElementById('npmCompanyNew')?.value || '').trim(); if(nn){ addCompany(nn); client = nn; } }
+    else client = (_cSel.value || '').trim();
+  }
   const notes = (document.getElementById('npmNotes')?.value || '').trim();
   if(!name){toast('Name required');return;}
 
@@ -8393,6 +8498,10 @@ function renderDashboardSection(){
   // v0.1.28: rank projects by user's open count + task volume → top-6 cards
   const opens = getProjectOpens();
   const sorted = [...pool].sort((a, b) => {
+    // v0.1.193 (DB): honour the manual drag order first (shared with the picker),
+    // then fall back to the usage/volume ranking for anything not yet reordered.
+    const mo = projOrderIndex(a.id) - projOrderIndex(b.id);
+    if(mo !== 0) return mo;
     const oa = opens[a.id] || 0, ob = opens[b.id] || 0;
     if(oa !== ob) return ob - oa;
     return TASKS.filter(t=>t.proj===b.id).length - TASKS.filter(t=>t.proj===a.id).length;
@@ -8421,7 +8530,9 @@ function renderDashboardSection(){
     const archiveBtn = p.archived
       ? `<button class="dproj-arch-btn" onclick="event.stopPropagation();unarchiveProject('${p.id}');renderDashboardSection()" title="Restore to active">Restore</button>`
       : `<button class="dproj-arch-btn" onclick="event.stopPropagation();archiveProject('${p.id}')" title="Move to archive">Archive</button>`;
-    return `<div class="dproj ${currentProject===p.id?'cur':''}" onclick="${p.archived ? '' : `switchProject('${p.id}');setSection('projects')`}">
+    return `<div class="dproj ${currentProject===p.id?'cur':''}" data-pid="${p.id}" draggable="true"
+      ondragstart="projDragStart(event,'${p.id}')" ondragover="projDragOver(event,this)" ondragleave="projDragLeave(event,this)" ondrop="projDrop(event,'${p.id}')" ondragend="projDragEnd(event)"
+      onclick="${p.archived ? '' : `switchProject('${p.id}');setSection('projects')`}">
       <div class="dproj-head">
         <div style="min-width:0"><div class="dproj-name">${escapeHtml(p.code || p.name || '')}</div>
           <div class="dproj-meta">${escapeHtml(p.notes || [p.name, p.client].filter(Boolean).join(' · '))}</div></div>
@@ -8877,11 +8988,11 @@ function projOrderIndex(id){ const i = getProjOrder().indexOf(id); return i === 
 function projDragStart(e, id){ _projDragId = id; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch(_){} }
 function projDragOver(e, el){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if(el) el.classList.add('drag-over'); }
 function projDragLeave(e, el){ if(el) el.classList.remove('drag-over'); }
-function projDragEnd(){ _projDragId = null; document.querySelectorAll('.proj-picker-item.drag-over').forEach(x => x.classList.remove('drag-over')); }
+function projDragEnd(){ _projDragId = null; document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over')); }
 function projDrop(e, targetId){
   e.preventDefault(); e.stopPropagation();
   const src = _projDragId; _projDragId = null;
-  document.querySelectorAll('.proj-picker-item.drag-over').forEach(x => x.classList.remove('drag-over'));
+  document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
   if(!src || src === targetId) return;
   // Seed the order with every current project (in display order), then move src just before target.
   let order = getProjOrder();
@@ -8890,7 +9001,10 @@ function projDrop(e, targetId){
   const ti = order.indexOf(targetId);
   order.splice(ti === -1 ? order.length : ti, 0, src);
   localStorage.setItem('eb_proj_order', JSON.stringify(order));
-  renderProjPicker();
+  // v0.1.193 (DB): refresh wherever the projects are shown — picker and/or dashboard.
+  const picker = document.getElementById('projPicker');
+  if(picker && picker.classList.contains('open')) renderProjPicker();
+  if(currentSection === 'dashboard') renderDashboardSection();
 }
 function renderProjPicker(){
   const list = document.getElementById('ppList');
@@ -8921,6 +9035,9 @@ function renderProjPicker(){
       if(!byClient.has(m.client)) byClient.set(m.client, []);
       byClient.get(m.client).push(m.item);
     });
+    // v0.1.193 (DB): also list companies with zero projects, so a freshly-created
+    // (empty) company still shows up as a group ready to receive projects.
+    getCompanies().forEach(c => { if(!byClient.has(c.name)) byClient.set(c.name, []); });
     const clients = [...byClient.keys()].sort((a, b) => {
       if(a === 'Internal' && b !== 'Internal') return 1;
       if(b === 'Internal' && a !== 'Internal') return -1;
@@ -8929,18 +9046,29 @@ function renderProjPicker(){
     clients.forEach(name => {
       const items = byClient.get(name);
       const collapsed = isClientCollapsed(name);
+      const co = companyByName(name);
+      const actions = co ? `<span class="pp-co-actions" onclick="event.stopPropagation()">
+          <button title="Rename company" onclick="renameCompanyPrompt('${co.id}')">✎</button>
+          ${items.length === 0 ? `<button title="Delete empty company" onclick="deleteCompany('${co.id}')">✕</button>` : ''}
+        </span>` : '';
       bodyHtml += `<div class="pp-client-hdr${collapsed?' collapsed':''}" onclick="toggleClientGroup('${name.replace(/'/g,"\\'")}')">
         <span class="pp-client-caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-        <span class="pp-client-name">${name}</span>
+        <span class="pp-client-name">${escapeHtml(name)}</span>
         <span class="pp-client-ct">${items.length}</span>
+        ${actions}
       </div>`;
-      if(!collapsed) bodyHtml += items.map(_projItemHtml).join('');
+      if(!collapsed){
+        bodyHtml += items.length ? items.map(_projItemHtml).join('')
+          : `<div class="pp-co-empty">No projects yet — add one below.</div>`;
+      }
     });
   }
   if(!bodyHtml){
     bodyHtml = '<div style="padding:14px 16px;color:var(--t4);font-size:12px;font-style:italic">No matches</div>';
   }
-  list.innerHTML = bodyHtml + `<div class="pm-add" onclick="document.getElementById('projPicker').classList.remove('open');openNewProjModal()">+ New project</div>`;
+  list.innerHTML = bodyHtml
+    + `<div class="pm-add" onclick="event.stopPropagation();promptNewCompany()">＋ New company</div>`
+    + `<div class="pm-add" onclick="document.getElementById('projPicker').classList.remove('open');openNewProjModal()">+ New project</div>`;
 }
 
 function updateProjPickerLabel(){
@@ -9136,9 +9264,11 @@ function selectProject(id){
   currentProject = id;
   localStorage.setItem('eb_current_project', id);
   if(typeof bumpProjectOpens === 'function') bumpProjectOpens(id);
-  document.getElementById('projPicker').classList.remove('open');
-  const search = document.getElementById('ppSearch');
-  if(search) search.value = '';
+  // v0.1.193 (DB): keep the picker OPEN on select — clicking a project switches
+  // to it but the dropdown stays put (highlight moves); it closes only via the
+  // header toggle (▲) or a click outside. This also lets drag-reorder work
+  // without the picker vanishing mid-gesture.
+  if(typeof renderProjPicker === 'function') renderProjPicker();
   updateProjPickerLabel();
   if(typeof renderProjMembers === 'function') renderProjMembers();
   if(typeof updateHeader === 'function') updateHeader();

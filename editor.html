@@ -507,10 +507,31 @@ function setSW(el){
 }
 // v0.1.29: opacity slider removed — opVal stays at 1.0 always
 function setOp(v){ /* no-op */ }
-// v0.1.189 (DB): left vertical sliders control pen size (sw) and opacity (opVal)
-// for newly-drawn annotations, Paint/Procreate-style.
-function setSwVal(v){ sw = +v; const el = document.getElementById('ltSizeVal'); if(el) el.textContent = v; document.querySelectorAll('button.sw[data-w]').forEach(b => b.classList.toggle('on', +b.dataset.w === sw)); }
-function setOpVal(v){ opVal = (+v) / 100; const el = document.getElementById('ltOpVal'); if(el) el.textContent = v + '%'; }
+// v0.1.189 (DB): left vertical sliders control pen size (sw) and opacity (opVal).
+// v0.1.193 (DB): they now also live-apply to the SELECTED annotation (Procreate
+// style) — set the value for new strokes AND, if a shape is selected, update it.
+function setSwVal(v){
+  sw = +v;
+  const el = document.getElementById('ltSizeVal'); if(el) el.textContent = v;
+  document.querySelectorAll('button.sw[data-w]').forEach(b => b.classList.toggle('on', +b.dataset.w === sw));
+  // No pushHistory here — the slider fires oninput many times per drag; snapshotting
+  // each tick would flood undo. The live value is what sticks.
+  if(selId){ const a = annotations.find(x => x.id === selId); if(a){ a.sw = sw; renderAll(); } }
+}
+function setOpVal(v){
+  opVal = (+v) / 100;
+  const el = document.getElementById('ltOpVal'); if(el) el.textContent = v + '%';
+  if(selId){ const a = annotations.find(x => x.id === selId); if(a){ a.op = opVal; renderAll(); } }
+}
+// When a shape is selected, make the sliders reflect its current size + opacity.
+function syncSlidersToSel(){
+  if(!selId) return;
+  const a = annotations.find(x => x.id === selId); if(!a) return;
+  const sizeR = document.querySelector('.lt-range[oninput*="setSwVal"]');
+  const opR   = document.querySelector('.lt-range[oninput*="setOpVal"]');
+  if(sizeR && a.sw != null){ sizeR.value = a.sw; const e = document.getElementById('ltSizeVal'); if(e) e.textContent = a.sw; }
+  if(opR){ const pct = Math.round((a.op == null ? 1 : a.op) * 100); opR.value = pct; const e = document.getElementById('ltOpVal'); if(e) e.textContent = pct + '%'; }
+}
 
 paper.addEventListener('mousedown',e=>{
   if(e.target.closest('#cmtPop,#textInp')) return;
@@ -791,6 +812,7 @@ function renderAll(){
     annRoot.appendChild(pin);
   }
   _applyCmtInvScale();
+  syncSlidersToSel();   // v0.1.193 (DB): sliders reflect the selected shape
 }
 function renderPrev(){
   prevDiv.innerHTML='';prevSvg.innerHTML='';
