@@ -1,3 +1,13 @@
+## [v0.1.192] — 2026-07-27 — Slim Windows installer (~8 MB)
+
+- Windows `webviewInstallMode` changed from `offlineInstaller` (bundled the full
+  ~180 MB WebView2 runtime → ~200 MB installer) to `embedBootstrapper`. The
+  installer now ships the tiny WebView2 bootstrapper (~1.5 MB) and only fetches
+  the runtime during install if it's missing — which on Windows 10/11 it almost
+  never is (it comes with Edge). Installer drops from ~207 MB to ~8 MB.
+  Trade-off: a machine with no WebView2 AND no internet at install time would
+  need the offline build instead.
+
 ## [v0.1.191] — 2026-07-27 — The heavy 4: images, exports, presence
 
 Closes the four features deferred from the v0.1.189 batch.
