@@ -299,6 +299,28 @@ fn open_editor_impl(
     }
 }
 
+// v0.1.195: the capture overlay now spans EVERY monitor, so a region can be
+// drawn on any screen. Each monitor gets its own window labelled "sniper-N";
+// these helpers treat the whole set as one logical overlay.
+//
+// Coordinates need no translation: sniper.html reports e.screenX/e.screenY
+// (absolute desktop coords) and both /usr/sbin/screencapture -R and the xcap
+// path already take absolute coords, so capture_region works unchanged.
+fn sniper_windows(app: &tauri::AppHandle) -> Vec<tauri::WebviewWindow> {
+    tauri::Manager::webview_windows(app)
+        .into_iter()
+        .filter(|(label, _)| label == "sniper" || label.starts_with("sniper-"))
+        .map(|(_, w)| w)
+        .collect()
+}
+
+fn close_all_snipers(app: &tauri::AppHandle) {
+    for w in sniper_windows(app) {
+        let _ = w.hide();
+        let _ = w.close();
+    }
+}
+
 #[tauri::command]
 fn open_sniper(app: tauri::AppHandle) {
     eprintln!("open_sniper — opening custom sniper.html overlay (v0.1.42 simple flow)");
@@ -309,37 +331,40 @@ fn open_sniper(app: tauri::AppHandle) {
     // main app instead of the dim overlay. Now: just hide main + close any stale
     // sniper, then create a fresh sniper window.
 
-    // v0.1.55: multi-monitor — use the monitor the main window is currently on
-    // (current_monitor), not always primary. Without this, sniper opened on the
-    // primary screen even when EngiBoard was on a secondary display.
-    let monitor = app
+    // v0.1.55: multi-monitor — the overlay used to open on the monitor holding
+    // the main window (current_monitor). v0.1.195: that still left the other
+    // screens uncoverable, so a region could only be drawn on one of them.
+    // Engineers run 2–3 monitors as a rule (client call 2026-08-28), so we now
+    // build one overlay per monitor from available_monitors().
+    let monitors: Vec<tauri::Monitor> = app
         .get_webview_window("main")
-        .and_then(|w| w.current_monitor().ok().flatten())
-        .or_else(|| {
-            app.get_webview_window("main")
-                .and_then(|w| w.primary_monitor().ok().flatten())
-        })
-        .or_else(|| {
-            tauri::Manager::webview_windows(&app)
-                .values()
-                .next()
-                .and_then(|w| w.current_monitor().ok().flatten())
-        });
+        .and_then(|w| w.available_monitors().ok())
+        .filter(|list| !list.is_empty())
+        .unwrap_or_default();
 
-    let (w, h, mx, my) = if let Some(ref m) = monitor {
-        let size = m.size();
-        let pos = m.position();
-        let scale = m.scale_factor();
-        (
-            size.width as f64 / scale,
-            size.height as f64 / scale,
-            pos.x as f64 / scale,
-            pos.y as f64 / scale,
-        )
+    // Per-monitor geometry in logical px: (width, height, x, y).
+    let targets: Vec<(f64, f64, f64, f64)> = if monitors.is_empty() {
+        eprintln!("available_monitors() returned nothing — falling back to a single 1920x1080 overlay at (0,0)");
+        vec![(1920.0, 1080.0, 0.0, 0.0)]
     } else {
-        (1920.0, 1080.0, 0.0, 0.0)
+        monitors
+            .iter()
+            .map(|m| {
+                let size = m.size();
+                let pos = m.position();
+                let scale = m.scale_factor();
+                (
+                    size.width as f64 / scale,
+                    size.height as f64 / scale,
+                    pos.x as f64 / scale,
+                    pos.y as f64 / scale,
+                )
+            })
+            .collect()
     };
-    eprintln!("sniper target monitor: {}x{} at ({},{})", w, h, mx, my);
+    for (i, (w, h, mx, my)) in targets.iter().enumerate() {
+        eprintln!("sniper target monitor #{}: {}x{} at ({},{})", i, w, h, mx, my);
+    }
 
     // Hide main + close any stale editor (we don't open editor anymore in stage 1,
     // but kill it just in case it's hanging from a previous flow).
@@ -350,44 +375,51 @@ fn open_sniper(app: tauri::AppHandle) {
     if let Some(editor_win) = app.get_webview_window("editor") {
         let _ = editor_win.close();
     }
-    // Always close stale sniper; reuse breaks `transparent(true)` on macOS.
-    if let Some(stale) = app.get_webview_window("sniper") {
-        let _ = stale.close();
-    }
+    // Always close stale snipers; reuse breaks `transparent(true)` on macOS.
+    close_all_snipers(&app);
 
     let app_clone = app.clone();
     std::thread::spawn(move || {
         // Brief pause for compositor to drop main window from the screen.
         std::thread::sleep(std::time::Duration::from_millis(200));
 
-        eprintln!("creating sniper window: {}x{}", w, h);
-        let result = WebviewWindowBuilder::new(
-            &app_clone, "sniper", WebviewUrl::App("sniper.html".into()))
-            .title("EngiBoard Sniper")
-            .inner_size(w, h)
-            .position(mx, my)
-            .decorations(false)
-            .transparent(true)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .resizable(false)
-            .focused(true)
-            .visible(true)
-            .build();
+        let mut created = 0usize;
+        for (i, (w, h, mx, my)) in targets.iter().enumerate() {
+            let label = format!("sniper-{}", i);
+            eprintln!("creating sniper window {}: {}x{} at ({},{})", label, w, h, mx, my);
+            let result = WebviewWindowBuilder::new(
+                &app_clone, &label, WebviewUrl::App("sniper.html".into()))
+                .title("EngiBoard Sniper")
+                .inner_size(*w, *h)
+                .position(*mx, *my)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                // Only the first overlay takes focus — focusing each in turn
+                // would leave the last monitor's window on top of the pointer.
+                .focused(i == 0)
+                .visible(true)
+                .build();
 
-        match result {
-            Ok(win) => {
-                eprintln!("sniper window created OK");
-                let _ = win.show();
-                let _ = win.set_focus();
-                let _ = win.set_always_on_top(true);
-            }
-            Err(e) => {
-                eprintln!("FAILED to create sniper: {} — restoring main", e);
-                if let Some(main_win) = app_clone.get_webview_window("main") {
-                    let _ = main_win.show();
-                    let _ = main_win.set_focus();
+            match result {
+                Ok(win) => {
+                    eprintln!("sniper window {} created OK", label);
+                    let _ = win.show();
+                    if i == 0 { let _ = win.set_focus(); }
+                    let _ = win.set_always_on_top(true);
+                    created += 1;
                 }
+                Err(e) => eprintln!("FAILED to create sniper {}: {}", label, e),
+            }
+        }
+
+        if created == 0 {
+            eprintln!("no sniper overlay could be created — restoring main");
+            if let Some(main_win) = app_clone.get_webview_window("main") {
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
             }
         }
     });
@@ -395,9 +427,8 @@ fn open_sniper(app: tauri::AppHandle) {
 
 #[tauri::command]
 fn sniper_done(app: tauri::AppHandle, data_url: String) {
-    if let Some(w) = app.get_webview_window("sniper") {
-        let _ = w.close();
-    }
+    // Cancel on one monitor dismisses the whole overlay.
+    close_all_snipers(&app);
     // v0.1.42: Always bring main back so user isn't stuck with no window.
     if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.unminimize();
@@ -417,17 +448,16 @@ fn sniper_done(app: tauri::AppHandle, data_url: String) {
 fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
     eprintln!("capture_region (CSS px): {}x{} at ({},{})", w, h, x, y);
 
-    // Hide + close sniper window immediately so the screenshot doesn't include the overlay.
-    if let Some(win) = app.get_webview_window("sniper") {
-        let _ = win.hide();
-        let _ = win.close();
-    }
+    // Hide + close EVERY overlay immediately so the screenshot doesn't include
+    // any of them — with multi-monitor overlays the selection is drawn on one
+    // screen while the others still hold a dimmed window over the content.
+    close_all_snipers(&app);
 
     std::thread::spawn(move || {
-        // Wait for the sniper window to fully exit the compositor.
+        // Wait for all sniper windows to fully exit the compositor.
         for i in 0..40 {
-            if app.get_webview_window("sniper").is_none() {
-                eprintln!("sniper destroyed after {}ms", i * 50);
+            if sniper_windows(&app).is_empty() {
+                eprintln!("snipers destroyed after {}ms", i * 50);
                 break;
             }
             std::thread::sleep(std::time::Duration::from_millis(50));

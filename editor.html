@@ -227,7 +227,12 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
          longer creatable from the toolbar. -->
     <!-- <button class="fb" data-id="dimension" data-tip="Dimension" data-key="D" onclick="setTool('dimension')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.3 8.7L8.7 21.3a2.4 2.4 0 0 1-3.4 0L2.7 18.7a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4zM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/></svg></button> -->
     <!-- v0.1.164 (DB): инструмент Blur убран полностью — не нужен. -->
-    <button class="fb" data-id="comment" data-tip="Comment" data-key="Q" onclick="setTool('comment')"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    <!-- v0.1.195: инструмент Comment убран. Пин-комментарии в редакторе не
+         сохранялись (Этап-4, 26W27 «The comment in the screenshot editor does
+         not get saved» и повтор в 26W33), клиент просил удалить функцию
+         целиком. Убраны: инструмент, попап ввода, правая панель Comments и
+         хоткей Q. Уже сохранённые комментарии НЕ удаляются — они читаются из
+         payload и пишутся обратно без изменений, просто больше не рисуются. -->
     <button class="fb" data-id="emoji" data-tip="Emoji" data-key="E" onclick="toggleEmojiPicker(event)"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9.5" x2="9.01" y2="9.5"/><line x1="15" y1="9.5" x2="15.01" y2="9.5"/></svg></button>
     <!-- v0.1.164 (DB): кнопка «скрыть/показать все метки» (глаз-перечёркнутый). -->
     <button class="fb" id="hideMarksBtn" data-tip="Hide marks" data-key="" onclick="toggleMarksHidden()"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></svg></button>
@@ -276,14 +281,7 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     <div id="prevDiv" style="position:absolute;inset:0;pointer-events:none;z-index:11"></div>
     <svg id="prevSvg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:11;overflow:visible" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
     <input id="textInp" class="text-inp" style="display:none;z-index:15" placeholder="Type label…" onkeydown="onTextKey(event)" oninput="this.style.width=Math.max(100,this.scrollWidth+4)+'px'">
-    <div id="cmtPop" class="cmt-pop" style="display:none;z-index:16">
-      <div style="padding:8px 12px 0;font-size:10px;font-weight:700;color:#888;letter-spacing:.06em;text-transform:uppercase">Comment</div>
-      <input id="cmtInp" style="width:100%;border:none;outline:none;font-size:12px;font-family:var(--font);padding:8px 12px;color:#1a1a1a;background:none" placeholder="Write a comment…" onkeydown="onCmtKey(event)">
-      <div style="padding:6px 10px 8px;display:flex;justify-content:flex-end;gap:6px;border-top:1px solid #eee">
-        <button onclick="closeCmtPop()" style="padding:5px 12px;font-size:11px;border:none;background:none;cursor:pointer;color:#888;font-family:var(--font);border-radius:4px">Cancel</button>
-        <button onclick="submitCmt()" style="padding:5px 12px;font-size:11px;border:none;background:#3B82F6;color:#fff;cursor:pointer;font-family:var(--font);border-radius:4px;font-weight:600">Post</button>
-      </div>
-    </div>
+    <!-- v0.1.195: попап ввода комментария убран вместе с инструментом. -->
   </div>
   <!-- v0.1.189 (DB): left-edge vertical sliders for pen size + opacity -->
   <div class="left-tools" id="leftTools">
@@ -315,13 +313,7 @@ input[type=range]{width:100%;accent-color:#3B82F6;cursor:pointer;height:4px;back
     </div>
     <div class="rps-list" id="annList"><div class="rps-empty">No annotations yet</div></div>
   </div>
-  <div class="rps-section">
-    <div class="rps-section-h">
-      <span class="rpl">Comments</span>
-      <span class="rpl-ct" id="cmtCt">0</span>
-    </div>
-    <div class="rps-list" id="cmtList"><div class="rps-empty">Click anywhere with the comment tool to add a pin</div></div>
-  </div>
+  <!-- v0.1.195: секция Comments убрана вместе с инструментом. -->
   <!-- v0.1.69: duplicate bottom action block removed — all actions live in
        the top toolbar (.tact) only, per Roman's request. -->
 </div>
@@ -551,7 +543,7 @@ paper.addEventListener('mousedown',e=>{
     else{selId=null;isDragging=false;dragStart=null;}
     renderAll();return;
   }
-  if(tool==='comment'){cmtPos=relPos(e);showCmtPopUI(e);return;}
+  // v0.1.195: ветка инструмента Comment убрана.
   if(tool==='emoji'){placeEmoji(relPos(e));return;}
   if(tool==='text'){commitText();textPos=relPos(e);showTextInp(textPos);return;}
   const p=relPos(e);
@@ -801,17 +793,9 @@ function renderAll(){
       annRoot.appendChild(r.el);
     }
   }
+  // v0.1.195: пины комментариев больше не рисуются (функция удалена).
+  // Чистим возможные остатки от предыдущего рендера.
   document.querySelectorAll('.cpin-r,.cbbl-r').forEach(e=>e.remove());
-  for(const c of comments){
-    const pin=document.createElement('div');
-    pin.className='cpin cpin-r';
-    pin.style.cssText=`left:${c.px}%;top:${c.py}%;background:${c.color}`;
-    pin.dataset.cmtId = c.id;  // v0.1.29: link pin ↔ Comments panel item
-    pin.textContent=c.num;
-    pin.onclick=ev=>{ev.stopPropagation();toggleBubble(c);};
-    annRoot.appendChild(pin);
-  }
-  _applyCmtInvScale();
   syncSlidersToSel();   // v0.1.193 (DB): sliders reflect the selected shape
 }
 function renderPrev(){
@@ -838,37 +822,10 @@ function onTextKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();commit
 function editExistingText(id){const a=annotations.find(x=>x.id===id);if(!a)return;editingTextId=id;textPos={x:a.x,y:a.y};showTextInp(textPos,a.text||'');}
 function commitText(){const inp=document.getElementById('textInp');if(textPos&&inp.value.trim()){pushHistory();if(editingTextId){const a=annotations.find(x=>x.id===editingTextId);if(a)a.text=inp.value.trim();}else{annotations.push({id:'a'+Date.now(),type:'text',x:textPos.x,y:textPos.y,w:0,h:0,color,sw,op:opVal,text:inp.value.trim()});}renderAll();updateList();updateCount();}editingTextId=null;textPos=null;inp.style.display='none';inp.value='';}
 
-function showCmtPopUI(e){
-  const pop=document.getElementById('cmtPop'),inp=document.getElementById('cmtInp');
-  // v0.1.164 (DB): поле комментария масштабировалось вместе с картинкой —
-  // оно жило внутри #paper (его трансформит зум). Counter-scale работал
-  // неточно. Теперь выносим поп в <body> и позиционируем в ЭКРАННЫХ
-  // координатах (position:fixed) — постоянный размер при любом зуме.
-  if(pop.parentElement !== document.body) document.body.appendChild(pop);
-  const px=Math.min(e.clientX+14, window.innerWidth-270);
-  const py=Math.max(e.clientY-52, 8);
-  pop.style.cssText=`display:block;position:fixed;left:${px}px;top:${py}px;z-index:100020;background:#fff;border:1px solid #ddd;min-width:240px;pointer-events:auto;color:#1a1a1a;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3)`;
-  inp.value='';setTimeout(()=>inp.focus(),10);
-}
-function closeCmtPop(){document.getElementById('cmtPop').style.display='none';cmtPos=null;}
-function onCmtKey(e){if(e.key==='Enter') submitCmt();if(e.key==='Escape') closeCmtPop();e.stopPropagation();}
-function submitCmt(){const inp=document.getElementById('cmtInp');if(!cmtPos||!inp.value.trim()){closeCmtPop();return;}comments.push({id:++commentCount,num:commentCount,px:cmtPos.x,py:cmtPos.y,color,text:inp.value.trim(),av:'AS'});closeCmtPop();renderAll();updateList();updateCount();}
-function toggleBubble(c){
-  // v0.1.163 (DB): настоящий toggle — повторный клик по пину закрывает пузырь
-  // (как в Figma: ткнул — открылось/почиталось, ткнул ещё — закрылось).
-  const alreadyOpen = document.querySelector(`.cbbl-r[data-cmt-id="${c.id}"]`);
-  document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
-  if(alreadyOpen) return;
-  const bub=document.createElement('div');
-  bub.dataset.cmtId = c.id;
-  bub.className='cbbl cbbl-r';
-  bub.style.cssText=`left:${Math.min(c.px+3,62)}%;top:${c.py-4}%`;
-  bub.innerHTML=`<div style="padding:10px 12px;font-size:12px;color:#1a1a1a;line-height:1.45">${escapeHtml(c.text)}</div><div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #eee"><button onclick="delCmt(${c.id});event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font)">Delete</button><button onclick="this.closest('.cbbl-r').remove();event.stopPropagation()" style="font-size:11px;color:#888;border:none;background:none;cursor:pointer;font-family:var(--font);margin-left:auto">✕</button></div>`;
-  bub.onmousedown=ev=>ev.stopPropagation();
-  annRoot.appendChild(bub);
-  _applyCmtInvScale();
-}
-function delCmt(id){comments=comments.filter(c=>c.id!==id);document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());renderAll();updateList();updateCount();}
+// v0.1.195: showCmtPopUI / closeCmtPop / onCmtKey / submitCmt / toggleBubble /
+// delCmt удалены вместе с инструментом Comment. closeCmtPop оставлен
+// безопасной заглушкой — его зовут обработчик Esc и клик по холсту.
+function closeCmtPop(){ cmtPos=null; }
 
 // v0.1.164 (DB): скрыть/показать ВСЕ метки на скриншоте одной кнопкой.
 // Прячем слой аннотаций (annRoot — фигуры/текст/пины/эмодзи) и SVG-слой
@@ -884,14 +841,11 @@ function toggleMarksHidden(){
   if(_marksHidden) document.querySelectorAll('.cbbl-r').forEach(e=>e.remove());
 }
 
-const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',comment:'●',marker:'▬',emoji:'☺'};
-const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',comment:'Comment',marker:'Marker',emoji:'Emoji'};
+const ICONS={rect:'□',circle:'○',arrow:'→',line:'/',freehand:'~',text:'T',dimension:'⟺',blur:'⊘',marker:'▬',emoji:'☺'};
+const NAMES={rect:'Rectangle',circle:'Circle',arrow:'Arrow',line:'Line',freehand:'Freehand',text:'Label',dimension:'Dimension',blur:'Blur',marker:'Marker',emoji:'Emoji'};
 function updateList(){
-  // v0.1.29: split into Layers (annotations) and Comments (pin-comments) panels
   const annEl = document.getElementById('annList');
-  const cmtEl = document.getElementById('cmtList');
   const annCt = document.getElementById('annCt');
-  const cmtCt = document.getElementById('cmtCt');
 
   // Layers list — annotations only
   if(annCt) annCt.textContent = annotations.length;
@@ -907,33 +861,13 @@ function updateList(){
     `).join('');
   }
 
-  // Comments list — pin-comments only
-  if(cmtCt) cmtCt.textContent = comments.length;
-  if(!comments.length){
-    cmtEl.innerHTML = '<div class="rps-empty">Click anywhere with the comment tool to add a pin</div>';
-  } else {
-    cmtEl.innerHTML = comments.map(c => `
-      <div class="ali" onclick="selComment(${c.id})">
-        <span style="width:18px;height:18px;border-radius:50%;background:${safeColor(c.color)};flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff">${c.num}</span>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--t1)">${escapeHtml((c.text||'').slice(0,28))}</span>
-        <button class="adel" onclick="event.stopPropagation();delCmt(${c.id})">×</button>
-      </div>
-    `).join('');
-  }
+  // v0.1.195: список Comments убран вместе с функцией.
 }
 
-function selComment(id){
-  // Highlight pin briefly + scroll into view
-  const pin = document.querySelector(`.cpin[data-cmt-id="${id}"]`);
-  if(pin){
-    pin.style.transform = 'translate(-50%,-50%) scale(' + (1.4 / _edScale) + ')';
-    pin.style.zIndex = 25;
-    setTimeout(() => { pin.style.transform = 'translate(-50%,-50%) scale(' + (1/_edScale) + ')'; pin.style.zIndex = ''; }, 600);
-  }
-}
+// v0.1.195: selComment удалён вместе со списком Comments.
 function selAnn(id){selId=id;renderAll();updateList();}
-function delAnn(id){if(String(id).startsWith('c')){delCmt(+id.slice(1));return;}pushHistory();annotations=annotations.filter(a=>String(a.id)!==String(id));selId=null;renderAll();updateList();updateCount();}
-function updateCount(){const n=annotations.length+comments.length;document.getElementById('sbCount').textContent=`${n} annotation${n!==1?'s':''}`;}
+function delAnn(id){pushHistory();annotations=annotations.filter(a=>String(a.id)!==String(id));selId=null;renderAll();updateList();updateCount();}
+function updateCount(){const n=annotations.length;document.getElementById('sbCount').textContent=`${n} annotation${n!==1?'s':''}`;}
 function undoLast(){
   if(!undoStack.length){notify('Nothing to undo');return;}
   redoStack.push(JSON.parse(JSON.stringify(annotations)));
@@ -948,7 +882,7 @@ function redoNext(){
   annotations = redoStack.pop();
   selId = null; renderAll(); updateList(); updateCount(); notify('Redo');
 }
-function clearAll(){if(!annotations.length&&!comments.length) return;pushHistory();annotations=[];comments=[];selId=null;renderAll();updateList();updateCount();}
+function clearAll(){if(!annotations.length) return;pushHistory();annotations=[];selId=null;renderAll();updateList();updateCount();}
 
 // v0.1.72: close goes through Rust (invoke close_editor → w.destroy()) FIRST.
 // The previous version called the JS getCurrentWindow().destroy() first, but
@@ -1101,7 +1035,7 @@ async function discard(){
 // is dropped — pressing D used to activate the tool even after the button
 // was hidden in v0.1.157.
 // v0.1.164 (DB): 'b'/blur убран — инструмент Blur удалён из тулбара.
-const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',q:'comment',m:'marker'};
+const KMAP={v:'select',h:'hand',r:'rect',c:'circle',a:'arrow',l:'line',p:'freehand',t:'text',m:'marker'};
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
   const k=e.key.toLowerCase();

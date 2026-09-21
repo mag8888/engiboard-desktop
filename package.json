@@ -6,15 +6,14 @@
   "scripts": {
     "start": "npx serve -s dist -p ${PORT:-3000}",
     "sync-dist": "cp index.html dist/index.html && cp editor.html dist/editor.html && cp sniper.html dist/sniper.html 2>/dev/null; echo 'dist synced'",
-    "prebuild": "npm run sync-dist",
-    "build": "npm run sync-dist && cargo tauri build && npm run install-app",
+    "check-dist": "node scripts/check-dist-sync.js",
+    "prebuild": "npm run check-dist",
+    "build": "npm run check-dist && cargo tauri build && npm run install-app",
     "install-app": "rm -rf /Applications/EngiBoard.app && cp -R src-tauri/target/release/bundle/macos/EngiBoard.app /Applications/ && rm -rf src-tauri/target/release/bundle/macos/EngiBoard.app && defaults write com.apple.dock ResetLaunchPad -bool true && killall Dock && echo '✓ Installed & Launchpad reset'",
-    "test:unit": "node tests/unit.test.js",
-    "test:e2e": "npx playwright test tests/e2e.test.js --reporter=list",
     "test:ui": "playwright test",
     "test:ui:edge": "playwright test --project=edge",
     "test:ui:chromium": "playwright test --project=chromium",
-    "test": "npm run test:unit && npm run test:e2e"
+    "test": "npm run check-dist && npm run test:ui"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0"

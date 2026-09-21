@@ -235,6 +235,16 @@ body.platform-linux .tl-spacer{width:0;display:none}
   padding:0 14px;width:146px;flex-shrink:0;transition:width .22s ease, padding .22s ease
 }
 body.sb-collapsed .brand{width:auto;padding-right:18px}
+/* v0.1.195: company chip — a header item of its own (see the note in the
+   markup). max-width keeps a long company name from squeezing the project
+   picker off-screen. */
+.my-co-chip{
+  display:none;flex-shrink:0;margin-right:4px;padding:3px 11px;border-radius:20px;
+  background:rgba(14,165,233,.12);color:var(--acc);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:var(--mono);max-width:200px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap
+}
+.my-co-chip:hover{background:rgba(14,165,233,.20)}
 .brand .mark{
   width:26px;height:26px;border-radius:7px;flex-shrink:0;
   background:linear-gradient(135deg,var(--acc-2),var(--acc));
@@ -514,7 +524,12 @@ body.dark-mode .proj-member .role{background:rgba(255,255,255,.06)}
 .dash-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-width:1200px}
 .dash-list-item{
   display:flex;align-items:center;gap:14px;padding:10px 16px;
-  background:var(--surf);border:1px solid var(--line);border-radius:10px;cursor:pointer;
+  /* v0.1.195 (Этап-4 LIST VIEW #6 "Task Cards - More contrast"): a 1px
+     var(--line) border on var(--surf) was nearly invisible against the page
+     background — the client called this one "half done". Slightly stronger
+     border + a soft lift so each card reads as a distinct object. */
+  background:var(--surf);border:1px solid var(--line-2);border-radius:10px;
+  box-shadow:0 1px 2px rgba(15,23,42,.05);cursor:pointer;
   transition:.12s
 }
 .dash-list-item:hover{border-color:var(--acc)}
@@ -596,7 +611,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* LIST — compact row (~4:3 pics by default), no labels, chat preview */
 .list.cv-list .row{
-  grid-template-columns:30px 1fr 220px 220px;
+  grid-template-columns:30px 1fr 220px 220px 170px;
   min-height:165px;padding:6px 10px;margin:4px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~2 сообщения в свёрнутом виде, скролл дальше. */
@@ -612,7 +627,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 
 /* EXPANDED — large card: wider chat + big pics */
 .list.cv-expanded .row{
-  grid-template-columns:30px 380px 1fr 1fr;
+  grid-template-columns:30px 380px 1fr 1fr 220px;
   min-height:380px;padding:16px;margin:14px 28px;align-items:stretch;
 }
 /* v0.1.164 (DB): mini-chat — ~5 сообщений в развёрнутом виде. */
@@ -635,7 +650,7 @@ body.dark-mode .chip.fc-up   { color:#7dd3fc; background:rgba(14,165,233,.10) }
 .row{
   /* v0.1.55: title-col removed (title + id no longer shown), status moved into
      chat-col actions row. Grid: drag · CHAT(+actions+status) · BEFORE · AFTER */
-  display:grid;grid-template-columns:30px 320px 1fr 1fr;
+  display:grid;grid-template-columns:30px 320px 1fr 1fr 190px;
   background:var(--surf);border:1px solid var(--line);border-radius:10px;
   padding:10px;margin:6px 28px;align-items:center;cursor:pointer;
   transition:all .12s;position:relative;min-height:90px;
@@ -776,6 +791,11 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 .row .pi .pi-del{position:absolute;top:6px;right:6px;z-index:5;width:22px;height:22px;border:none;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;font-size:15px;line-height:1;cursor:pointer;align-items:center;justify-content:center;display:none;padding:0}
 .row .pi.has-img:hover .pi-del{display:flex}
 .row .pi .pi-del:hover{background:#EF4444}
+/* v0.1.195: "+" sits beside the "×" on a filled AFTER slot, same affordance
+   pattern — hidden until hover so the thumbnail stays clean. */
+.row .pi .pi-add{position:absolute;top:6px;right:32px;z-index:5;width:22px;height:22px;border:none;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;font-size:15px;line-height:1;cursor:pointer;align-items:center;justify-content:center;display:none;padding:0}
+.row .pi.has-img:hover .pi-add{display:flex}
+.row .pi .pi-add:hover{background:var(--acc)}
 .row .pi .pi-count{position:absolute;bottom:6px;right:6px;z-index:4;background:rgba(15,23,42,.7);color:#fff;font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:10px;pointer-events:none}
 
 .row .nt{padding:0 12px;display:flex;flex-direction:column;gap:2px;min-width:0;height:100%}
@@ -802,12 +822,40 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
   display:flex;flex-direction:column;gap:5px;height:100%;min-height:0;
   padding:8px 8px 8px 0
 }
+/* v0.1.195: Notes column — the right-hand "Notes Window" from the Этап-4
+   LIST VIEW bundle. Deliberately quiet: it is a place to jot, not a second
+   chat, so it only gains a border on hover/focus. */
+.notes-col{
+  display:flex;flex-direction:column;gap:4px;height:100%;min-height:0;
+  padding:8px 0 8px 2px
+}
+.notes-col-h{
+  font-size:9px;font-weight:700;color:var(--t4);text-transform:uppercase;
+  letter-spacing:.08em;padding-left:7px;flex-shrink:0
+}
+.notes-area{
+  flex:1 1 0;min-height:0;resize:none;overflow-y:auto;
+  background:var(--bg);color:var(--t2);border:1px solid var(--line);
+  border-radius:6px;padding:6px 7px;font-family:inherit;font-size:11px;
+  line-height:1.45;outline:none;transition:.12s;-webkit-user-select:text;user-select:text
+}
+.notes-area::placeholder{color:var(--t4);opacity:.7}
+.notes-area:hover{border-color:var(--line-2)}
+.notes-area:focus{border-color:var(--acc);background:var(--surf);color:var(--t1)}
+.notes-area::-webkit-scrollbar{width:5px}
+.notes-area::-webkit-scrollbar-thumb{background:rgba(15,23,42,.12);border-radius:3px}
+body.dark-mode .notes-area{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.05)}
 .chat-col .chat-list{
   /* v0.1.46: chat fills full row height (was max-height:64px) */
-  /* v0.1.157 (N5 from 2026-06-05): when the user resizes a row taller via
-     the image cell, the chat used to squish to nothing. Floor it at 60px
-     (≈ 3 messages) so the panel stays usable. */
-  flex:1 1 auto;min-height:60px;overflow-y:auto;
+  /* v0.1.195: flex-basis 0 (not auto) — the panel takes the space the CARD
+     leaves it instead of demanding the height of its own content. Together
+     with min-height:0 this lets overflow-y actually engage, so a long chat
+     scrolls and the card stays shrinkable. v0.1.193 removed the old
+     max-height caps to let the chat fill a taller card, which re-broke the
+     v0.1.190 "can't shrink a tall card" fix; basis-0 satisfies both. The 60px
+     usability floor now lives on the resize handle (FLOOR in onResizeStart),
+     where it can't block shrinking. */
+  flex:1 1 0;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:5px;
   background:var(--bg);border-radius:6px;border:1px solid var(--line);
   padding:5px 6px;transition:.12s
@@ -980,8 +1028,13 @@ body.dark-mode .card-move:hover{background:rgba(255,255,255,.08)}
    как «создать задачу здесь». Печатаешь и Enter — задача создаётся. */
 .row.empty.eb-addrow{border:1.5px dashed var(--line-2);background:transparent;box-shadow:none;min-height:50px;opacity:.92;transition:border-color .12s,opacity .12s}
 .row.empty.eb-addrow:hover{border-color:var(--acc);opacity:1}
-.row.empty.eb-addrow .newInpProj,.row.empty.eb-addrow #newInp{width:100%;font-weight:500}
-.row.empty.eb-addrow .newInpProj::placeholder,.row.empty.eb-addrow #newInp::placeholder{color:var(--acc);opacity:.85}
+.row.empty.eb-addrow .newInpProj,.row.empty.eb-addrow #newInp,.row.empty.eb-addrow .newInpWeek{width:100%;font-weight:500}
+.row.empty.eb-addrow .newInpProj::placeholder,.row.empty.eb-addrow #newInp::placeholder,.row.empty.eb-addrow .newInpWeek::placeholder{color:var(--acc);opacity:.85}
+/* v0.1.195: the per-week placeholder sits inside a week group, so it reads as
+   nested under the week header — quieter than the project-level ghost row and
+   indented to match the task cards it follows. */
+.row.empty.eb-addrow-week{min-height:44px;opacity:.6;border-style:dashed}
+.row.empty.eb-addrow-week:hover,.row.empty.eb-addrow-week:focus-within{opacity:1}
 .row.empty.eb-addrow .pc{opacity:.4}
 /* ━━━ v0.1.169 (DB) UX-батч ━━━ */
 /* (1) Фильтр багов — чекбокс «Hide bugs» в стиле чипа */
@@ -1973,12 +2026,17 @@ body.dark-mode .chat-mention-pop{box-shadow:0 10px 28px rgba(0,0,0,.5)}
   /* Left margin matches .row's 28px so week labels line up with the task
      cards underneath instead of hugging the container edge. */
   /* v0.1.193 (DB): weeks made more prominent + slightly out-dented (14px) so the
-     task cards below (28px) read as clearly nested under the week. */
-  margin:9px 14px 2px;cursor:pointer;font-family:var(--mono);font-size:12.5px;
+     task cards below (28px) read as clearly nested under the week.
+     v0.1.195 (Этап-4 LIST VIEW #5 "Week bar - More contrast + Indent"): the
+     14px out-dent left only a 14px step against the cards' 28px — the client
+     called it "маленький вот этот индент". Now 4px, so the step is 24px and
+     the nesting is unmistakable. Band and border strengthened too, and the
+     two competing box-shadow declarations merged: the second one silently
+     overrode the intended blue glow, so it had never rendered. */
+  margin:11px 4px 3px;cursor:pointer;font-family:var(--mono);font-size:13.5px;
   font-weight:700;letter-spacing:.04em;color:var(--t1);user-select:none;
-  padding:8px 14px;background:rgba(14,165,233,.14);border:1.5px solid rgba(14,165,233,.35);
-  box-shadow:0 1px 3px rgba(14,165,233,.08);
-  border-radius:7px;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  padding:9px 16px;background:rgba(14,165,233,.20);border:1.5px solid rgba(14,165,233,.50);
+  border-radius:7px;box-shadow:0 1px 3px rgba(14,165,233,.10),0 1px 2px rgba(15,23,42,.06)}
 body.dark-mode .week-hdr{box-shadow:0 1px 1px rgba(0,0,0,.2)}
 .week-hdr:first-child{margin-top:2px}
 .week-hdr.drop-target{background:rgba(14,165,233,.12);color:var(--acc);
@@ -2341,7 +2399,14 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         </svg>
       </button>
     </div>
-    <div class="brand"><div class="mark">E</div><span style="margin-left:8px">EngiBoard</span><span id="myCompanyLabel" onclick="openMyCompanySetup()" title="Your company — click to rename" style="display:none;margin-left:10px;padding:3px 11px;border-radius:20px;background:rgba(14,165,233,.12);color:var(--acc);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--mono)"></span></div>
+    <div class="brand"><div class="mark">E</div><span style="margin-left:8px">EngiBoard</span></div>
+    <!-- v0.1.195 (Этап-4 26W33 "The texts overlap"): the company chip used to
+         live INSIDE .brand, which is a fixed 146px box aligned with the
+         sidebar and flex-shrink:0. The chip overflowed that box and printed
+         straight over the project title next to it. It is workspace context,
+         not part of the wordmark, so it is now its own header item and simply
+         takes the width it needs. -->
+    <span id="myCompanyLabel" class="my-co-chip" onclick="openMyCompanySetup()" title="Your company — click to rename"></span>
 
     <!-- v0.1.46: project picker moved into title-bar (was in .proj-bar) -->
     <div class="proj-picker tbar-proj-picker" id="projPicker">
@@ -2725,9 +2790,16 @@ function setLang(lang){
 }
 function toggleLang(){ setLang(currentLang === 'en' ? 'ru' : 'en'); }
 function applyLang(){
-  // Update STATUSES labels in-place
-  for(let i = 0; i < STATUSES.length; i++){
-    if(I18N[currentLang] && I18N[currentLang]['st.' + i]) STATUSES[i].l = I18N[currentLang]['st.' + i];
+  // Update STATUSES labels in-place.
+  // v0.1.195: two bugs here. (1) it keyed the translation off the ARRAY INDEX,
+  // so once a status was added or removed the labels shifted onto the wrong
+  // statuses. (2) it overwrote user-renamed statuses on every language toggle,
+  // silently undoing the rename. Now: key off the status id, and leave
+  // user-renamed statuses (s.custom) alone.
+  for(const s of STATUSES){
+    if(s.custom) continue;
+    const tr = I18N[currentLang] && I18N[currentLang]['st.' + s.id];
+    if(tr) s.l = tr;
   }
   // Update HTML elements with [data-t]
   document.querySelectorAll('[data-t]').forEach(el => { el.textContent = T(el.dataset.t); });
@@ -2778,7 +2850,7 @@ for(let i = 0; i < STATUSES.length; i++){
       // Full replacement — supports added/removed (hidden) statuses.
       STATUSES.length = 0;
       // v0.1.189 (DB): statuses now carry an editable priority (display order).
-      saved.forEach(s => STATUSES.push({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden, priority:(typeof s.priority === 'number' ? s.priority : s.id) }));
+      saved.forEach(s => STATUSES.push({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden, priority:(typeof s.priority === 'number' ? s.priority : s.id), custom:!!s.custom }));
     } else {
       for(const [idStr, data] of Object.entries(saved)){
         const s = STATUSES.find(x => x.id === +idStr);
@@ -2787,9 +2859,26 @@ for(let i = 0; i < STATUSES.length; i++){
     }
   } catch(e){}
 })();
+// v0.1.195: the factory set, in one place. resetCustomStatuses() used to carry
+// its own copy of this list, so the two could drift.
+const DEFAULT_STATUSES = [
+  {id:0,l:'Info',c:'#94A3B8',cls:'bg-info'},{id:1,l:'Done',c:'#22C55E',cls:'bg-done'},
+  {id:2,l:'Not Relevant',c:'#94A3B8',cls:'bg-not'},{id:3,l:'Review',c:'#A78BFA',cls:'bg-rev'},
+  {id:4,l:'Info Required',c:'#0EA5E9',cls:'bg-req'},{id:5,l:'Problem',c:'#EF4444',cls:'bg-prob'},
+  {id:6,l:'In Progress',c:'#F97316',cls:'bg-prog'},{id:7,l:'Upcoming',c:'#0EA5E9',cls:'bg-up'}
+];
+function defaultStatusColor(id){ const d = DEFAULT_STATUSES.find(x => x.id === id); return d ? d.c : null; }
+
 // Helper: only visible (non-deleted) statuses, ordered by editable priority
 // (v0.1.189, DB). Falls back to id so untouched statuses keep their order.
 function statusPriority(s){ return (typeof s.priority === 'number') ? s.priority : s.id; }
+// v0.1.195: status id → its editable priority. Sorting used the raw id, so the
+// priority column in the editor changed nothing (Этап-4 P1 «SETTINGS > Edit
+// Status >>> Name; Colour; Priority» — the Priority half was inert).
+function statusPriorityById(sid){
+  const s = STATUSES.find(x => x.id === sid);
+  return s ? statusPriority(s) : (sid ?? 0);
+}
 function visibleStatuses(){ return STATUSES.filter(s => !s.hidden).slice().sort((a, b) => statusPriority(a) - statusPriority(b) || a.id - b.id); }
 
 // ━━━ SUPABASE CLIENT (S2 P0-3, deferred — see supabase/ARCHITECTURE_DECISION.md) ━━━
@@ -2912,7 +3001,8 @@ function updateMyCompanyLabel(){
   const el = document.getElementById('myCompanyLabel');
   if(!el) return;
   el.textContent = hasMyCompany() ? MY_COMPANY.name : '';
-  el.style.display = hasMyCompany() ? '' : 'none';
+  // inline-block, not '' — the stylesheet default is display:none.
+  el.style.display = hasMyCompany() ? 'inline-block' : 'none';
 }
 // First-run: create your company (the workspace). Required before adding projects.
 function openMyCompanySetup(onDone){
@@ -3154,15 +3244,32 @@ function _captureStatusEdits(){
     const lEl = document.getElementById('slabel_'+s.id);
     const cEl = document.getElementById('scolor_'+s.id);
     const pEl = document.getElementById('sprio_'+s.id);
-    if(lEl) s.l = (lEl.value.trim() || s.l);
-    if(cEl) s.c = cEl.value;
+    if(lEl){
+      s.l = (lEl.value.trim() || s.l);
+      // Mark a renamed status so applyLang() stops translating over it.
+      const def = DEFAULT_STATUSES.find(x => x.id === s.id);
+      const tr = I18N[currentLang] && I18N[currentLang]['st.' + s.id];
+      s.custom = !!(s.l !== (def && def.l) && s.l !== tr);
+    }
+    if(cEl){
+      s.c = cEl.value;
+      // v0.1.195: a status carries BOTH a curated CSS class (bg-done…) and a
+      // colour. Every renderer prefers the class and only falls back to the
+      // colour when there is none — so picking a colour here saved fine and
+      // then changed nothing on screen. Once the colour differs from the
+      // factory one, drop the class so the user's choice actually wins.
+      // Restoring the original colour restores the curated class.
+      const def = defaultStatusColor(s.id);
+      const orig = (DEFAULT_STATUSES.find(x => x.id === s.id) || {}).cls || '';
+      s.cls = (def && s.c.toLowerCase() === def.toLowerCase()) ? orig : '';
+    }
     if(pEl && pEl.value !== '') s.priority = +pEl.value;
   });
 }
 // Persist the FULL status set (including hidden/removed) so add/remove survive.
 function _persistStatuses(){
   localStorage.setItem('eb_custom_statuses', JSON.stringify(
-    STATUSES.map(s => ({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden, priority:statusPriority(s) }))
+    STATUSES.map(s => ({ id:s.id, l:s.l, c:s.c, cls:s.cls||'', hidden:!!s.hidden, priority:statusPriority(s), custom:!!s.custom }))
   ));
 }
 function saveCustomStatuses(){
@@ -3174,12 +3281,8 @@ function saveCustomStatuses(){
 function resetCustomStatuses(){
   localStorage.removeItem('eb_custom_statuses');
   STATUSES.length = 0;
-  [
-    {id:0,l:'Info',c:'#94A3B8',cls:'bg-info'},{id:1,l:'Done',c:'#22C55E',cls:'bg-done'},
-    {id:2,l:'Not Relevant',c:'#94A3B8',cls:'bg-not'},{id:3,l:'Review',c:'#A78BFA',cls:'bg-rev'},
-    {id:4,l:'Info Required',c:'#0EA5E9',cls:'bg-req'},{id:5,l:'Problem',c:'#EF4444',cls:'bg-prob'},
-    {id:6,l:'In Progress',c:'#F97316',cls:'bg-prog'},{id:7,l:'Upcoming',c:'#0EA5E9',cls:'bg-up'}
-  ].forEach(d => STATUSES.push({...d, hidden:false}));
+  DEFAULT_STATUSES.forEach(d => STATUSES.push({...d, hidden:false}));
+  if(typeof applyLang === 'function') applyLang();   // restore translated labels
   render(); renderFilters(); renderProfileSection();
   toast('Statuses reset to default');
 }
@@ -3957,6 +4060,9 @@ async function showApp(){
   if(!(await ensureLicenseGate())) return;
   document.getElementById('LP').classList.add('hide');
   document.getElementById('APP').classList.add('on');
+  // v0.1.195: start the undo/redo chips in their real (empty) state instead of
+  // looking clickable from the first frame.
+  try { _syncUndoChips(); } catch(_){}
   // v0.1.193b (DB): first-run — set up "My Company" (the workspace). Auto-prompt
   // only on a truly empty board (no projects yet); otherwise it's non-blocking and
   // the header chip / the "add project" gate cover it. Show the name in the header.
@@ -4536,7 +4642,8 @@ function _ensureManualSort(projId){
 }
 function _cmpBySortMode(a, b, mode){
   if(mode === 'status'){
-    return (a.s ?? 0) - (b.s ?? 0) || (a.uid ?? 0) - (b.uid ?? 0);
+    // v0.1.195: order by the status' editable priority, not its raw id.
+    return statusPriorityById(a.s) - statusPriorityById(b.s) || (a.uid ?? 0) - (b.uid ?? 0);
   }
   if(mode === 'deadline'){
     const ad = a.deadline ? new Date(a.deadline + 'T00:00:00').getTime() : Infinity;
@@ -4576,22 +4683,41 @@ function pushUndo(label, undo, redo){
   _undoStack.push({ label, undo, redo, ts: Date.now() });
   if(_undoStack.length > _UNDO_MAX) _undoStack.shift();
   _redoStack.length = 0;
+  _syncUndoChips();
 }
 function _runWithoutUndo(fn){
   _suppressUndoPush = true;
   try { fn(); } finally { _suppressUndoPush = false; }
 }
+// v0.1.195: the toolbar chips never changed appearance, so they looked alive
+// even with an empty stack — click, nothing happens, "кнопки не работают"
+// (client call 2026-08-28). Now they dim when there is nothing to undo/redo
+// and their tooltip names the action that will be reverted.
+function _syncUndoChips(){
+  const pairs = [['undoChip', _undoStack, 'Undo', 'Ctrl+Z'], ['redoChip', _redoStack, 'Redo', 'Ctrl+Shift+Z']];
+  for(const [id, stack, verb, key] of pairs){
+    const el = document.getElementById(id);
+    if(!el) continue;
+    const top = stack[stack.length - 1];
+    el.disabled = !top;
+    el.style.opacity = top ? '1' : '.35';
+    el.style.cursor = top ? 'pointer' : 'default';
+    el.title = top ? `${verb}: ${top.label} (${key})` : `Nothing to ${verb.toLowerCase()} (${key})`;
+  }
+}
 function doUndo(){
   const a = _undoStack.pop();
-  if(!a){ toast('Nothing to undo', 1500); return; }
+  if(!a){ toast('Nothing to undo', 1500); _syncUndoChips(); return; }
   try { _runWithoutUndo(a.undo); _redoStack.push(a); toast(`Undone: ${a.label}`, 2000); }
   catch(e){ console.error('undo failed', e); toast('Undo failed — state may be stale', 3000); }
+  _syncUndoChips();
 }
 function doRedo(){
   const a = _redoStack.pop();
-  if(!a){ toast('Nothing to redo', 1500); return; }
+  if(!a){ toast('Nothing to redo', 1500); _syncUndoChips(); return; }
   try { _runWithoutUndo(a.redo); _undoStack.push(a); toast(`Redone: ${a.label}`, 2000); }
   catch(e){ console.error('redo failed', e); toast('Redo failed', 3000); }
+  _syncUndoChips();
 }
 // Global keyboard binding — Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z = redo.
 // Skipped when focus is in an editable element so the user's native undo
@@ -5093,6 +5219,11 @@ function render(){
         </div>`;
         if(!collapsed){
           _sortMaybe(tasks, proj.id).forEach(t => { html += renderRow(t); });
+          // v0.1.195: "ADD New Task Placeholder" (P1) — a per-week input at the
+          // end of every week, so a task can be created straight into the week
+          // being worked on instead of landing unscheduled and being dragged.
+          // Hidden on a completed week, which is locked for changes.
+          if(!complete) html += renderAddTaskRow(proj.id, w);
         }
       }
     }
@@ -5623,7 +5754,11 @@ function renderRow(t){
   // v0.1.131: only force an inline min-height when the user has manually
   // resized this row (t.h set). Otherwise let the view-mode CSS default apply
   // (so the resize handle works without an !important fight).
-  const heightStyle = t.h ? `min-height:${t.h}px` : '';
+  // v0.1.195: a manually resized row gets a DEFINITE height, not a min-height.
+  // min-height is a floor that still auto-grows to fit content, so a card with
+  // a long chat could never be dragged back down (client call 2026-08-28).
+  // With a definite height the chat panel scrolls instead of pushing the card.
+  const heightStyle = t.h ? `height:${t.h}px;min-height:${t.h}px` : '';
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
@@ -5633,22 +5768,7 @@ function renderRow(t){
   const hasBoth = !!(t.shot1 && t.shot2);
   // v0.1.33: inline chat preview — last 8 msgs in DOM, ~3 visible at once via max-height,
   // scroll for the rest. Empty state removed (user feedback: 'не нужно empty state')
-  const chatMsgs = (t.chat || []).slice(-8);
-  const _chatBase = Math.max(0, (t.chat || []).length - chatMsgs.length);
-  const chatHTML = chatMsgs.length === 0
-    ? ''
-    : chatMsgs.map((m, i) => {
-        const idx = _chatBase + i; // real index into t.chat for edit/delete
-        const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
-          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${renderMsgText(m.text||'')}${m.edited?' <span class="msg-edited">(edited)</span>':''}</span>
-          <span class="msg-actions">
-            <button class="msg-act" title="Edit message" onclick="event.stopPropagation();editChatMsg('${t.id}',${idx})">✎</button>
-            <button class="msg-act msg-del" title="Delete message" onclick="event.stopPropagation();deleteChatMsg('${t.id}',${idx})">✕</button>
-          </span>
-        </div>`;
-      }).join('');
+  const chatHTML = renderChatList(t.chat, t.id, { limit: 8 });
   // P2-6 timer state
   const isTimerRunning = !!t.timerStart;
   const totalMin = (t.timeMin || 0) + (isTimerRunning ? Math.floor((Date.now() - t.timerStart) / 60000) : 0);
@@ -5739,6 +5859,16 @@ function renderRow(t){
     </div>
     <div class="pc">${piBefore}</div>
     <div class="pc">${piAfter}</div>
+    <!-- v0.1.195 (Этап-4 LIST VIEW #4 "Add a Notes Window on the Right"):
+         notes existed only inside presentation mode, so writing one meant
+         opening the presentation and closing it again. Same t.notes field and
+         the same debounced saveTaskNotes() the presentation uses. -->
+    <div class="notes-col" onclick="event.stopPropagation()">
+      <div class="notes-col-h">Notes</div>
+      <textarea class="notes-area" placeholder="Notes…"
+        onmousedown="event.stopPropagation()"
+        oninput="saveTaskNotes('${t.id}', this.value)">${escapeHtml(t.notes || '')}</textarea>
+    </div>
     ${renderClPanel(t)}
     ${renderLinksPanel(t)}
     <div class="resize-h" onmousedown="onResizeStart(event,'${t.id}')"></div>
@@ -5772,9 +5902,17 @@ function renderPic(t, slot){
     // the presentation view). BEFORE stays a single, replaceable image.
     const afterN = slot === 'after' ? afterCount(t) : 0;
     const countBadge = afterN > 1 ? `<span class="pi-count" title="${afterN} after images — open presentation to browse">1/${afterN}</span>` : '';
+    // v0.1.195: explicit "+" on a filled AFTER slot. Adding used to be implicit
+    // (capture, then click a slot) which is why it read as "replaces the image"
+    // — the click landed on an occupied slot. BEFORE has no "+": it is a single
+    // image by spec (Этап-4: "BEFORE = 1  AFTER = MAX 3").
+    const addBtn = (slot === 'after' && afterHasRoom(t))
+      ? `<button class="pi-add" onclick="event.stopPropagation();addAfterShot('${t.id}')" title="Add another after image (${afterN}/${AFTER_MAX})" aria-label="Add another after image">+</button>`
+      : '';
     return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();piClick('${t.id}',${slotIdx})" title="Click to open in editor · paste-mode: click to insert here">
       <span class="pi-lbl">${lblText}</span>
       ${countBadge}
+      ${addBtn}
       <button class="pi-del" onclick="event.stopPropagation();deleteShot('${t.id}',${slotIdx})" title="Delete image" aria-label="Delete image">×</button>
       <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
@@ -5993,6 +6131,22 @@ function renderEmptyRowForProject(projId){
   </div>`;
 }
 
+// v0.1.195: per-week "add task" placeholder. Same shape as the project-level
+// ghost row, but it carries the week tag so the task is filed there on Enter.
+function renderAddTaskRow(projId, week){
+  const wLabel = week || 'Unscheduled';
+  return `<div class="row empty eb-addrow eb-addrow-week" data-target-proj="${projId}" data-target-week="${week}" style="min-height:44px">
+    <div></div>
+    <div class="chat-col" style="padding:6px 8px;justify-content:center">
+      <input class="newInpWeek" data-proj="${projId}" data-week="${week}"
+        placeholder="+ Task in ${escapeHtml(wLabel)}…"
+        style="border:none;border-radius:7px;padding:6px 12px;font-size:12.5px;font-family:inherit;outline:none;background:transparent;color:var(--t1)">
+    </div>
+    <div></div>
+    <div></div>
+  </div>`;
+}
+
 function renderZero(){
   // v0.1.57: aligned with 4-col grid `drag · chat · BEFORE · AFTER`.
   return `<div class="es-zero">
@@ -6035,16 +6189,46 @@ function wireUpEmptyInput(){
       }
     };
   });
+  // v0.1.195: per-week placeholders — same flow, but the week tag rides along
+  // so the task is created inside that week rather than unscheduled.
+  document.querySelectorAll('.newInpWeek').forEach(inp => {
+    inp.onkeydown = async function(e){
+      if(e.key !== 'Enter' || !this.value.trim()) return;
+      const projId = this.dataset.proj;
+      const week = this.dataset.week || '';
+      const text = this.value.trim();
+      const proj = PROJECTS.find(p => p.id === projId);
+      this.value = '';
+      await createTaskFor(projId, text, proj && proj._cloud, text, week);
+      toast('✓ Task added to ' + (week || 'Unscheduled'));
+      setTimeout(() => {
+        const again = document.querySelector('.newInpWeek[data-proj="'+projId+'"][data-week="'+week+'"]');
+        if(again) again.focus();
+      }, 50);
+    };
+  });
 }
 
 // v0.1.61: shared helper — create a task, cloud-first if the parent project
 // is a cloud project (i.e. came from Supabase). Falls back to local insert.
-async function createTaskFor(projectId, title, cloudParent, initialChatText){
+// v0.1.195: `week` added. Without it every new task landed unscheduled and had
+// to be dragged into the current week by hand — reported twice in the Этап-4
+// sheet ("It is not possible to create a task directly in the week we are
+// working on right now", P1 · 26W27 and again 26W33) and demoed on the call.
+// Omitted ⇒ '' (unscheduled), i.e. the previous behaviour for existing callers.
+async function createTaskFor(projectId, title, cloudParent, initialChatText, week){
   // v0.1.163 (DB regression «пропало добавление задач»): новая задача
   // создаётся со статусом Info/Blocked. Если активен фильтр по статусу
   // (теперь множественный), она бы им скрылась — пользователь жмёт Enter и
   // НИЧЕГО не появляется. Сбрасываем активный фильтр, чтобы только что
   // созданная задача всегда была видна. Также выходим из Favorites-режима.
+  const wk = week || '';
+  // A complete week is locked for drag-drop; creating into it must be blocked
+  // the same way, or the lock would be trivially bypassable from the placeholder.
+  if(wk && typeof isWeekComplete === 'function' && isWeekComplete(projectId, wk)){
+    toast(`Week ${wk} is complete — reopen it first`, 4000);
+    return;
+  }
   let _filterReset = false;
   if(typeof curFilter !== 'undefined' && curFilter.size){ curFilter.clear(); _filterReset = true; }
   if(typeof _favoritesOnly !== 'undefined' && _favoritesOnly){ _favoritesOnly = false; _filterReset = true; }
@@ -6062,6 +6246,7 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText){
         const myInitials = initialsFromProfile({ email: u.email, full_name: u.user_metadata?.full_name });
         const { data, error } = await db.tasks.create({
           title, project_id: projectId, desktop_status: 7,
+          week_tag: wk || null,
           priority: 'medium', created_by: u.id, position: nextTaskUid(projectId)
         });
         if(!error && data){
@@ -6070,7 +6255,8 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText){
             id: data.id, proj: projectId, uid: data.position || 0,
             n: data.title, title: data.title,
             s: (typeof data.desktop_status === 'number') ? data.desktop_status : 7,
-            w: '', chat: chatArr, shot1: null, shot2: null, shots: [],
+            w: (typeof data.week_tag === 'string' ? data.week_tag : wk) || '',
+            chat: chatArr, shot1: null, shot2: null, shots: [],
             _cloud: true
           });
           // persist initial message to cloud if any
@@ -6093,7 +6279,8 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText){
     // v0.1.181: was w:'26W17' (a stale demo-week literal) / s:0 — now matches
     // the cloud path (unscheduled week, 'Upcoming' status) so offline-created
     // and zero-state tasks don't misfile into a hardcoded past week.
-    w: '', s: 7, title, n: title, chat: makeInitialMsg('AS')
+    // v0.1.195: honours the week the task was created in (see the note above).
+    w: wk, s: 7, title, n: title, chat: makeInitialMsg('AS')
   });
   logHist(newId, 'create', 'task created');
   render(); updateHeader();
@@ -6230,7 +6417,7 @@ function dragHandleDown(e, taskId){
 function rowDragDown(e, taskId){
   if(selectMode) return;
   if(e.button !== 0) return;
-  const SKIP = 'input,textarea,button,.play-ic,.time-ic,.pi,.st-wrap,.tc-status,.st,.st-menu,.drag-handle,.resize-h,[contenteditable],.nt-chat,.nt-chat-input,.chat-row-actions,.nt-chat-msg,.cl-panel,.links-panel';
+  const SKIP = 'input,textarea,button,.play-ic,.time-ic,.pi,.st-wrap,.tc-status,.st,.st-menu,.drag-handle,.resize-h,[contenteditable],.nt-chat,.nt-chat-input,.chat-row-actions,.nt-chat-msg,.cl-panel,.links-panel,.notes-col,.notes-area';
   if(e.target.closest(SKIP)) return;
   dragHandleDown(e, taskId);
 }
@@ -6880,6 +7067,12 @@ function _moveTaskBy(id, dir){
     });
   }
   if(typeof logHist === 'function') logHist(item, 'reorder', dir < 0 ? 'moved up' : 'moved down');
+  // v0.1.195: reorder is one of the most-used actions and had no undo entry,
+  // which is a large part of why Cmd+Z / the toolbar chips felt dead. The
+  // inverse is simply the same move in the opposite direction.
+  pushUndo(dir < 0 ? 'Move up' : 'Move down',
+    () => _moveTaskBy(id, -dir),
+    () => _moveTaskBy(id, dir));
   render();
 }
 function moveTaskUp(id){ _moveTaskBy(id, -1); }
@@ -6903,13 +7096,17 @@ function onResizeStart(e, taskId){
   const FLOOR = 80;
   function onMove(ev){
     const newH = Math.max(FLOOR, Math.min(900, startH + (ev.clientY - startY)));
+    // v0.1.195: set BOTH — height makes the size definite so the chat panel
+    // scrolls instead of stretching the row, min-height overrides the
+    // stylesheet floor (165/380px per view mode) that would otherwise win.
+    row.style.height = newH + 'px';
     row.style.minHeight = newH + 'px';
   }
   function onUp(){
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
     const t = TASKS.find(x => x.id === taskId);
-    if(t) t.h = parseInt(row.style.minHeight);
+    if(t) t.h = parseInt(row.style.height);
     // v0.1.173 (DB): после ресайза гасим следующий click по строке, иначе
     // mouseup рядом со строкой случайно открывал режим презентации (мисклик).
     _suppressNextRowClick = true;
@@ -6923,7 +7120,7 @@ function onResizeStart(e, taskId){
 function onRowClick(e, taskId){
   if(_suppressNextRowClick){ _suppressNextRowClick = false; return; }
   if(taskId === 'new') return;
-  if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .tc-status, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input')) return;
+  if(e.target.closest('input, button, .play-ic, .time-ic, .pi, .st-wrap, .tc-status, .st, .st-menu, .drag-handle, .resize-h, [contenteditable], .nt-chat, .nt-chat-input, .notes-col, .notes-area')) return;
   if(pasteMode) return;
   // v0.1.176 (DB): клик по строке/чату больше НЕ открывает презентацию —
   // режим открывается только кнопкой «Presentation» (play-ic в row-actions).
@@ -7372,15 +7569,9 @@ function renderPresent(){
   const chatMsgs = (t.chat || []);
   const chatBody = chatMsgs.length === 0
     ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
-    : chatMsgs.map(m => {
-        // v0.1.121: identical style to the task-card mini-chat — small avatar,
-        // bold name + inline text, no bubble background, no timestamps, one side.
-        const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg">
-          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-          <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>
-        </div>`;
-      }).join('');
+    // v0.1.121: identical style to the task-card mini-chat — small avatar,
+    // bold name + inline text, no bubble background, no timestamps, one side.
+    : renderChatList(t.chat, t.id);
   card.innerHTML = `
     <div class="pres-head">
       <!-- v0.1.122: no project name / no task title — only status + assignee (consistent with task card) -->
@@ -7458,10 +7649,7 @@ function refreshPresChat(){
   const chatMsgs = (t.chat || []);
   msgsEl.innerHTML = chatMsgs.length === 0
     ? `<div class="cp-empty"><div class="ico">${ICON('chat')}</div><div class="lbl">No messages yet</div><div class="sub">Be the first to comment</div></div>`
-    : chatMsgs.map(m => {
-        const initials = (m.a || '?').slice(0, 2).toUpperCase();
-        return `<div class="nt-chat-msg"><span class="av ${initials}" title="${m.a||'?'}">${initials}</span><span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span></div>`;
-      }).join('');
+    : renderChatList(t.chat, t.id);
   const ct = document.querySelector('#presCard .pres-chat-h .ct');
   if(ct) ct.textContent = `${chatMsgs.length} ${chatMsgs.length===1?'msg':'msgs'}`;
   msgsEl.scrollTop = msgsEl.scrollHeight;
@@ -7550,13 +7738,7 @@ function syncTaskRowChat(taskId){
   if(!t) return;
   const panel = document.getElementById('ntChat-' + taskId);
   if(!panel) return;
-  const chatMsgs = (t.chat || []).slice(-8);
-  panel.innerHTML = chatMsgs.map(m => {
-    const initials = (m.a || '?').slice(0, 2).toUpperCase();
-    return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
-      <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-      <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>    </div>`;
-  }).join('');
+  panel.innerHTML = renderChatList(t.chat, t.id, { limit: 8 });
   panel.scrollTop = panel.scrollHeight;
 }
 
@@ -8072,12 +8254,26 @@ async function createNewProject(){
 
 // ━━━ PASTE / DROP / TAURI ━━━
 function enterPasteMode(dataUrl){
+  // v0.1.195: a capture started from the "+" on an AFTER slot already knows
+  // where it belongs — land it there instead of asking the user to pick a slot
+  // (the pick is what made adding feel like replacing).
+  if(_pendingAfterTarget && dataUrl){
+    const { taskId, slot } = _pendingAfterTarget;
+    _pendingAfterTarget = null;
+    const t = TASKS.find(x => x.id === taskId);
+    if(t){
+      assignShotToSlot(t, slot, dataUrl);
+      toast('✓ Screenshot added');
+      return;
+    }
+  }
   pendingScreenshot = dataUrl; pasteMode = true;
   document.getElementById('pasteOverlay').classList.add('on');
   document.body.classList.add('paste-on');
 }
 function exitPasteMode(){
   pasteMode = false; pendingScreenshot = null;
+  _pendingAfterTarget = null;
   document.getElementById('pasteOverlay').classList.remove('on');
   document.body.classList.remove('paste-on');
 }
@@ -8222,6 +8418,25 @@ function afterImages(t){ return [t && t.shot2, ...((t && Array.isArray(t.shots))
 function afterCount(t){ return afterImages(t).length; }
 function afterHasRoom(t){ return afterCount(t) < AFTER_MAX; }
 function _snapShots(t){ return { shot1:t.shot1, shot2:t.shot2, shots:Array.isArray(t.shots)?t.shots.slice():[] }; }
+// v0.1.195: one place that writes the image columns. Before this, shot1_url /
+// shot2_url were persisted in three different spots and `shots_extra` — the
+// AFTER extras — was written NOWHERE except the project snapshot. So an extra
+// after-image survived until the next reload and then vanished: "sometimes
+// nothing happens", "I was able to add several screenshots to the AFTER field"
+// (Этап-4 26W33). Only already-uploaded URLs are persisted; base64 stays
+// in-memory for display, matching the existing convention.
+const _isUploaded = s => typeof s === 'string' && s.length > 0 && !s.startsWith('data:');
+function persistShots(t){
+  if(!(t && t._cloud && db && db.ready)) return;
+  const patch = {};
+  // A slot still holding base64 has not finished uploading — leave its column
+  // alone rather than overwriting a good URL with a megabyte of base64.
+  // Cleared slots write null so the delete actually sticks.
+  if(!t.shot1) patch.shot1_url = null; else if(_isUploaded(t.shot1)) patch.shot1_url = t.shot1;
+  if(!t.shot2) patch.shot2_url = null; else if(_isUploaded(t.shot2)) patch.shot2_url = t.shot2;
+  patch.shots_extra = (Array.isArray(t.shots) ? t.shots : []).filter(_isUploaded);
+  try { db.tasks.update(t.id, patch).catch(()=>{}); } catch(_){}
+}
 function _applyShots(t, s){ t.shot1=s.shot1; t.shot2=s.shot2; t.shots=s.shots.slice(); render(); if(presentTask && presentTask.id===t.id && typeof renderPresent==='function') renderPresent(); }
 // Delete an image. slot 0 = before; slot 1 = after primary; 2+ = after extras.
 // After images re-pack so shot2 stays the first one (no holes).
@@ -8238,31 +8453,86 @@ function deleteShot(taskId, slotIdx){
   }
   const after = _snapShots(t);
   if(typeof pushUndo === 'function') pushUndo('Delete image', () => _applyShots(t, before), () => _applyShots(t, after));
-  if(t._cloud && db && db.ready){ try { db.tasks.update(t.id, { shot1_url: t.shot1, shot2_url: t.shot2 }); } catch(_){} }
+  // v0.1.195: was writing only shot1_url/shot2_url, so deleting an AFTER extra
+  // came back on the next reload. persistShots() also writes shots_extra.
+  persistShots(t);
   render();
   if(presentTask && presentTask.id === taskId && typeof renderPresent === 'function') renderPresent();
   toast('Image deleted');
 }
 
+// v0.1.195: "+" on a filled AFTER slot. Targets the next free AFTER slot
+// explicitly, so a new image is APPENDED instead of landing on whichever slot
+// happened to be selected last — the behaviour reported as "it replaces the
+// image in the BEFORE or AFTER window ... depends on which window was selected
+// before this one" (Этап-4 26W27, still open in 26W33).
+function nextAfterSlot(t){
+  if(!t) return null;
+  if(!Array.isArray(t.shots)) t.shots = [];
+  if(afterCount(t) >= AFTER_MAX) return null;
+  if(!t.shot2) return 1;
+  return 2 + t.shots.length;
+}
+function addAfterShot(taskId){
+  const t = TASKS.find(x => x.id === taskId); if(!t) return;
+  const slot = nextAfterSlot(t);
+  if(slot === null){ toast(`Max ${AFTER_MAX} after images`, 2200); return; }
+  // If a screenshot is already pending (capture → paste-mode), drop it straight
+  // into that slot; otherwise start a capture aimed at it.
+  if(pasteMode && pendingScreenshot){
+    assignShotToSlot(t, slot, pendingScreenshot);
+    exitPasteMode();
+    toast('✓ Screenshot added');
+    return;
+  }
+  _pendingAfterTarget = { taskId, slot };
+  captureScreenshot();
+}
+// Set by addAfterShot, consumed by the screenshot-ready handler.
+let _pendingAfterTarget = null;
+
 // v0.1.61: assign a screenshot to a task slot — local immediate, cloud upload
 // in the background. Slot: 0 = before, 1 = after.
+// v0.1.195: slots 2+ (the AFTER extras) were not handled at all — the function
+// assigned nothing and returned silently, so pasting or dropping into an extra
+// slot did literally nothing ("Sometimes nothing happens", Этап-4 26W33). The
+// extras also had no cloud column written, so even the ones that did land were
+// gone after a reload. Both paths now go through persistShots().
 async function assignShotToSlot(t, slot, dataUrl){
   if(!t || !dataUrl) return;
+  if(!Array.isArray(t.shots)) t.shots = [];
   // 1) Optimistic local — UI updates immediately with base64
-  if(slot === 0) t.shot1 = dataUrl;
-  else if(slot === 1) t.shot2 = dataUrl;
+  if(slot === 0){
+    t.shot1 = dataUrl;                       // BEFORE is a single, replaceable image
+  } else if(slot === 1){
+    t.shot2 = dataUrl;
+  } else {
+    const i = slot - 2;
+    const replacing = t.shots[i] !== undefined;
+    if(!replacing && afterCount(t) >= AFTER_MAX){
+      toast(`Max ${AFTER_MAX} after images`, 2200);
+      return;
+    }
+    t.shots[i] = dataUrl;
+  }
   render();
+  if(presentTask && presentTask.id === t.id && typeof renderPresent === 'function') renderPresent();
 
   // 2) Cloud upload in the background (only for cloud-tracked tasks)
   if(t._cloud && db && db.ready){
     try {
       const { url } = await db.storage.uploadShot(t.id, dataUrl);
       if(!url) return;
-      // Keep base64 in-memory for display; persist URL to DB only.
+      // Keep base64 in-memory for display; persist the URL to the DB only.
       // Replacing t[slotKey] with the cloud URL caused thumbnails to vanish
-      // if WKWebView couldn't load the signed URL immediately.
-      const colKey  = slot === 0 ? 'shot1_url' : 'shot2_url';
-      await db.tasks.update(t.id, { [colKey]: url });
+      // if WKWebView couldn't load the signed URL immediately. The extras
+      // array has no such in-memory twin, so the URL goes straight in.
+      if(slot >= 2) t.shots[slot - 2] = url;
+      else if(slot === 0) t._shot1Url = url;
+      else t._shot2Url = url;
+      const patch = slot === 0 ? { shot1_url: url } : slot === 1 ? { shot2_url: url } : null;
+      if(patch) await db.tasks.update(t.id, patch);
+      else persistShots(t);
       auditLog('shot_upload', 'task', t.id, null, { slot: slot === 0 ? 'before' : 'after', url }, t.proj);
       toast('✓ Screenshot uploaded');
     } catch(e){
@@ -8281,20 +8551,14 @@ async function assignShotToSlot(t, slot, dataUrl){
 let pendingPresentSlot = null;
 function addShotToPresentTask(dataUrl){
   if(!presentTask || !dataUrl) return;
-  if(pendingPresentSlot === 0){
-    presentTask.shot1 = dataUrl;
+  // v0.1.195: both branches used to write the raw base64 into shot1_url /
+  // shot2_url — a column meant to hold a storage URL. assignShotToSlot uploads
+  // first and stores the URL, so the DB no longer carries megabyte data-URIs.
+  if(pendingPresentSlot === 0 || pendingPresentSlot === 1){
+    const slot = pendingPresentSlot;
     pendingPresentSlot = null;
-    renderPresent();
-    toast('Before screenshot saved');
-    if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot1_url: dataUrl }).catch(()=>{});
-    return;
-  }
-  if(pendingPresentSlot === 1){
-    presentTask.shot2 = dataUrl;
-    pendingPresentSlot = null;
-    renderPresent();
-    toast('After screenshot saved');
-    if(db?.ready && presentTask._cloud) db.tasks.update(presentTask.id, { shot2_url: dataUrl }).catch(()=>{});
+    assignShotToSlot(presentTask, slot, dataUrl);
+    toast(slot === 0 ? 'Before screenshot saved' : 'After screenshot saved');
     return;
   }
   // No specific slot requested — this is an ADDITIONAL "after" image.
@@ -8302,9 +8566,13 @@ function addShotToPresentTask(dataUrl){
   // spill into t.shots[] extras, and refuse once the cap is reached.
   if(!Array.isArray(presentTask.shots)) presentTask.shots = [];
   if(afterCount(presentTask) >= AFTER_MAX){ toast(`Max ${AFTER_MAX} after images`, 2200); return; }
-  if(!presentTask.shot2 || presentTask.shot2.length < 32){ presentTask.shot2 = dataUrl; }
-  else { presentTask.shots.push(dataUrl); }
-  renderPresent();
+  // v0.1.195: route through assignShotToSlot so the extra is uploaded and
+  // persisted (shots_extra). Previously it was pushed into the array and never
+  // written to the cloud at all, so it disappeared on the next reload.
+  const slot = (!presentTask.shot2 || presentTask.shot2.length < 32)
+    ? 1
+    : 2 + presentTask.shots.length;
+  assignShotToSlot(presentTask, slot, dataUrl);
   toast('After image added');
 }
 
@@ -8790,8 +9058,8 @@ function renderProfileSection(){
       </div>
     </div>
 
-    ${localStorage.getItem('eb_user_role') === 'admin' ? `
-    <div class="profile-card">
+    ${isAdmin() ? `
+    <div class="profile-card" id="statusEditorCard">
       <div class="profile-card-h">Task statuses · Admin</div>
       <div style="font-size:11px;color:var(--t4);margin-bottom:10px">Add, rename, recolor or remove task statuses. Removing a status moves its tasks to the first status. Changes apply after Save.</div>
       <div id="statusEditorRows" style="display:flex;flex-direction:column;gap:6px">
@@ -9430,6 +9698,44 @@ function highlightMentions(html){
 }
 function renderMsgText(text){ return highlightMentions(linkifyText(text || '')); }
 
+// ━━━ ONE renderer for a chat message ━━━
+// v0.1.195: this markup used to be copy-pasted in 7 places and the copies
+// drifted — 5 of them had lost the edit/delete buttons, the "(edited)" marker
+// and @-mention highlighting. The controls therefore appeared and vanished
+// depending on which path last wrote the DOM: sending a message dropped them,
+// changing a status (full re-render) brought them back. Reported on the client
+// call 2026-08-28 as "the function is there, then it isn't". One renderer now —
+// every surface calls this, so they cannot drift again.
+//
+// opts.actions:false  — read-only surface (no edit/delete buttons)
+// opts.limit:N        — render only the last N messages (indices stay correct)
+function renderChatMsg(m, taskId, idx, opts){
+  const o = opts || {};
+  const initials = (m.a || '?').slice(0, 2).toUpperCase();
+  const edited = m.edited ? ' <span class="msg-edited">(edited)</span>' : '';
+  const acts = (o.actions !== false && taskId != null && idx != null)
+    ? `<span class="msg-actions">
+            <button class="msg-act" title="Edit message" onclick="event.stopPropagation();editChatMsg('${taskId}',${idx})">✎</button>
+            <button class="msg-act msg-del" title="Delete message" onclick="event.stopPropagation();deleteChatMsg('${taskId}',${idx})">✕</button>
+          </span>`
+    : '';
+  return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
+          <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
+          <span class="txt"><b>${m.a||'?'}</b>${renderMsgText(m.text||'')}${edited}</span>
+          ${acts}
+        </div>`;
+}
+
+// Renders a whole chat list. Keeps each message's REAL index in t.chat even
+// when only the tail is shown, so edit/delete hit the right message.
+function renderChatList(chat, taskId, opts){
+  const o = opts || {};
+  const all = Array.isArray(chat) ? chat : [];
+  const msgs = o.limit ? all.slice(-o.limit) : all;
+  const base = all.length - msgs.length;
+  return msgs.map((m, i) => renderChatMsg(m, taskId, base + i, o)).join('');
+}
+
 // Minimal reusable multi-line text-prompt modal (Cmd/Ctrl+Enter = save, Esc = cancel).
 function ebTextPrompt(title, value, onOk){
   const wrap = document.createElement('div');
@@ -9607,13 +9913,7 @@ async function sendInlineChat(inp){
   // Update only this row's chat panel without full re-render (preserve focus)
   const panel = document.getElementById('ntChat-' + taskId);
   if(panel){
-    const chatMsgs = t.chat.slice(-8);
-    panel.innerHTML = chatMsgs.map(m => {
-      const initials = (m.a || '?').slice(0, 2).toUpperCase();
-      return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
-        <span class="av ${initials}" title="${m.a||'?'}">${initials}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span>      </div>`;
-    }).join('');
+    panel.innerHTML = renderChatList(t.chat, taskId, { limit: 8 });
     panel.scrollTop = panel.scrollHeight;
   }
   // Re-focus input
@@ -10652,8 +10952,11 @@ async function exportCSV(){
       { t: 's', v: interned(t.assignee || '') },
       { t: 's', v: interned(deadlineStr), c: deadlineStyle },
       { t: 's', v: interned(chatText) },
-      { t: 's', v: interned(t.shot1 ? 'BEFORE' : '') },
-      { t: 's', v: interned(t.shot2 ? 'AFTER' : '') },
+      // v0.1.195: the Before/After cells hold the picture and nothing else —
+      // the literal "BEFORE"/"AFTER" text sat underneath it and showed around
+      // the edges. The header row already names these columns.
+      { t: 's', v: interned('') },
+      { t: 's', v: interned('') },
       { t: 'n', v: shotsExtra },
       { t: 's', v: interned(linkStr) }
     ]);
@@ -10741,13 +11044,20 @@ ${sst.map(s => `<si><t xml:space="preserve">${_xmlEscape(s)}</t></si>`).join('')
     ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 ${drawings.map((d, i) => {
-  // v0.1.190 (DB): confine each image to its single Before/After cell so it no
-  // longer floats at natural size across neighbouring rows/columns. A
-  // twoCellAnchor with editAs="oneCell" ties both corners to the cell (with a
-  // small inset), and the row height was pre-sized to the image's aspect.
-  return `<xdr:twoCellAnchor editAs="oneCell">
+  // v0.1.190 (DB): confine each image to its single Before/After cell.
+  // v0.1.195 (Этап-4 «EXPORT in XLS → 1. Pictures in CELL»): two things kept
+  // it floating rather than sitting in the cell.
+  //   • The <xdr:to> corner used NEGATIVE colOff/rowOff (-19050) as an inset.
+  //     ST_Coordinate offsets are non-negative in ECMA-376 — Excel clamps them
+  //     and LibreOffice places the image outside the cell entirely.
+  //   • editAs="oneCell" means "move with cells but do NOT size with them", so
+  //     any column resize left the picture at its old size, overlapping the
+  //     neighbours. editAs="twoCell" makes it track the cell box.
+  // The inset now lives only on the <xdr:from> corner; <xdr:to> lands exactly
+  // on the next cell boundary. Row height is still pre-sized to the aspect.
+  return `<xdr:twoCellAnchor editAs="twoCell">
   <xdr:from><xdr:col>${d.colIdx0}</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>${d.rowIdx0}</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>
-  <xdr:to><xdr:col>${d.colIdx0 + 1}</xdr:col><xdr:colOff>-19050</xdr:colOff><xdr:row>${d.rowIdx0 + 1}</xdr:row><xdr:rowOff>-19050</xdr:rowOff></xdr:to>
+  <xdr:to><xdr:col>${d.colIdx0 + 1}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${d.rowIdx0 + 1}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>
   <xdr:pic>
     <xdr:nvPicPr>
       <xdr:cNvPr id="${i+1}" name="${d.name}"/>
@@ -10927,8 +11237,11 @@ function downscaleDataUrl(dataUrl, maxWidth = 1200, jpegQuality = 0.85){
 // (статусы), и компактная вёрстка по умолчанию (много задач на лист).
 function exportPDF(){
   document.getElementById('_ebPdfDlg')?.remove();
-  const statusOpts = STATUSES.map((s,i) =>
-    `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;user-select:none"><input type="checkbox" data-st="${i}" checked style="accent-color:${s.c}"><span style="color:${s.c};font-weight:600">${s.l}</span></label>`
+  // v0.1.195: was mapping over ALL of STATUSES, so soft-deleted statuses still
+  // appeared as filter checkboxes. Also keys off s.id rather than the loop
+  // index — the two coincide today only because addStatus() is append-only.
+  const statusOpts = visibleStatuses().map(s =>
+    `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;user-select:none"><input type="checkbox" data-st="${s.id}" checked style="accent-color:${s.c}"><span style="color:${s.c};font-weight:600">${s.l}</span></label>`
   ).join('');
   const modal = document.createElement('div');
   modal.id = '_ebPdfDlg';
@@ -11022,8 +11335,9 @@ async function runExportPDF(opts){
   doc.text(`Tasks in report: ${tasks.length}`, margin, 54);
 
   // Stats by status
+  // v0.1.195: count and list by status id, and skip soft-deleted statuses.
   const counts = {};
-  STATUSES.forEach((s, i) => counts[i] = 0);
+  STATUSES.forEach(s => { counts[s.id] = 0; });
   tasks.forEach(t => { counts[t.s] = (counts[t.s] || 0) + 1; });
 
   doc.setFontSize(13);
@@ -11034,12 +11348,12 @@ async function runExportPDF(opts){
   doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
   let y = 80;
-  STATUSES.forEach((s, i) => {
-    if(counts[i] > 0){
+  visibleStatuses().forEach(s => {
+    if(counts[s.id] > 0){
       doc.setFillColor(...hexToRgb(s.c));
       doc.circle(margin + 2.5, y - 1.5, 1.8, 'F');
       doc.setTextColor(50);
-      doc.text(`${counts[i]} · ${s.l}`, margin + 8, y);
+      doc.text(`${counts[s.id]} · ${s.l}`, margin + 8, y);
       y += 6;
     }
   });
@@ -11786,12 +12100,7 @@ async function askAI(taskId){
   const panel = document.getElementById('ntChat-' + taskId);
   const refreshPanel = () => {
     if(!panel) return;
-    panel.innerHTML = t.chat.slice(-8).map(m => {
-      const init = (m.a||'?').slice(0,2).toUpperCase();
-      return `<div class="nt-chat-msg" onclick="event.stopPropagation()">
-        <span class="av ${init}">${init}</span>
-        <span class="txt"><b>${m.a||'?'}</b>${linkifyText(m.text||'')}</span></div>`;
-    }).join('');
+    panel.innerHTML = renderChatList(t.chat, taskId, { limit: 8 });
     panel.scrollTop = panel.scrollHeight;
   };
   refreshPanel();
