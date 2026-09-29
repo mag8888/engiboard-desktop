@@ -42,6 +42,16 @@ for (const f of FILES) {
   }
 }
 
+// v0.1.196: APP_VERSION в dist/index.html должна совпадать с package.json —
+// по ней веб-сборка сбрасывает кэш редактора и подписывает экспорт.
+{
+  const pkgVer = require(path.join(ROOT, 'package.json')).version;
+  const m = fs.readFileSync(path.join(ROOT, 'dist', 'index.html'), 'utf8').match(/const APP_VERSION = '([^']+)'/);
+  if (!m) { console.error('✗ APP_VERSION не найдена в dist/index.html'); bad++; }
+  else if (m[1] !== pkgVer) { console.error(`✗ APP_VERSION ${m[1]} ≠ package.json ${pkgVer} — поправь константу в dist/index.html`); bad++; }
+  else console.log(`✓ APP_VERSION ${m[1]}`);
+}
+
 if (bad) {
   console.error(`\n${bad} файл(ов) разошлись. dist/ — источник правды для релиза.`);
   console.error('Свежий корень → `npm run sync-dist`; свежий dist → `cp dist/<файл> <файл>`.');

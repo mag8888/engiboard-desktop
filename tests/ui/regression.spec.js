@@ -29,6 +29,12 @@
 //   R22 чат в карточке сворачивается; свёрнутая карточка компактна даже после ручного растяжения
 //   R23 презентация: навигация ←/→ внизу по центру карточки, счётчик между стрелками
 //   R24 редактор: Polyline / Callout / Dimension снова на панели (регресс v0.1.189)
+//   R25 Collapse All / Expand All недель (потерялось в v0.1.189, восстановлено)
+//   R26 Undo/Redo покрывает создание, переименование, чат, недели, массовые действия, дубль
+//   R27 Ctrl+Z работает из пустого поля (фокус в поиске при загрузке); Ctrl+Y = redo
+//   R28 кнопка Drive появляется сразу после отправки Drive-ссылки в чат
+//   R29 презентация: #номер + описание в шапке, × на слотах, «+» добавляет и показывает новую
+//   R30 Collapse-чип стоит сразу после переключателя вида (при переносе они вместе)
 
 const { test, expect } = require('@playwright/test');
 
@@ -735,5 +741,125 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     const r = await page.evaluate(() => ['polyline', 'callout', 'dimension', 'comment']
       .map(id => !!document.querySelector(`.fb[data-id="${id}"]`)));
     expect(r).toEqual([true, true, true, false]);
+  });
+
+  test('R25 Collapse All / Expand All toggles every week', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      localStorage.setItem(_ebWkKey(currentProject), '[]');   // start expanded
+      render();
+      const total = [...document.querySelectorAll('.week-hdr:not(.eb-addweek):not(.pinned-hdr)')].length;
+      if (!total) return { skip: true };
+      toggleAllWeeks();                                       // collapse all
+      const collapsed = [...document.querySelectorAll('.week-hdr:not(.eb-addweek):not(.pinned-hdr)')].filter(h => h.classList.contains('collapsed')).length;
+      const rowsCollapsed = document.querySelectorAll('.row[data-task-id]:not(.eb-addrow)').length;
+      const lblCollapsed = document.getElementById('collapseAllLbl')?.textContent;
+      toggleAllWeeks();                                       // expand all
+      const rowsExpanded = document.querySelectorAll('.row[data-task-id]:not(.eb-addrow)').length;
+      const lblExpanded = document.getElementById('collapseAllLbl')?.textContent;
+      return { skip: false, total, collapsed, rowsCollapsed, lblCollapsed, rowsExpanded, lblExpanded };
+    });
+    test.skip(r.skip === true, 'no weeks in demo data');
+    expect(r.collapsed).toBe(r.total);       // every week collapsed
+    expect(r.rowsCollapsed).toBe(0);         // no task rows visible when all collapsed
+    expect(r.lblCollapsed).toBe('Expand');   // label flips
+    expect(r.rowsExpanded).toBeGreaterThan(0); // expand brings them back
+    expect(r.lblExpanded).toBe('Collapse');
+  });
+  test('R26 undo/redo covers create, rename, chat, weeks, bulk and duplicate', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const P = currentProject, out = {};
+      const ok = (name, cond) => { out[name] = !!cond; };
+      const n0 = TASKS.length;
+      await createTaskFor(P, 'R26-CREATE', false, '', '');
+      doUndo(); ok('createUndo', TASKS.length === n0); doRedo(); ok('createRedo', TASKS.some(t => t.title === 'R26-CREATE'));
+      const t = TASKS.find(x => x.proj === P), old = t.title;
+      saveTaskName(t.id, 'R26-RENAMED'); doUndo(); ok('renameUndo', t.title === old); doRedo(); ok('renameRedo', t.title === 'R26-RENAMED');
+      const inp = document.querySelector(`input[data-task-id="${t.id}"]`); const c0 = (t.chat || []).length;
+      inp.value = 'R26-MSG'; await sendInlineChat(inp);
+      doUndo(); ok('sendUndo', t.chat.length === c0); doRedo(); ok('sendRedo', t.chat.some(m => m.text === 'R26-MSG'));
+      const idx = t.chat.findIndex(m => m.text === 'R26-MSG');
+      const op = window.ebTextPrompt; window.ebTextPrompt = (a, b, cb) => cb('R26-EDITED'); editChatMsg(t.id, idx); window.ebTextPrompt = op;
+      doUndo(); ok('editUndo', t.chat[idx].text === 'R26-MSG'); doRedo(); ok('editRedo', t.chat[idx].text === 'R26-EDITED');
+      const ow = window._weekTagModal; window._weekTagModal = (a, b, c, cb) => cb('26W51'); createWeekForProject(P); window._weekTagModal = ow;
+      doUndo(); ok('weekAddUndo', !_manualWeeks(P).includes('26W51')); doRedo(); ok('weekAddRedo', _manualWeeks(P).includes('26W51'));
+      deleteWeek(P, '26W51'); doUndo(); ok('weekDelUndo', _manualWeeks(P).includes('26W51'));
+      const ids = TASKS.filter(x => x.proj === P).slice(0, 3).map(x => x.id), prev = ids.map(id => TASKS.find(x => x.id === id).s);
+      selectedTaskIds = new Set(ids); bulkSetStatus(6); doUndo();
+      ok('bulkStatusUndo', ids.every((id, i) => TASKS.find(x => x.id === id).s === prev[i]));
+      const n1 = TASKS.length; await taskMenuDuplicate(ids[0]); ok('dup', TASKS.length === n1 + 1); doUndo(); ok('dupUndo', TASKS.length === n1);
+      return out;
+    });
+    for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true);
+  });
+
+  test('R27 Ctrl+Z reaches the app from an empty field; Ctrl+Y redoes', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const key = (k, o = {}) => document.dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true, cancelable: true }, o)));
+      const q = document.getElementById('searchInp'); q.value = ''; q.focus();
+      const t = TASKS.find(x => x.proj === currentProject); const s0 = t.s;
+      changeStatus(t.id, s0 === 3 ? 5 : 3); const s1 = t.s; q.focus();
+      key('z', { ctrlKey: true }); const undone = t.s === s0;
+      key('y', { ctrlKey: true }); const redone = t.s === s1;
+      q.value = 'typing'; key('z', { ctrlKey: true }); const kept = t.s === s1;   // native undo inside a filled field
+      q.value = '';
+      return { undone, redone, kept };
+    });
+    expect(r.undone).toBe(true);
+    expect(r.redone).toBe(true);
+    expect(r.kept).toBe(true);
+  });
+
+  test('R28 the Drive button appears right after a Drive link is sent in chat', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const t = TASKS.filter(x => x.proj === currentProject).find(x => !(x.links || []).length);
+      const row = () => document.querySelector(`.row[data-task-id="${t.id}"]`);
+      const before = !!row().querySelector('.drive-split');
+      const inp = row().querySelector('input[data-task-id]');
+      inp.value = 'see https://docs.google.com/spreadsheets/d/R28/edit'; await sendInlineChat(inp);
+      return { before, after: !!row().querySelector('.drive-split') };
+    });
+    expect(r.before).toBe(false);
+    expect(r.after).toBe(true);
+  });
+
+  test('R29 presentation: number + description, per-slot ×, + tile adds and shows the new image', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(async () => {
+      const t = TASKS.find(x => x.proj === currentProject);
+      t.shot1 = 'data:image/png;base64,' + 'A'.repeat(64); t.shot2 = 'data:image/png;base64,' + 'B'.repeat(64); t.shots = [];
+      openPresent(t.id);
+      const card = document.querySelector('.pres-card');
+      const out = { num: !!card.querySelector('.pres-num'), desc: (card.querySelector('.pres-desc') || {}).textContent === (t.title || t.n),
+                    dels: card.querySelectorAll('.pres-pic-del').length, plus: !!card.querySelector('.pres-thumb-add') };
+      enterPasteMode('data:image/png;base64,' + 'C'.repeat(64)); presAddAfter(); await new Promise(res => setTimeout(res, 50));
+      out.added = afterCount(t) === 2;
+      out.showsNew = +document.getElementById('presViewImg').dataset.slot === 2;
+      document.querySelector('.pres-after-col .pres-pic-del').click();
+      out.deleted = afterCount(t) === 1;
+      closePresent();
+      return out;
+    });
+    expect(r.num).toBe(true);
+    expect(r.desc).toBe(true);
+    expect(r.dels).toBe(2);
+    expect(r.plus).toBe(true);
+    expect(r.added).toBe(true);
+    expect(r.showsNew).toBe(true);
+    expect(r.deleted).toBe(true);
+  });
+
+  test('R30 the Collapse chip sits right after the view toggle (view controls wrap together)', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const tg = document.getElementById('cvToggle'), ch = document.getElementById('collapseAllChip');
+      const rt = tg.getBoundingClientRect(), rc = ch.getBoundingClientRect();
+      return { next: tg.nextElementSibling === ch, sameRow: Math.abs(rt.top - rc.top) < 12, visible: rc.width > 0 && rt.width > 0 };
+    });
+    expect(r.next).toBe(true);
+    expect(r.visible).toBe(true);
   });
 });

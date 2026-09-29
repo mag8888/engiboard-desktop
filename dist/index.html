@@ -1781,6 +1781,15 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .pres-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 /* v0.1.163 (DB): правая колонка — вьюер + полоса миниатюр под ним. */
 .pres-after-col{display:flex;flex-direction:column;gap:10px;min-height:0;height:100%}
+/* v0.1.196: presentation per-slot delete, "+" tile, bold number + muted description */
+.pres-pic{position:relative}
+.pres-pic .pres-pic-del{position:absolute;top:10px;right:10px;z-index:6;width:28px;height:28px;border:none;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.8;padding:0}
+.pres-pic .pres-pic-del:hover{background:#EF4444;opacity:1}
+.pres-thumb-add{display:flex;align-items:center;justify-content:center;border:1.5px dashed var(--line-2);background:transparent;color:var(--t3);font-size:22px;cursor:pointer}
+.pres-thumb-add:hover{border-color:var(--acc);color:var(--acc)}
+.pres-titleblock{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;overflow:hidden}
+.pres-titleblock .pres-num{font-size:18px;font-weight:800;color:var(--t1);letter-spacing:-.02em;flex-shrink:0;font-variant-numeric:tabular-nums}
+.pres-titleblock .pres-desc{font-size:13px;font-weight:500;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .pres-after-thumbs{display:flex;gap:8px;overflow-x:auto;padding:2px;flex-shrink:0;
   scroll-snap-type:x mandatory}
 .pres-after-thumbs .pres-thumb{width:84px;height:56px;scroll-snap-align:start}
@@ -2558,6 +2567,7 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="9" y2="18"/></svg>
         <span id="sortChipLabel">Sort</span>
       </button>
+
       <button class="chip" onclick="toggleSelectMode()" title="Multi-select tasks — Sprint 2.5" style="font-family:var(--mono);font-size:10px;letter-spacing:.04em">Select</button>
       <!-- v0.1.150 (fix #4 reported by DB): export buttons are used rarely, so
            collapse them into a single "More" kebab on the right of the toolbar.
@@ -2577,6 +2587,12 @@ body.sb-collapsed .sb-i:hover::after{opacity:1}
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>
         </button>
       </div>
+      <!-- v0.1.187 P2 #14, restored v0.1.196: collapse / expand all weeks (placed after the view toggle so the first toolbar row keeps its layout) -->
+      <button class="chip" id="collapseAllChip" onclick="toggleAllWeeks()" title="Collapse / expand all weeks" aria-label="Collapse or expand all weeks"
+        style="font-family:var(--mono);font-size:10px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:4px;padding:6px 8px">
+        <svg id="collapseAllIco" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        <span id="collapseAllLbl">Collapse</span>
+      </button>
       <input class="search" id="searchInp" placeholder="Search tasks…">
     </div>
 
@@ -2918,6 +2934,10 @@ function visibleStatuses(){ return STATUSES.filter(s => !s.hidden).slice().sort(
 
 // ━━━ SUPABASE CLIENT (S2 P0-3, deferred — see supabase/ARCHITECTURE_DECISION.md) ━━━
 // Client initialized for future sync; runtime falls back to localStorage if any call fails.
+// v0.1.196: app version for the web build — cache-busts the editor iframe and
+// labels exports. scripts/check-dist-sync.js fails the build if it drifts from
+// package.json, so a release can't ship with a stale value.
+const APP_VERSION = '0.1.196';
 const SUPABASE_URL = 'https://gselxucvcomqlfyogidz.supabase.co';
 // Modern publishable key (rls-protected, browser-safe). Legacy anon JWT also accepted server-side.
 const SUPABASE_ANON_KEY = 'sb_publishable_aQQe78hYSZThsOSlJ9e7eQ_BDO5_bWo';
@@ -4542,6 +4562,39 @@ function toggleWeek(projId, w){
   render();
 }
 
+// v0.1.187 (DB P2 #14): Collapse All / Expand All недель одной кнопкой.
+// Все ключи недель проекта (задачи + ручные недели + служебные __pinned__/'').
+function _allWeekKeys(projId){
+  const set = new Set(['']);
+  TASKS.forEach(t => { if(t.proj === projId) set.add(t.w || ''); });
+  if(typeof _manualWeeks === 'function') _manualWeeks(projId).forEach(w => set.add(w));
+  set.add('__pinned__');
+  return [...set];
+}
+function _collapsedWeekSet(projId){
+  try { return new Set(JSON.parse(localStorage.getItem(_ebWkKey(projId)) || '[]')); }
+  catch(_){ return new Set(); }
+}
+function toggleAllWeeks(){
+  const projId = currentProject;
+  const keys = _allWeekKeys(projId);
+  const collapsed = _collapsedWeekSet(projId);
+  // если хоть одна неделя развёрнута — сворачиваем все; иначе разворачиваем все.
+  const anyExpanded = keys.some(w => !collapsed.has(w));
+  localStorage.setItem(_ebWkKey(projId), anyExpanded ? JSON.stringify(keys) : '[]');
+  render();
+  if(typeof updateCollapseAllLabel === 'function') updateCollapseAllLabel();
+}
+// Подпись кнопки отражает следующее действие.
+function updateCollapseAllLabel(){
+  const lbl = document.getElementById('collapseAllLbl');
+  if(!lbl) return;
+  const projId = currentProject;
+  const collapsed = _collapsedWeekSet(projId);
+  const anyExpanded = _allWeekKeys(projId).some(w => !collapsed.has(w));
+  lbl.textContent = anyExpanded ? 'Collapse' : 'Expand';
+}
+
 // v0.1.152 (#18 DB): per-week "complete" flag. Like the collapse state,
 // persisted locally per project — completed weeks render a green check
 // and refuse drag-drop. Functional but local-only for now; can promote to
@@ -4720,6 +4773,73 @@ function pushUndo(label, undo, redo){
   _redoStack.length = 0;
   _syncUndoChips();
 }
+// v0.1.196 (Этап-4: "UNDO and REDO several steps for all possible actions"):
+// shared helpers so create / rename / chat / week / bulk actions are undoable too.
+function _removeTaskQuiet(id){
+  const t = TASKS.find(x => x.id === id); if(!t) return;
+  if(t._cloud && db && db.ready){ try { db.tasks.delete(t.id).catch(()=>{}); } catch(_){} }
+  TASKS = TASKS.filter(x => x.id !== id);
+  render(); if(typeof updateHeader === 'function') updateHeader();
+}
+function _restoreTaskSnapshot(snapshot, idx){
+  if(!snapshot || TASKS.some(x => x.id === snapshot.id)) return;
+  const copy = JSON.parse(JSON.stringify(snapshot));
+  TASKS.splice(Math.min(Math.max(idx | 0, 0), TASKS.length), 0, copy);
+  render(); if(typeof updateHeader === 'function') updateHeader();
+  if(copy._cloud && db && db.ready){
+    try {
+      sb.from('tasks').insert({
+        id: copy.id, project_id: copy.proj, title: copy.title || copy.n || '',
+        description: copy.notes || '', desktop_status: copy.s, week_tag: copy.w || null,
+        shot1_url: copy.shot1 || null, shot2_url: copy.shot2 || null,
+        shots_extra: copy.shots || [], links: copy.links || [], checklist: copy.checklist || [],
+        hidden: !!copy.hidden, pinned: !!copy.pinned, deadline: copy.deadline || null, notes: copy.notes || ''
+      }).then(({error}) => { if(error){ console.warn('[cloud] restore failed:', error.message); toast('Restored locally — cloud refused', 4000); } });
+    } catch(_){}
+  }
+}
+function _pushCreateUndo(id, label){
+  const t = TASKS.find(x => x.id === id); if(!t) return;
+  const snap = JSON.parse(JSON.stringify(t)), idx = TASKS.indexOf(t);
+  pushUndo(label || 'Create task', () => _removeTaskQuiet(id), () => _restoreTaskSnapshot(snap, idx));
+}
+function _chatIndexOf(t, m){
+  let i = t.chat.indexOf(m);
+  if(i < 0 && m && m._clientId) i = t.chat.findIndex(x => x._clientId === m._clientId);
+  if(i < 0 && m && m.id) i = t.chat.findIndex(x => x.id === m.id);
+  return i;
+}
+function _chatRemove(t, m){
+  if(!t || !Array.isArray(t.chat)) return null;
+  const i = _chatIndexOf(t, m); if(i < 0) return null;
+  const cur = t.chat[i]; t.chat.splice(i, 1);
+  if(t._cloud && cur.id && db && db.ready){ try { db.taskComments.delete(cur.id); } catch(_){} }
+  _rerenderChatSurfaces(t);
+  return cur;
+}
+async function _chatReinsert(t, m, i){
+  if(!t || !m) return;
+  if(!Array.isArray(t.chat)) t.chat = [];
+  if(_chatIndexOf(t, m) >= 0) return;
+  t.chat.splice(Math.min(Math.max(i | 0, 0), t.chat.length), 0, m);
+  _rerenderChatSurfaces(t);
+  if(t._cloud && db && db.ready){
+    try {
+      const u = await db.auth.user();
+      const row = { task_id: t.id, body: m.text || '', author_id: u && u.id };
+      if(m.id) row.id = m.id;
+      const { error } = await sb.from('task_comments').insert(row);
+      if(error) console.warn('[cloud] message restore failed:', error.message);
+    } catch(_){}
+  }
+}
+function _setChatText(t, m, text, edited){
+  const i = _chatIndexOf(t, m); if(i < 0) return;
+  const cur = t.chat[i];
+  cur.text = text; if(edited) cur.edited = true; else delete cur.edited;
+  if(t._cloud && cur.id && db && db.ready){ try { db.taskComments.update(cur.id, { body: text }); } catch(_){} }
+  _rerenderChatSurfaces(t);
+}
 function _runWithoutUndo(fn){
   _suppressUndoPush = true;
   try { fn(); } finally { _suppressUndoPush = false; }
@@ -4729,7 +4849,7 @@ function _runWithoutUndo(fn){
 // (client call 2026-08-28). Now they dim when there is nothing to undo/redo
 // and their tooltip names the action that will be reverted.
 function _syncUndoChips(){
-  const pairs = [['undoChip', _undoStack, 'Undo', 'Ctrl+Z'], ['redoChip', _redoStack, 'Redo', 'Ctrl+Shift+Z']];
+  const pairs = [['undoChip', _undoStack, 'Undo', 'Ctrl+Z'], ['redoChip', _redoStack, 'Redo', 'Ctrl+Y']];
   for(const [id, stack, verb, key] of pairs){
     const el = document.getElementById(id);
     if(!el) continue;
@@ -4759,12 +4879,20 @@ function doRedo(){
 // in inputs/textareas still works.
 document.addEventListener('keydown', e => {
   const k = e.key?.toLowerCase();
-  if(k !== 'z') return;
+  if(k !== 'z' && k !== 'y') return;          // v0.1.196: Ctrl+Y = redo (Windows convention)
   if(!(e.metaKey || e.ctrlKey)) return;
-  const tag = (document.activeElement?.tagName || '').toLowerCase();
-  if(tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
+  if(k === 'y' && e.shiftKey) return;
+  // v0.1.196: defer to the field's native undo only when it actually holds
+  // text. Focus sits in the (empty) search box on load and returns to the
+  // (empty) chat input after sending — the old "any input" guard meant
+  // Ctrl+Z never reached the app there ("Undo/Redo don't work", call 2026-08-28).
+  const ae = document.activeElement;
+  const tag = (ae?.tagName || '').toLowerCase();
+  const editable = tag === 'input' || tag === 'textarea' || ae?.isContentEditable;
+  const hasText = ae?.isContentEditable ? !!(ae.textContent || '').trim() : !!(ae?.value || '');
+  if(editable && hasText) return;
   e.preventDefault();
-  if(e.shiftKey) doRedo(); else doUndo();
+  if(k === 'y' || e.shiftKey) doRedo(); else doUndo();
 }, true);
 
 // v0.1.156 (#36 MR): Cmd/Ctrl+N focuses the empty-row input so the user
@@ -5271,6 +5399,7 @@ function render(){
     html += renderEmptyRowForProject(proj.id);
     replaceListWith(html);
     wireUpEmptyInput();
+    if(typeof updateCollapseAllLabel === 'function') updateCollapseAllLabel();
     setTimeout(() => { patchGuardedImages(); if(typeof updateRowPresenceAvatars === 'function') updateRowPresenceAvatars(); }, 0);
     try { updateSortChipLabel(); } catch(_){}
     forceCompositorRepaint();
@@ -5631,7 +5760,10 @@ function _weekTagModal(title, defVal, okLabel, onCommit){
 }
 function createWeekForProject(projId){
   _weekTagModal('New week', _defaultNextWeekTag(), 'Create', (tag) => {
+    const existed = _manualWeeks(projId).includes(tag);
     _addManualWeek(projId, tag);
+    if(!existed) pushUndo('Add week ' + tag, () => { _removeManualWeek(projId, tag); render(); },
+                                            () => { _addManualWeek(projId, tag); render(); });
     toast('Week ' + tag + ' created');
     render();
   });
@@ -5662,6 +5794,14 @@ function deleteWeek(projId, w){
   if(!w) return;
   const cnt = TASKS.filter(t => t.proj === projId && (t.w||'') === w).length;
   if(cnt > 0){ toast('Cannot delete — week has tasks (' + cnt + ')', 3500); return; }
+  const wasManual = _manualWeeks(projId).includes(w);
+  const lsSnap = {};
+  try { [_ebWkKey(projId), _ebDoneKey(projId)].forEach(k => { lsSnap[k] = localStorage.getItem(k); }); } catch(_){}
+  pushUndo('Delete week ' + w, () => {
+    if(wasManual) _addManualWeek(projId, w);
+    try { Object.entries(lsSnap).forEach(([k, v]) => { if(v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); }); } catch(_){}
+    render();
+  }, () => deleteWeek(projId, w));
   _removeManualWeek(projId, w);
   try {
     [_ebWkKey(projId), _ebDoneKey(projId)].forEach(key => {
@@ -6111,11 +6251,11 @@ function openWebEditor(dataUrl, taskId, slotIdx){
   const close = document.createElement('button');
   close.textContent = '×';
   close.title = 'Close editor (Esc)';
-  close.style.cssText = 'position:absolute;top:14px;right:14px;z-index:2;width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:22px;cursor:pointer';
+  close.style.cssText = 'position:absolute;top:10px;left:14px;z-index:2;width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;font-size:22px;cursor:pointer';
   close.onclick = closeWebEditor;
   const frame = document.createElement('iframe');
   frame.id = '_ebWebEditorFrame';
-  frame.src = 'editor.html';
+  frame.src = 'editor.html?v=' + APP_VERSION;   // v0.1.196: a stale cached editor survived releases on the web build
   frame.style.cssText = 'flex:1;border:0;background:#0a0a0a';
   overlay.appendChild(frame); overlay.appendChild(close);
   document.body.appendChild(overlay);
@@ -6328,6 +6468,7 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText, wee
             db.taskComments.create({ task_id: data.id, body: initialChatText, author_id: u.id }).catch(()=>{});
           }
           logHist(data.id, 'create', `task created`);
+          _pushCreateUndo(data.id);
           auditLog('create', 'task', data.id, null, { title: data.title }, projectId);
           render(); updateHeader();
           return;
@@ -6347,6 +6488,7 @@ async function createTaskFor(projectId, title, cloudParent, initialChatText, wee
     w: wk, s: 7, title, n: title, chat: makeInitialMsg('AS')
   });
   logHist(newId, 'create', 'task created');
+  _pushCreateUndo(newId);
   render(); updateHeader();
 }
 
@@ -6356,6 +6498,11 @@ function saveTaskName(taskId, name){
     const prevTitle = t.title, prevN = t.n;
     t.title = name.trim();
     t.n = name.trim();  // back-compat
+    const newTitle = t.title;
+    if(prevTitle !== newTitle && prevTitle){
+      pushUndo('Rename task', () => { saveTaskName(taskId, prevTitle); render(); },
+                              () => { saveTaskName(taskId, newTitle); render(); });
+    }
     if(t._cloud){
       cloudWrite('Rename', () => db.tasks.update(t.id, { title: t.title }),
         () => { t.title = prevTitle; t.n = prevN; render(); });
@@ -7572,8 +7719,8 @@ function renderPresent(){
       return `<div class="pres-pic pres-pic-empty" role="button" tabindex="0"
         aria-label="${heroAria}"
         style="height:100%;min-height:0;cursor:pointer"
-        onclick="event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}})"
-        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();captureScreenshot({fromPresent:true,targetSlot:${slotIdx}});}">
+        onclick="event.stopPropagation();_presAcquire(${slotIdx === 0 ? 0 : 'null'})"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();_presAcquire(${slotIdx === 0 ? 0 : 'null'});}">
         <div class="lbl">${label}</div>
         <div class="pres-pic-empty-inner">
           <div class="pres-pic-empty-ico">
@@ -7588,6 +7735,7 @@ function renderPresent(){
       </div>`;
     }
     return `<div class="pres-pic" style="height:100%;min-height:0"><div class="lbl">${label}</div>
+      <button class="pres-pic-del" onclick="event.stopPropagation();deleteShot('${t.id}',${slotIdx})" title="Delete this image" aria-label="Delete this image">×</button>
       <img src="${src}" alt="" style="cursor:zoom-in" title="Click to open editor"
            onerror="this.style.display='none'"
            onclick="openExistingShotEditor('${t.id}',${slotIdx})">
@@ -7613,12 +7761,18 @@ function renderPresent(){
   } else {
     const view = afterShots.find(s => s.slotIdx === _presViewSlot) || afterShots[0];
     _presViewSlot = view.slotIdx;
-    const thumbs = afterShots.length > 1 ? `<div class="pres-after-thumbs" role="list" aria-label="Switch screenshot">${
+    // v0.1.196 (call 2026-08-28 / meeting 17.07 #7): the slot strip is ALWAYS
+    // visible (even with one AFTER image) and ends with a "+" tile that adds
+    // into the next free AFTER slot; × on the viewer deletes exactly the shown one.
+    const addTile = afterShots.length < AFTER_MAX
+      ? `<button class="pres-thumb pres-thumb-add" title="Add another after image (${afterShots.length}/${AFTER_MAX})" aria-label="Add another after image" onclick="event.stopPropagation();presAddAfter()">+</button>` : '';
+    const thumbs = afterShots.length >= 1 ? `<div class="pres-after-thumbs" role="list" aria-label="Switch screenshot">${
       afterShots.map(sh => `<button class="pres-thumb${sh.slotIdx===view.slotIdx?' active':''}" role="listitem" data-slot="${sh.slotIdx}" title="Show ${sh.label}" onclick="event.stopPropagation();presSwitchView('${t.id}',${sh.slotIdx})"><img src="${sh.src}" alt="" loading="lazy"><span class="pres-thumb-lbl">${sh.label}</span></button>`).join('')
-    }</div>` : '';
+    }${addTile}</div>` : '';
     afterColHTML = `<div class="pres-after-col">
       <div class="pres-pic" style="flex:1;min-height:0">
         <div class="lbl" id="presViewLbl">${view.label}</div>
+        <button class="pres-pic-del" onclick="event.stopPropagation();deleteShot('${t.id}',${view.slotIdx})" title="Delete this image" aria-label="Delete this image">×</button>
         <img id="presViewImg" src="${view.src}" data-slot="${view.slotIdx}" alt="" style="cursor:zoom-in" title="Click to open editor"
              onerror="this.style.display='none'" onclick="openExistingShotEditor('${t.id}',parseInt(this.dataset.slot,10))">
       </div>
@@ -7646,8 +7800,10 @@ function renderPresent(){
       <!-- v0.1.154 (#20 MR): live presence stack — populated by
            updatePresenceUi() after the realtime channel sync. -->
       <span id="presPresence" class="pres-presence" style="display:none"></span>
+      <!-- v0.1.196 (meeting 17.07 #24, was in v0.1.187-188): task number bold, description smaller -->
+      <div class="pres-titleblock"><span class="pres-num">#${(t.uid != null && t.uid !== '') ? t.uid : taskNum}</span><span class="pres-desc" title="${escapeHtml(t.title || t.n || '')}">${escapeHtml(t.title || t.n || '')}</span></div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <button class="pres-add-top" onclick="captureScreenshot({fromPresent:true})" title="Capture &amp; add to this task">+ Add screenshot</button>
+        <button class="pres-add-top" onclick="presAddShot()" title="Add a screenshot to the first free slot (BEFORE, then AFTER)">+ Add screenshot</button>
         <button class="pres-close" onclick="closePresent()">×</button>
       </div>
     </div>
@@ -8633,6 +8789,29 @@ async function assignShotToSlot(t, slot, dataUrl){
 // t.shots[] (extras) instead of t.shot1/t.shot2. The fromPresent path
 // stashes the requested slot here and addShotToPresentTask honours it.
 let pendingPresentSlot = null;
+// v0.1.196: one acquisition path for the presentation — paste-mode image if
+// pending, native capture on desktop, file picker on the web (capture is
+// desktop-only there, so "+" used to do nothing but toast).
+function _presAcquire(target){          // target: 0 = BEFORE, null = next AFTER
+  if(!presentTask) return;
+  const feed = img => { pendingPresentSlot = target; addShotToPresentTask(img); };
+  if(pasteMode && pendingScreenshot){ const img = pendingScreenshot; exitPasteMode(); feed(img); return; }
+  if(window.__TAURI__){ captureScreenshot(target === 0 ? { fromPresent: true, targetSlot: 0 } : { fromPresent: true }); return; }
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => { const f = inp.files && inp.files[0]; if(!f) return; const r = new FileReader(); r.onload = ev => feed(ev.target.result); r.readAsDataURL(f); };
+  inp.click();
+}
+function presAddAfter(){
+  const t = presentTask; if(!t) return;
+  if(!afterHasRoom(t)){ toast(`Max ${AFTER_MAX} after images — delete one first`, 2600); return; }
+  _presAcquire(null);
+}
+function presAddShot(){                 // header button: first free slot
+  const t = presentTask; if(!t) return;
+  if(!(t.shot1 && t.shot1.length > 32)) return _presAcquire(0);
+  presAddAfter();
+}
 function addShotToPresentTask(dataUrl){
   if(!presentTask || !dataUrl) return;
   // v0.1.195: both branches used to write the raw base64 into shot1_url /
@@ -8656,6 +8835,7 @@ function addShotToPresentTask(dataUrl){
   const slot = (!presentTask.shot2 || presentTask.shot2.length < 32)
     ? 1
     : 2 + presentTask.shots.length;
+  _presViewSlot = slot;   // v0.1.196: show the image just added
   assignShotToSlot(presentTask, slot, dataUrl);
   toast('After image added');
 }
@@ -9852,6 +10032,8 @@ function editChatMsg(taskId, idx){
   if(!t || !Array.isArray(t.chat) || !t.chat[idx]) return;
   const m = t.chat[idx];
   ebTextPrompt('Edit message', m.text || '', (newText) => {
+    const prevText = m.text || '', prevEdited = !!m.edited;
+    if(newText !== prevText) pushUndo('Edit message', () => _setChatText(t, m, prevText, prevEdited), () => _setChatText(t, m, newText, true));
     m.text = newText; m.edited = true;
     if(t._cloud && m.id && db && db.ready){ try { db.taskComments.update(m.id, { body: newText }); } catch(_){} }
     _rerenderChatSurfaces(t);
@@ -9861,9 +10043,11 @@ function deleteChatMsg(taskId, idx){
   const t = TASKS.find(x => x.id === taskId);
   if(!t || !Array.isArray(t.chat) || !t.chat[idx]) return;
   const m = t.chat[idx];
-  openConfirmModal('Delete message', 'Delete this message? This cannot be undone.', 'Delete', () => {
+  openConfirmModal('Delete message', 'Delete this message? You can Ctrl+Z to bring it back.', 'Delete', () => {
     const i = t.chat.indexOf(m);
     if(i >= 0) t.chat.splice(i, 1);
+    let _m = m;
+    pushUndo('Delete message', () => _chatReinsert(t, _m, i), () => { _m = _chatRemove(t, _m) || _m; });
     if(t._cloud && m.id && db && db.ready){ try { db.taskComments.delete(m.id); } catch(_){} }
     _rerenderChatSurfaces(t);
   });
@@ -9919,6 +10103,7 @@ async function sendInlineChat(inp){
   if(!t) return;
   if(!Array.isArray(t.chat)) t.chat = [];
 
+  let _driveAttached = false;   // v0.1.196: header must switch "Link" → "Drive" right away
   // v0.1.147: smart link autodetect — if the message contains a Google Drive
   // URL that isn't already in t.links, attach it so the Drive split-button
   // appears on the row without a separate "Add link" step. We only auto-add
@@ -9930,6 +10115,7 @@ async function sendInlineChat(inp){
       if(!Array.isArray(t.links)) t.links = [];
       const already = t.links.some(l => (l.url||'') === driveUrl);
       if(!already){
+        _driveAttached = true;
         t.links.push({
           id: 'lnk' + Date.now(),
           url: driveUrl,
@@ -9967,6 +10153,8 @@ async function sendInlineChat(inp){
   };
   t.chat.push(localMsg);
   inp.value = '';
+  { const at = t.chat.length - 1; let _m = localMsg;
+    pushUndo('Send message', () => { _m = _chatRemove(t, _m) || _m; }, () => _chatReinsert(t, _m, at)); }
 
   if(t._cloud && db && db.ready && authorId){
     db.taskComments.create({ task_id: t.id, body: text, author_id: authorId })
@@ -9996,6 +10184,15 @@ async function sendInlineChat(inp){
   }
   // Update only this row's chat panel without full re-render (preserve focus)
   const panel = document.getElementById('ntChat-' + taskId);
+  if(_driveAttached){
+    // v0.1.196: a Drive link was just attached — the card header ("Link" →
+    // "Drive") lives outside the chat panel, so a panel-only refresh left the
+    // old button until some other action re-rendered ("то есть, то нет").
+    render();
+    const np = document.getElementById('ntChat-' + taskId); if(np) np.scrollTop = np.scrollHeight;
+    setTimeout(() => document.querySelector(`input[data-task-id="${taskId}"]`)?.focus(), 0);
+    return;
+  }
   if(panel){
     panel.innerHTML = renderChatList(t.chat, taskId, { limit: 8 });
     panel.scrollTop = panel.scrollHeight;
@@ -10039,11 +10236,15 @@ function bulkSetStatus(s){
   if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
   let n = 0;
   const fireWebhook = (s === 1 || s === 5);
+  const prevS = [];
+  // v0.1.196: bulk status was local-only — cloud tasks reverted on reload.
+  const writeS = (t, v) => { t.s = v; if(t._cloud && db && db.ready){ try { db.tasks.update(t.id, { desktop_status: v }).catch(()=>{}); } catch(_){} } };
   for(const id of selectedTaskIds){
     const t = TASKS.find(x => x.id === id);
     if(t){
       const wasS = t.s;
-      t.s = s;
+      prevS.push([t.id, wasS]);
+      writeS(t, s);
       n++;
       // Consistent with single-task changeStatus: notify on transition to Done(1)/Problem(5)
       if(fireWebhook && s !== wasS && typeof notifyWebhook === 'function'){
@@ -10052,6 +10253,9 @@ function bulkSetStatus(s){
     }
   }
   toast(`✓ ${n} task${n===1?'':'s'} → ${STATUSES[s].l}`);
+  if(prevS.length) pushUndo(`Status ×${prevS.length}`,
+    () => { prevS.forEach(([id, v]) => { const t = TASKS.find(x => x.id === id); if(t) writeS(t, v); }); render(); },
+    () => { prevS.forEach(([id]) => { const t = TASKS.find(x => x.id === id); if(t) writeS(t, s); }); render(); });
   selectedTaskIds.clear();
   selectMode = false;
   document.body.classList.remove('select-mode');
@@ -10278,6 +10482,7 @@ async function taskMenuDuplicate(taskId){
         _cloud: true
       };
       TASKS.splice(idx + 1, 0, copy);
+      _pushCreateUndo(copy.id, 'Duplicate task');   // v0.1.196: Duplicate is undoable
       // checklist/links live in their own columns (migration 0022). Tolerated
       // no-op until that migration is applied.
       if(copy.checklist.length) db.tasks.update(data.id, { checklist: copy.checklist }).catch(()=>{});
@@ -10299,6 +10504,7 @@ async function taskMenuDuplicate(taskId){
   copy.n = newTitle;
   delete copy._cloud;
   TASKS.splice(idx + 1, 0, copy);
+  _pushCreateUndo(copy.id, 'Duplicate task');   // v0.1.196: Duplicate is undoable
   render(); updateHeader();
   toast('✓ Task duplicated');
 }
@@ -10418,8 +10624,13 @@ function openInfoModal(title, bodyHtml){
 
 function bulkDelete(){
   if(selectedTaskIds.size === 0){ toast('No tasks selected'); return; }
-  openConfirmModal('Delete tasks', `Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? This cannot be undone.`, 'Delete', () => {
+  openConfirmModal('Delete tasks', `Delete ${selectedTaskIds.size} task${selectedTaskIds.size===1?'':'s'}? You can Ctrl+Z to bring them back.`, 'Delete', () => {
     const before = TASKS.length;
+    const snaps = TASKS.map((t, i) => [t, i]).filter(([t]) => selectedTaskIds.has(t.id))
+      .map(([t, i]) => [JSON.parse(JSON.stringify(t)), i]);
+    pushUndo(`Delete ${snaps.length} task${snaps.length === 1 ? '' : 's'}`,
+      () => snaps.forEach(([snap, i]) => _restoreTaskSnapshot(snap, i)),
+      () => snaps.forEach(([snap]) => _removeTaskQuiet(snap.id)));
     // v0.1.63: also delete in cloud for tasks marked _cloud
     if(db && db.ready){
       const toDelete = TASKS.filter(t => selectedTaskIds.has(t.id) && t._cloud);

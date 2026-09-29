@@ -85,4 +85,25 @@ test.describe('EngiBoard editor — annotation tools', () => {
     expect(r.none).toBe(0);            // nothing committed
   });
 
+  test('E7 Dimension never shows an auto mm value; the label input is focused with a hint', async ({ page }) => {
+    await loadEditor(page);
+    const r = await page.evaluate(async () => {
+      const paper = document.getElementById('paper'); const R = paper.getBoundingClientRect();
+      const P = (fx, fy) => ({ clientX: R.left + R.width * fx, clientY: R.top + R.height * fy, bubbles: true, cancelable: true, button: 0 });
+      setTool('dimension');
+      paper.dispatchEvent(new MouseEvent('mousedown', P(.2, .4)));
+      paper.dispatchEvent(new MouseEvent('mousemove', P(.6, .4)));
+      paper.dispatchEvent(new MouseEvent('mouseup', P(.6, .4)));
+      window.dispatchEvent(new MouseEvent('mouseup', P(.6, .4)));
+      await new Promise(res => setTimeout(res, 60));   // focus is set on the next tick
+      const inp = document.querySelector('.dim-label-inp');
+      return { shown: !!inp, focused: document.activeElement === inp, value: inp && inp.value, placeholder: inp && inp.placeholder,
+               noAutoMm: !/\d+\s*mm/.test(document.getElementById('annRoot').textContent) };
+    });
+    expect(r.shown).toBe(true);
+    expect(r.focused).toBe(true);
+    expect(r.value).toBe('');
+    expect(r.placeholder).toContain('mm');
+    expect(r.noAutoMm).toBe(true);
+  });
 });
