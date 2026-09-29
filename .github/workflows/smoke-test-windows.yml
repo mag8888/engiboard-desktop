@@ -53,6 +53,7 @@ jobs:
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: smoke-test-screenshots
           path: screenshots/

@@ -38,16 +38,20 @@ jobs:
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: ui-screenshots-windows-edge
+          retention-days: 7
           path: screenshots/
           if-no-files-found: warn
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: playwright-report-windows-edge
+          retention-days: 7
           path: |
             playwright-report/
             test-results/

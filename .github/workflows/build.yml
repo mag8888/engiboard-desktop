@@ -43,10 +43,15 @@ jobs:
       - name: Build the app
         run: cargo tauri build ${{ matrix.args }}
 
+      # Artifacts are a convenience copy only — the installers ship via the
+      # release step below. A full artifact quota (private repo, free plan)
+      # must never block the release again (v0.1.195 on the client repo).
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: engiboard-${{ matrix.label }}
+          retention-days: 3
           path: |
             src-tauri/target/*/release/bundle/dmg/*.dmg
             src-tauri/target/*/release/bundle/macos/*.app
