@@ -75,6 +75,11 @@ function setAspect(a){
 }
 
 document.addEventListener('mousemove', e => { lastX = e.clientX; lastY = e.clientY; drawBox(e.clientX, e.clientY); });
+// v0.1.195: one overlay per monitor — draw the capture box only on the monitor
+// under the cursor; the others stay dimmed so it's clear capture is active everywhere.
+function hideBox(){ sel.style.display = 'none'; dims.style.display = 'none'; dim.style.display = 'block'; }
+document.documentElement.addEventListener('mouseleave', hideBox);
+document.addEventListener('mouseenter', e => { lastX = e.clientX; lastY = e.clientY; drawBox(e.clientX, e.clientY); });
 
 document.addEventListener('wheel', e => {
   e.preventDefault();
@@ -97,7 +102,11 @@ document.addEventListener('mousedown', async e => {
       x: Math.round(r.left + offX),
       y: Math.round(r.top + offY),
       w: Math.round(r.w),
-      h: Math.round(r.h)
+      h: Math.round(r.h),
+      // v0.1.195: overlay-relative CSS coords — the backend converts them to
+      // physical pixels with THIS overlay's monitor origin + scale (Windows 125/150%)
+      cx: r.left,
+      cy: r.top
     });
   } catch (err) { console.error(err); cancel(); }
 });
@@ -110,7 +119,8 @@ function cancel() {
 }
 
 // первичная отрисовка бокса
-drawBox(lastX, lastY);
+if (document.hasFocus()) drawBox(lastX, lastY); else hideBox();
+window.addEventListener('focus', () => drawBox(lastX, lastY));
 </script>
 </body>
 </html>

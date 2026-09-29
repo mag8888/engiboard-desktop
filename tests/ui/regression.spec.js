@@ -24,6 +24,11 @@
 //   R17 PDF: диалог с периодом и типами, компакт по умолчанию и реально меньше
 //   R18 Notes-колонка справа в каждой строке; недельная полоса вынесена влево
 //   R19 чип компании не наезжает на название проекта (26W33 texts overlap)
+//   R20 полоса AFTER-слотов 1·2·3: выбор, × удаляет именно показанную
+//   R21 комментарии убраны и из лайтбокса главного окна (данные целы)
+//   R22 чат в карточке сворачивается; свёрнутая карточка компактна даже после ручного растяжения
+//   R23 презентация: навигация ←/→ внизу по центру карточки, счётчик между стрелками
+//   R24 редактор: Polyline / Callout / Dimension снова на панели (регресс v0.1.189)
 
 const { test, expect } = require('@playwright/test');
 
@@ -640,5 +645,95 @@ test.describe('EngiBoard regression — session fixes stay in', () => {
     expect(r.overflowY).toBe('auto');
     expect(r.basisZero).toBe(true);                       // flex:1 1 0, not 1 1 auto
     expect(r.scrollable).toBe(true);
+  });
+  test('R20 AFTER slot strip: chip selects, × deletes exactly the shown image', async ({ page }) => {
+    // call 2026-08-28: "выбрать второй — удалить, выбрать третий — добавить".
+    await load(page);
+    const r = await page.evaluate(() => {
+      const t = TASKS.find(x => x.proj === currentProject);
+      const A = 'data:image/png;base64,' + 'A'.repeat(64), B = 'data:image/png;base64,' + 'B'.repeat(64), C = 'data:image/png;base64,' + 'C'.repeat(64);
+      t.shot2 = A; t.shots = [B, C]; render();
+      const cell = () => document.querySelector(`.pi[data-task-id="${t.id}"][data-slot="after"]`);
+      const chips = cell().querySelectorAll('.pi-chip').length;
+      selectAfter(t.id, 1);
+      const shownIsB = cell().querySelector('img').getAttribute('src') === B;
+      cell().querySelector('.pi-del').click();
+      const imgs = afterImages(t);
+      return { chips, shownIsB, left: imgs.length, bGone: !imgs.includes(B), aKept: imgs.includes(A), cKept: imgs.includes(C) };
+    });
+    expect(r.chips).toBe(3);
+    expect(r.shownIsB).toBe(true);
+    expect(r.left).toBe(2);
+    expect(r.bGone && r.aKept && r.cKept).toBe(true);
+  });
+
+  test('R21 lightbox in the main window shows no comment UI', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const t = TASKS.find(x => x.shot1 || x.shot2);
+      openLightbox(t.shot1 || t.shot2, t.id, 0);
+      const lb = document.getElementById('lightbox');
+      const vis = sel => { const el = lb.querySelector(sel); return el ? getComputedStyle(el).display : 'none'; };
+      const out = { panel: vis('.lb-panel'), hint: vis('.lb-hint'), pins: vis('.lb-pins'), flag: LB_COMMENTS_ENABLED };
+      closeLightbox();
+      return out;
+    });
+    expect(r.panel).toBe('none');
+    expect(r.hint).toBe('none');
+    expect(r.pins).toBe('none');
+    expect(r.flag).toBe(false);
+  });
+
+  test('R22 chat minimizes; a minimized card is compact even after a manual stretch', async ({ page }) => {
+    // call 2026-08-28: "Can be minimized — он не уменьшается".
+    await load(page);
+    const r = await page.evaluate(() => {
+      const t = TASKS.find(x => x.proj === currentProject);
+      t.h = 420; if (_cardCollapsed[t.id]) toggleCardCollapse(t.id); else render();
+      const row = () => document.querySelector(`.row[data-task-id="${t.id}"]`);
+      row().scrollIntoView({ block: 'center' });
+      const tall = row().getBoundingClientRect().height;
+      toggleCardCollapse(t.id);
+      const min = row().getBoundingClientRect().height;
+      const chatHidden = !row().querySelector('.chat-list') && !row().querySelector('.nt-chat-input');
+      toggleCardCollapse(t.id);
+      const chatBack = !!row().querySelector('.nt-chat-input');
+      t.h = 0; render();
+      return { tall, min, chatHidden, chatBack };
+    });
+    expect(r.tall).toBeGreaterThan(380);
+    expect(r.min).toBeLessThan(140);
+    expect(r.chatHidden).toBe(true);
+    expect(r.chatBack).toBe(true);
+  });
+
+  test('R23 presentation nav sits at the bottom-center of the card', async ({ page }) => {
+    await load(page);
+    const r = await page.evaluate(() => {
+      const t = TASKS.find(x => x.proj === currentProject);
+      openPresent(t.id);
+      const card = document.querySelector('.pres-card').getBoundingClientRect();
+      const nav = document.querySelector('.pres-foot-nav');
+      const n = nav.getBoundingClientRect();
+      const out = {
+        inNav: !!nav.querySelector('.pres-side-prev') && !!nav.querySelector('.pres-side-next') && !!nav.querySelector('.pres-counter'),
+        centerOff: Math.abs((n.left + n.right) / 2 - (card.left + card.right) / 2),
+        bottomGap: Math.abs(card.bottom - n.bottom),
+        headerCounter: !!document.querySelector('.pres-head .pres-counter'),
+      };
+      closePresent();
+      return out;
+    });
+    expect(r.inNav).toBe(true);
+    expect(r.centerOff).toBeLessThan(4);
+    expect(r.bottomGap).toBeLessThan(4);
+    expect(r.headerCounter).toBe(false);
+  });
+
+  test('R24 editor toolbar has Polyline, Callout and Dimension (lost in v0.1.189)', async ({ page }) => {
+    await page.goto('/editor.html');
+    const r = await page.evaluate(() => ['polyline', 'callout', 'dimension', 'comment']
+      .map(id => !!document.querySelector(`.fb[data-id="${id}"]`)));
+    expect(r).toEqual([true, true, true, false]);
   });
 });

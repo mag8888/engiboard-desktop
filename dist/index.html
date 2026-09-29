@@ -796,6 +796,11 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 .row .pi .pi-add{position:absolute;top:6px;right:32px;z-index:5;width:22px;height:22px;border:none;border-radius:50%;background:rgba(15,23,42,.6);color:#fff;font-size:15px;line-height:1;cursor:pointer;align-items:center;justify-content:center;display:none;padding:0}
 .row .pi.has-img:hover .pi-add{display:flex}
 .row .pi .pi-add:hover{background:var(--acc)}
+/* v0.1.195: AFTER slot strip 1·2·3 (bottom-left of the after cell) */
+.row .pi .pi-strip{position:absolute;left:6px;bottom:6px;z-index:5;display:flex;gap:4px;align-items:center}
+.row .pi .pi-chip{min-width:20px;height:20px;padding:0 6px;border:none;border-radius:10px;background:rgba(15,23,42,.62);color:#fff;font:600 10px/20px var(--mono);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.row .pi .pi-chip:hover{background:rgba(15,23,42,.85)}
+.row .pi .pi-chip.on{background:var(--acc)}
 .row .pi .pi-count{position:absolute;bottom:6px;right:6px;z-index:4;background:rgba(15,23,42,.7);color:#fff;font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:10px;pointer-events:none}
 
 .row .nt{padding:0 12px;display:flex;flex-direction:column;gap:2px;min-width:0;height:100%}
@@ -825,6 +830,18 @@ body.dark-mode .row .pi-lbl{background:rgba(255,255,255,.18);color:#fff}
 /* v0.1.195: Notes column — the right-hand "Notes Window" from the Этап-4
    LIST VIEW bundle. Deliberately quiet: it is a place to jot, not a second
    chat, so it only gains a border on hover/focus. */
+/* v0.1.195: chat minimize bar + minimized (compact) card */
+.chat-col .chat-min-bar{display:flex;align-items:center;gap:6px;flex:0 0 auto;cursor:pointer;padding:0 2px;border-radius:5px}
+.chat-col .chat-min-bar:hover{background:var(--bg)}
+.chat-col .cmb-lbl{font-size:9px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.08em}
+.chat-col .cmb-lbl b{color:var(--t3);font-family:var(--mono);font-weight:600}
+.chat-col .cmb-toggle{margin-left:auto;border:none;background:none;color:var(--t3);cursor:pointer;padding:2px 4px;border-radius:5px;line-height:0}
+.chat-col .cmb-toggle:hover{color:var(--t1);background:var(--line)}
+.list .row.card-collapsed{height:auto !important;min-height:84px !important}
+.list .row.card-collapsed .pc{height:64px;min-height:0;overflow:hidden;align-self:center}
+.list .row.card-collapsed .pc .pi,.list .row.card-collapsed .pc .pi img{height:64px;min-height:0}
+.list .row.card-collapsed .notes-col{height:64px;align-self:center}
+.list .row.card-collapsed .drag-handle{height:26px}
 .notes-col{
   display:flex;flex-direction:column;gap:4px;height:100%;min-height:0;
   padding:8px 0 8px 2px
@@ -1397,8 +1414,12 @@ body.dark-mode .oos-actions button{background:rgba(255,255,255,.04);border-color
   position:relative;min-width:0
 }
 #lightbox .lb-img-wrap{
-  position:relative;display:inline-block;cursor:crosshair;line-height:0
+  position:relative;display:inline-block;cursor:default;line-height:0
 }
+/* v0.1.195: comments removed from the main-window lightbox too (client: "remove
+   the comment function completely"). Markup stays (JS refs), hidden; saved
+   comments are not deleted — same approach as the editor. */
+#lightbox .lb-panel, #lightbox .lb-hint, #lightbox .lb-pins{ display:none !important; }
 #lightbox img{max-width:70vw;max-height:70vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 24px 80px rgba(0,0,0,.5);display:inline-block;vertical-align:top;transform-origin:center center;transition:transform .08s ease-out}
 #lightbox.zoomed .lb-img-wrap{cursor:grab}
 #lightbox.zoomed.panning .lb-img-wrap{cursor:grabbing}
@@ -1690,6 +1711,12 @@ body.dark-mode .pres-pic{ background:#1e2531; }
 .pres-side-arrow:disabled{background:var(--line-2);color:var(--t4);box-shadow:none;opacity:.5;cursor:not-allowed}
 .pres-side-arrow svg{width:24px;height:24px}
 .pres-side-prev{left:24px}
+/* v0.1.195: bottom-center nav bar inside the presentation card */
+.pres-foot-nav{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 0 12px;border-top:1px solid var(--line);background:var(--surf)}
+.pres-foot-nav .pres-side-arrow{position:static;transform:none;width:42px;height:42px}
+.pres-foot-nav .pres-side-arrow:hover:not(:disabled){transform:scale(1.08)}
+.pres-foot-nav .pres-side-arrow svg{width:22px;height:22px}
+.pres-foot-nav .pres-counter{min-width:72px}
 .pres-side-next{right:24px}
 .pres-add-top{border:1px solid var(--line-2);background:var(--surf);color:var(--acc);border-radius:7px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
 .pres-add-top:hover{border-color:var(--acc);background:var(--acc);color:#fff}
@@ -1780,6 +1807,14 @@ body.dark-mode .pres-arrow{background:rgba(30,41,59,.9)}
 .pres-chat-half, .pres-notes-half{display:flex;flex-direction:column;
   min-height:0;min-width:0;overflow:hidden}
 .pres-notes-half{border-left:1px solid var(--line)}
+/* v0.1.195 (call 2026-08-28): Chat and Notes as separate "bento" boxes */
+.pres-chat-col{padding:12px 14px 14px;background:var(--bg)}
+.pres-side-split{gap:12px}
+.pres-chat-half,.pres-notes-half{background:var(--surf);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.pres-chat-half .pres-chat-h,.pres-notes-half .pres-chat-h{border-radius:12px 12px 0 0}
+.pres-chat-half .pres-chat-foot{border-radius:0 0 12px 12px}
+.pres-notes-half .pres-notes-area{border-radius:0 0 12px 12px;background:var(--surf)}
+body.dark-mode .pres-chat-half,body.dark-mode .pres-notes-half{box-shadow:none}
 .pres-notes-area{flex:1;min-height:0;resize:none;border:0;outline:none;
   background:var(--bg);color:var(--t1);font-family:inherit;font-size:13px;
   line-height:1.5;padding:14px 16px;-webkit-user-select:text;user-select:text}
@@ -5030,7 +5065,8 @@ function patchGuardedImages(){
     if (!img || img.getAttribute('src')) return;
     const t = TASKS.find(x => x.id === pi.dataset.taskId);
     if (!t) return;
-    const src = pi.dataset.slot === 'before' ? t.shot1 : t.shot2;
+    const src = pi.dataset.slot === 'before' ? t.shot1
+      : (afterImages(t)[+pi.dataset.afterSel || 0] || t.shot2); // v0.1.195: selected after slot
     if (!src) return;
     // onerror fired during innerHTML parse (sandbox stripped SVG src) → clear its side effects
     img.style.display = '';
@@ -5745,6 +5781,13 @@ function clearTaskDeadline(taskId){
     () => _applyDeadline(t, null));
 }
 
+// v0.1.195: per-card minimized state (this device only).
+const _cardCollapsed = (() => { try { return JSON.parse(localStorage.getItem('eb_card_collapsed') || '{}') || {}; } catch(_){ return {}; } })();
+function toggleCardCollapse(taskId){
+  if(_cardCollapsed[taskId]) delete _cardCollapsed[taskId]; else _cardCollapsed[taskId] = true;
+  try { localStorage.setItem('eb_card_collapsed', JSON.stringify(_cardCollapsed)); } catch(_){}
+  render();
+}
 function renderRow(t){
   const st = STATUSES[t.s] || STATUSES[0];
   // v0.1.31: row height fits 5-col layout (title-col + chat-col + 2 pics)
@@ -5759,6 +5802,14 @@ function renderRow(t){
   // a long chat could never be dragged back down (client call 2026-08-28).
   // With a definite height the chat panel scrolls instead of pushing the card.
   const heightStyle = t.h ? `height:${t.h}px;min-height:${t.h}px` : '';
+  // v0.1.195 (call 2026-08-28: chat window "can be minimized" did nothing):
+  // per-card minimize. A minimized card collapses to a compact strip.
+  const chatCollapsed = !!_cardCollapsed[t.id];
+  const nMsgs = (t.chat || []).length;
+  const chatBar = `<div class="chat-min-bar" onclick="event.stopPropagation();toggleCardCollapse('${t.id}')" title="${chatCollapsed ? 'Expand chat' : 'Minimize chat'}">
+        <span class="cmb-lbl">Chat${nMsgs ? ` <b>${nMsgs}</b>` : ''}</span>
+        <button class="cmb-toggle" onclick="event.stopPropagation();toggleCardCollapse('${t.id}')" aria-label="${chatCollapsed ? 'Expand chat' : 'Minimize chat'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${chatCollapsed ? '<polyline points="6 9 12 15 18 9"/>' : '<polyline points="18 15 12 9 6 15"/>'}</svg></button>
+      </div>`;
   const piBefore = renderPic(t, 'before');
   const piAfter = renderPic(t, 'after');
   const totalShots = (t.shot1?1:0) + (t.shot2?1:0) + (Array.isArray(t.shots) ? t.shots.length : 0);
@@ -5798,7 +5849,7 @@ function renderRow(t){
   const lnkBadge = lnks.length > 0 ? ` <span class="link-badge">${lnks.length}</span>` : '';
   const lnkActive = expandedLinks.has(t.id) ? ' active' : '';
   const LNK_ICON = `<svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 8.5a3.5 3.5 0 0 0 4.95 0l1.76-1.76a3.5 3.5 0 0 0-4.95-4.95L6.5 2.5"/><path d="M8.5 5.5a3.5 3.5 0 0 0-4.95 0L1.79 7.26a3.5 3.5 0 0 0 4.95 4.95L7.5 11.5"/></svg>`;
-  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}${t.pinned ? ' pinned' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
+  return `<div class="row${selectMode && selectedTaskIds.has(t.id) ? ' selected' : ''}${t.hidden ? ' archived' : ''}${t.pinned ? ' pinned' : ''}${chatCollapsed ? ' card-collapsed' : ''}" data-task-id="${t.id}" data-s="${t.s}" style="${heightStyle}" draggable="false"
     oncontextmenu="showTaskMenu(event,'${t.id}')"
     onclick="${selectMode ? `event.stopPropagation();toggleTaskSelection('${t.id}')` : `onRowClick(event,'${t.id}')`}">
     ${selDot}${firstCell}
@@ -5849,11 +5900,12 @@ function renderRow(t){
         <button class="card-kebab" onclick="event.stopPropagation();showTaskMenuAt(event,'${t.id}')" title="More actions">${ICON_KEBAB}</button>
         </span>
       </div>
-      <div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
+      ${chatBar}
+      ${chatCollapsed ? '' : `<div class="chat-list" id="ntChat-${t.id}">${chatHTML}</div>
       <div class="nt-chat-input">
         <input type="text" placeholder="Type a message and press Enter…" data-task-id="${t.id}" oninput="chatMentionInput(this)" onblur="setTimeout(closeMentionPop,150)" onkeydown="if(event.key==='Enter') sendInlineChat(this)">
         <button class="emoji-btn" onclick="event.stopPropagation();toggleEmojiPicker(event,this)" title="Emoji">${ICON_SMILEY}</button>
-      </div>
+      </div>`}
       <!-- v0.1.189 (DB): chat-row-actions removed — Presentation / Compare /
            Link now live in the card header (single button row). -->
     </div>
@@ -5901,7 +5953,19 @@ function renderPic(t, slot){
     // badge when the task has more than one after-image (full carousel is in
     // the presentation view). BEFORE stays a single, replaceable image.
     const afterN = slot === 'after' ? afterCount(t) : 0;
-    const countBadge = afterN > 1 ? `<span class="pi-count" title="${afterN} after images — open presentation to browse">1/${afterN}</span>` : '';
+    // v0.1.195 (call 2026-08-28: "выбрать второй — удалить, выбрать третий — добавить"):
+    // an always-visible AFTER slot strip 1·2·3 replaces the static "1/N" badge.
+    // A chip picks which after-image is shown; × deletes exactly that one and a
+    // click opens that one in the editor. Extras used to be reachable only in
+    // the presentation view.
+    const aImgs = slot === 'after' ? afterImages(t) : [];
+    const aSel  = slot === 'after' ? afterSelIdx(t) : 0;
+    const shownSrc = slot === 'after' ? (aImgs[aSel] || src) : src;
+    const shownIdx = slot === 'after' ? aSel + 1 : slotIdx;   // 1 = shot2, 2+ = shots[i-2]
+    const countBadge = afterN > 1
+      ? `<div class="pi-strip" onclick="event.stopPropagation()">${aImgs.map((_, k) =>
+          `<button class="pi-chip ${k === aSel ? 'on' : ''}" onclick="event.stopPropagation();selectAfter('${t.id}',${k})" title="Show after image ${k + 1}">${k + 1}</button>`).join('')}</div>`
+      : '';
     // v0.1.195: explicit "+" on a filled AFTER slot. Adding used to be implicit
     // (capture, then click a slot) which is why it read as "replaces the image"
     // — the click landed on an occupied slot. BEFORE has no "+": it is a single
@@ -5909,12 +5973,12 @@ function renderPic(t, slot){
     const addBtn = (slot === 'after' && afterHasRoom(t))
       ? `<button class="pi-add" onclick="event.stopPropagation();addAfterShot('${t.id}')" title="Add another after image (${afterN}/${AFTER_MAX})" aria-label="Add another after image">+</button>`
       : '';
-    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}" onclick="event.stopPropagation();piClick('${t.id}',${slotIdx})" title="Click to open in editor · paste-mode: click to insert here">
+    return `<div class="pi has has-img" data-task-id="${t.id}" data-slot="${slot}"${slot === 'after' ? ` data-after-sel="${aSel}"` : ''} onclick="event.stopPropagation();piClick('${t.id}',${shownIdx})" title="Click to open in editor · paste-mode: click to insert here">
       <span class="pi-lbl">${lblText}</span>
       ${countBadge}
       ${addBtn}
-      <button class="pi-del" onclick="event.stopPropagation();deleteShot('${t.id}',${slotIdx})" title="Delete image" aria-label="Delete image">×</button>
-      <img src="${src}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
+      <button class="pi-del" onclick="event.stopPropagation();deleteShot('${t.id}',${shownIdx})" title="Delete this image" aria-label="Delete this image">×</button>
+      <img src="${shownSrc}" alt="" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('pi-broken')">
     </div>`;
   }
   return `<div class="pi" data-task-id="${t.id}" data-slot="${slot}">
@@ -7583,7 +7647,6 @@ function renderPresent(){
            updatePresenceUi() after the realtime channel sync. -->
       <span id="presPresence" class="pres-presence" style="display:none"></span>
       <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
-        <span class="pres-counter">${taskNum} / ${taskTotal}</span>
         <button class="pres-add-top" onclick="captureScreenshot({fromPresent:true})" title="Capture &amp; add to this task">+ Add screenshot</button>
         <button class="pres-close" onclick="closePresent()">×</button>
       </div>
@@ -7612,10 +7675,14 @@ function renderPresent(){
         </div>
       </aside>
     </div>
-    <!-- v0.1.189 (DB): prev/next navigation moved back to the side edges,
-         vertically centered (carousel-style). Add-screenshot is now in the header. -->
+    <!-- v0.1.195 (call 2026-08-28): prev/next at the BOTTOM-CENTER of the card
+         with the counter between them (was on the side edges). Normal flow, so
+         it never covers the chat/notes inputs. Class names kept for tests. -->
+    <div class="pres-foot-nav">
     <button class="pres-side-arrow pres-side-prev" onclick="presentPrev()" ${hasPrev?'':'disabled'} title="Previous (←)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button>
-    <button class="pres-side-arrow pres-side-next" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>`;
+    <span class="pres-counter">${taskNum} / ${taskTotal}</span>
+    <button class="pres-side-arrow pres-side-next" onclick="presentNext()" ${hasNext?'':'disabled'} title="Next (→)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+    </div>`;
   // v0.1.150: restore previous scroll positions (Lead UX review). If the
   // chat panel was scrolled to the bottom already we keep auto-scrolling
   // to the bottom on new messages; otherwise we honour the user's position.
@@ -7745,6 +7812,7 @@ function syncTaskRowChat(taskId){
 // ━━━ LIGHTBOX ━━━
 let lbCurrentImageKey = null;
 let lbDraftPin = null; // {x, y} in % when user clicks before typing
+const LB_COMMENTS_ENABLED = false; // v0.1.195: comments removed per client request
 let lbContext = null;  // v0.1.31: {taskId, slotIdx} so we can re-inject annotated img
 
 function openLightbox(dataUrl, taskId, slotIdx){
@@ -8058,6 +8126,7 @@ function scrollToPin(idx){
 
 // Click on image places draft pin
 document.addEventListener('click', e => {
+  if(!LB_COMMENTS_ENABLED) return; // v0.1.195: comments removed per client
   if(!document.getElementById('lightbox').classList.contains('on')) return;
   const wrap = document.getElementById('lbImgWrap');
   if(!wrap || !wrap.contains(e.target)) return;
@@ -8466,6 +8535,20 @@ function deleteShot(taskId, slotIdx){
 // happened to be selected last — the behaviour reported as "it replaces the
 // image in the BEFORE or AFTER window ... depends on which window was selected
 // before this one" (Этап-4 26W27, still open in 26W33).
+// v0.1.195: which AFTER image each list row shows (UI state, index into afterImages()).
+const _afterSel = {};
+function afterSelIdx(t){
+  const n = afterCount(t);
+  const i = _afterSel[t && t.id] | 0;
+  return n ? Math.max(0, Math.min(i, n - 1)) : 0;
+}
+function selectAfter(taskId, k){
+  const t = TASKS.find(x => x.id === taskId); if(!t) return;
+  _afterSel[taskId] = k;
+  const cell = document.querySelector(`.pi[data-task-id="${taskId}"][data-slot="after"]`);
+  if(cell){ cell.outerHTML = renderPic(t, 'after'); if(typeof patchGuardedImages === 'function') patchGuardedImages(); }
+  else render();
+}
 function nextAfterSlot(t){
   if(!t) return null;
   if(!Array.isArray(t.shots)) t.shots = [];
@@ -8515,6 +8598,7 @@ async function assignShotToSlot(t, slot, dataUrl){
     }
     t.shots[i] = dataUrl;
   }
+  if(slot >= 1) _afterSel[t.id] = slot - 1;   // v0.1.195: show the image just added
   render();
   if(presentTask && presentTask.id === t.id && typeof renderPresent === 'function') renderPresent();
 

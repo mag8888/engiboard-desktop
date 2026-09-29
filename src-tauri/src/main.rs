@@ -303,9 +303,10 @@ fn open_editor_impl(
 // drawn on any screen. Each monitor gets its own window labelled "sniper-N";
 // these helpers treat the whole set as one logical overlay.
 //
-// Coordinates need no translation: sniper.html reports e.screenX/e.screenY
-// (absolute desktop coords) and both /usr/sbin/screencapture -R and the xcap
-// path already take absolute coords, so capture_region works unchanged.
+// Coordinates: sniper.html reports e.screenX/e.screenY (for macOS
+// screencapture) plus the overlay-relative cx/cy, which capture_region turns
+// into physical pixels via the clicked overlay's origin + scale (Windows/Linux
+// xcap path — correct under 125/150% and mixed-DPI setups).
 fn sniper_windows(app: &tauri::AppHandle) -> Vec<tauri::WebviewWindow> {
     tauri::Manager::webview_windows(app)
         .into_iter()
@@ -336,34 +337,48 @@ fn open_sniper(app: tauri::AppHandle) {
     // screens uncoverable, so a region could only be drawn on one of them.
     // Engineers run 2–3 monitors as a rule (client call 2026-08-28), so we now
     // build one overlay per monitor from available_monitors().
-    let monitors: Vec<tauri::Monitor> = app
+    let mut monitors: Vec<tauri::Monitor> = app
         .get_webview_window("main")
         .and_then(|w| w.available_monitors().ok())
         .filter(|list| !list.is_empty())
         .unwrap_or_default();
+    // Put the monitor holding the main window first: that overlay gets focus,
+    // so the capture box appears where the user is already looking.
+    if let Some(fm) = app.get_webview_window("main").and_then(|w| w.current_monitor().ok().flatten()) {
+        if let Some(i) = monitors.iter().position(|m| m.position() == fm.position() && m.size() == fm.size()) {
+            let m = monitors.remove(i);
+            monitors.insert(0, m);
+        }
+    }
 
-    // Per-monitor geometry in logical px: (width, height, x, y).
-    let targets: Vec<(f64, f64, f64, f64)> = if monitors.is_empty() {
+    // Per-monitor geometry: logical (w, h, x, y) for the builder + the exact
+    // PHYSICAL rect applied after build. With mixed scaling (e.g. a 150% laptop
+    // next to a 100% monitor) the logical values are ambiguous — the builder
+    // converts them with one scale — so the physical set_position/set_size is
+    // what actually lands each overlay on its monitor.
+    let targets: Vec<(f64, f64, f64, f64, tauri::PhysicalPosition<i32>, tauri::PhysicalSize<u32>)> = if monitors.is_empty() {
         eprintln!("available_monitors() returned nothing — falling back to a single 1920x1080 overlay at (0,0)");
-        vec![(1920.0, 1080.0, 0.0, 0.0)]
+        vec![(1920.0, 1080.0, 0.0, 0.0, tauri::PhysicalPosition { x: 0, y: 0 }, tauri::PhysicalSize { width: 1920, height: 1080 })]
     } else {
         monitors
             .iter()
             .map(|m| {
-                let size = m.size();
-                let pos = m.position();
+                let size = *m.size();
+                let pos = *m.position();
                 let scale = m.scale_factor();
                 (
                     size.width as f64 / scale,
                     size.height as f64 / scale,
                     pos.x as f64 / scale,
                     pos.y as f64 / scale,
+                    pos,
+                    size,
                 )
             })
             .collect()
     };
-    for (i, (w, h, mx, my)) in targets.iter().enumerate() {
-        eprintln!("sniper target monitor #{}: {}x{} at ({},{})", i, w, h, mx, my);
+    for (i, t) in targets.iter().enumerate() {
+        eprintln!("sniper target monitor #{}: {}x{} phys at ({},{})", i, t.5.width, t.5.height, t.4.x, t.4.y);
     }
 
     // Hide main + close any stale editor (we don't open editor anymore in stage 1,
@@ -384,7 +399,7 @@ fn open_sniper(app: tauri::AppHandle) {
         std::thread::sleep(std::time::Duration::from_millis(200));
 
         let mut created = 0usize;
-        for (i, (w, h, mx, my)) in targets.iter().enumerate() {
+        for (i, (w, h, mx, my, ppos, psize)) in targets.iter().enumerate() {
             let label = format!("sniper-{}", i);
             eprintln!("creating sniper window {}: {}x{} at ({},{})", label, w, h, mx, my);
             let result = WebviewWindowBuilder::new(
@@ -406,6 +421,8 @@ fn open_sniper(app: tauri::AppHandle) {
             match result {
                 Ok(win) => {
                     eprintln!("sniper window {} created OK", label);
+                    let _ = win.set_position(tauri::Position::Physical(*ppos));
+                    let _ = win.set_size(tauri::Size::Physical(*psize));
                     let _ = win.show();
                     if i == 0 { let _ = win.set_focus(); }
                     let _ = win.set_always_on_top(true);
@@ -445,8 +462,26 @@ fn sniper_done(app: tauri::AppHandle, data_url: String) {
 }
 
 #[tauri::command]
-fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
-    eprintln!("capture_region (CSS px): {}x{} at ({},{})", w, h, x, y);
+fn capture_region(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    x: i32, y: i32, w: i32, h: i32,
+    cx: Option<f64>, cy: Option<f64>,
+) {
+    eprintln!("capture_region (CSS px): {}x{} at ({},{}) from {}", w, h, x, y, window.label());
+
+    // v0.1.195: resolve the rect to PHYSICAL pixels from the overlay the user
+    // clicked in (its own monitor origin + scale) BEFORE closing it. screenX is
+    // in CSS px, xcap works in physical px — equal only at 100% scaling, so on a
+    // 125/150% Windows monitor the crop drifted. macOS keeps screenX (screencapture
+    // takes global points).
+    let phys_rect: Option<(i32, i32, i32, i32)> = match (cx, cy, window.inner_position(), window.scale_factor()) {
+        (Some(cx), Some(cy), Ok(origin), Ok(scale)) =>
+            Some(css_rect_to_physical(origin.x, origin.y, scale, cx, cy, w as f64, h as f64)),
+        _ => None,
+    };
+    #[cfg(target_os = "macos")]
+    let _ = &phys_rect;
 
     // Hide + close EVERY overlay immediately so the screenshot doesn't include
     // any of them — with multi-monitor overlays the selection is drawn on one
@@ -469,7 +504,14 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
         std::thread::sleep(std::time::Duration::from_millis(redraw_ms));
 
         // Capture into PNG bytes — platform-specific implementation.
-        let png_bytes = match capture_region_to_png(x, y, w, h) {
+        #[cfg(not(target_os = "macos"))]
+        let captured = match phys_rect {
+            Some((px, py, pw, ph)) => capture_physical_to_png(px, py, pw, ph),
+            None => capture_region_to_png(x, y, w, h),
+        };
+        #[cfg(target_os = "macos")]
+        let captured = capture_region_to_png(x, y, w, h);
+        let png_bytes = match captured {
             Ok(b) => b,
             Err(e) => {
                 eprintln!("capture failed: {}", e);
@@ -525,6 +567,57 @@ fn capture_region(app: tauri::AppHandle, x: i32, y: i32, w: i32, h: i32) {
 // ─── Cross-platform screen-region capture ────────────────────────────────
 // macOS: native /usr/sbin/screencapture (best Retina handling)
 // Windows + Linux: xcap crate
+
+// v0.1.195: pure coordinate helpers (unit-tested on every OS).
+/// CSS rect inside an overlay → physical virtual-desktop rect.
+fn css_rect_to_physical(origin_x: i32, origin_y: i32, scale: f64, cx: f64, cy: f64, w: f64, h: f64) -> (i32, i32, i32, i32) {
+    (
+        origin_x + (cx * scale).round() as i32,
+        origin_y + (cy * scale).round() as i32,
+        ((w * scale).round() as i32).max(1),
+        ((h * scale).round() as i32).max(1),
+    )
+}
+/// Index of the monitor rect (x, y, w, h) that contains the point.
+fn pick_monitor_idx(rects: &[(i32, i32, i32, i32)], px: i32, py: i32) -> Option<usize> {
+    rects.iter().position(|&(mx, my, mw, mh)| px >= mx && py >= my && px < mx + mw && py < my + mh)
+}
+/// Clamp a crop (relative to the monitor image) to the image bounds.
+fn clamp_crop(rx: i32, ry: i32, rw: i32, rh: i32, full_w: i32, full_h: i32) -> (i32, i32, i32, i32) {
+    let cx = rx.clamp(0, (full_w - 1).max(0));
+    let cy = ry.clamp(0, (full_h - 1).max(0));
+    (cx, cy, rw.min(full_w - cx).max(1), rh.min(full_h - cy).max(1))
+}
+
+// Windows + Linux: capture by PHYSICAL virtual-desktop rect (mixed-DPI safe).
+#[cfg(not(target_os = "macos"))]
+fn capture_physical_to_png(px: i32, py: i32, pw: i32, ph: i32) -> Result<Vec<u8>, String> {
+    use xcap::Monitor;
+    use image::{ImageBuffer, Rgba};
+    use std::io::Cursor;
+
+    let monitors = Monitor::all().map_err(|e| format!("Monitor::all failed: {}", e))?;
+    if monitors.is_empty() {
+        return Err("no monitors detected".into());
+    }
+    let rects: Vec<(i32, i32, i32, i32)> = monitors.iter()
+        .map(|m| (m.x(), m.y(), m.width() as i32, m.height() as i32)).collect();
+    let idx = pick_monitor_idx(&rects, px, py).unwrap_or(0);
+    let target = &monitors[idx];
+    let full = target.capture_image().map_err(|e| format!("capture_image: {}", e))?;
+    let (full_w, full_h) = (full.width() as i32, full.height() as i32);
+    let (crop_x, crop_y, crop_w, crop_h) = clamp_crop(px - rects[idx].0, py - rects[idx].1, pw, ph, full_w, full_h);
+    eprintln!("xcap(phys): monitor #{} {}x{} at ({},{}); crop {}x{} at ({},{})",
+        idx, full_w, full_h, rects[idx].0, rects[idx].1, crop_w, crop_h, crop_x, crop_y);
+
+    let rgba: ImageBuffer<Rgba<u8>, Vec<u8>> = ImageBuffer::from_raw(full.width(), full.height(), full.into_raw())
+        .ok_or_else(|| "ImageBuffer::from_raw failed".to_string())?;
+    let cropped = image::imageops::crop_imm(&rgba, crop_x as u32, crop_y as u32, crop_w as u32, crop_h as u32).to_image();
+    let mut out: Vec<u8> = Vec::with_capacity((crop_w * crop_h * 4) as usize);
+    cropped.write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+        .map_err(|e| format!("PNG encode: {}", e))?;
+    Ok(out)
+}
 
 #[cfg(target_os = "macos")]
 fn capture_region_to_png(x: i32, y: i32, w: i32, h: i32) -> Result<Vec<u8>, String> {
@@ -1002,6 +1095,30 @@ mod tests {
         let path = "photo.jpeg";
         let mime = if path.ends_with(".png") { "image/png" } else { "image/jpeg" };
         assert_eq!(mime, "image/jpeg");
+    }
+
+    // v0.1.195 multi-monitor / mixed-DPI coordinate math
+    #[test]
+    fn css_to_physical_on_scaled_secondary() {
+        // overlay on a 150% monitor whose physical origin is (2560, 0)
+        assert_eq!(super::css_rect_to_physical(2560, 0, 1.5, 100.0, 40.0, 400.0, 300.0), (2710, 60, 600, 450));
+    }
+    #[test]
+    fn css_to_physical_on_primary_100() {
+        assert_eq!(super::css_rect_to_physical(0, 0, 1.0, 10.0, 20.0, 30.0, 40.0), (10, 20, 30, 40));
+    }
+    #[test]
+    fn pick_monitor_three_screens() {
+        let rects = [(-1920, 0, 1920, 1080), (0, 0, 2560, 1440), (2560, -200, 3840, 2160)];
+        assert_eq!(super::pick_monitor_idx(&rects, -10, 500), Some(0));
+        assert_eq!(super::pick_monitor_idx(&rects, 100, 100), Some(1));
+        assert_eq!(super::pick_monitor_idx(&rects, 4000, -100), Some(2));
+        assert_eq!(super::pick_monitor_idx(&rects, 99999, 0), None);
+    }
+    #[test]
+    fn clamp_crop_edges() {
+        assert_eq!(super::clamp_crop(3600, 2000, 600, 450, 3840, 2160), (3600, 2000, 240, 160));
+        assert_eq!(super::clamp_crop(-20, -5, 100, 100, 1920, 1080), (0, 0, 100, 100));
     }
 
     // capture_region_to_png — region bounds arithmetic (Windows/Linux xcap path)
